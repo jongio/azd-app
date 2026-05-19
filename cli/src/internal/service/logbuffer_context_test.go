@@ -5,6 +5,20 @@ import (
 	"time"
 )
 
+// newTestLogBuffer creates a LogBuffer populated via Add() so the ring buffer
+// state (head, count) is consistent. Direct struct initialization leaves
+// count==0 which causes linearize() to return nil.
+func newTestLogBuffer(entries []LogEntry) *LogBuffer {
+	lb := &LogBuffer{
+		entries: make([]LogEntry, 1000),
+		maxSize: 1000,
+	}
+	for _, e := range entries {
+		lb.Add(e)
+	}
+	return lb
+}
+
 func TestLogBuffer_GetLogsWithContext(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -110,10 +124,7 @@ func TestLogBuffer_GetLogsWithContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lb := &LogBuffer{
-				entries: tt.entries,
-				maxSize: 1000,
-			}
+			lb := newTestLogBuffer(tt.entries)
 
 			entries := lb.GetLogsWithContext(tt.level, tt.limit, tt.contextLines, tt.since)
 
@@ -138,10 +149,7 @@ func TestLogBuffer_GetLogsWithContext_Context(t *testing.T) {
 		{Message: "context after 2", Level: LogLevelInfo, Timestamp: now.Add(-1 * time.Second)},
 	}
 
-	lb := &LogBuffer{
-		entries: entries,
-		maxSize: 1000,
-	}
+	lb := newTestLogBuffer(entries)
 
 	t.Run("extracts context lines", func(t *testing.T) {
 		results := lb.GetLogsWithContext(LogLevelError, 50, 2, time.Time{})
@@ -184,7 +192,7 @@ func TestLogBuffer_GetLogsWithContext_Context(t *testing.T) {
 			{Message: "THE ERROR", Level: LogLevelError, Timestamp: now.Add(-2 * time.Second)},
 			{Message: "after", Level: LogLevelInfo, Timestamp: now.Add(-1 * time.Second)},
 		}
-		edgeLb := &LogBuffer{entries: edgeEntries, maxSize: 1000}
+		edgeLb := newTestLogBuffer(edgeEntries)
 
 		results := edgeLb.GetLogsWithContext(LogLevelError, 50, 3, time.Time{})
 
@@ -208,7 +216,7 @@ func TestLogBuffer_GetLogsWithContext_Context(t *testing.T) {
 			{Message: "before", Level: LogLevelInfo, Timestamp: now.Add(-2 * time.Second)},
 			{Message: "THE ERROR", Level: LogLevelError, Timestamp: now.Add(-1 * time.Second)},
 		}
-		edgeLb := &LogBuffer{entries: edgeEntries, maxSize: 1000}
+		edgeLb := newTestLogBuffer(edgeEntries)
 
 		results := edgeLb.GetLogsWithContext(LogLevelError, 50, 3, time.Time{})
 
@@ -265,7 +273,7 @@ func TestLogBuffer_GetLogsWithContext_Context(t *testing.T) {
 			}
 		}
 
-		manyLb := &LogBuffer{entries: manyEntries, maxSize: 1000}
+		manyLb := newTestLogBuffer(manyEntries)
 
 		// Request 20 context lines, should be clamped to 10
 		results := manyLb.GetLogsWithContext(LogLevelError, 50, 20, time.Time{})
@@ -290,7 +298,7 @@ func TestLogBuffer_GetLogsWithContext_Context(t *testing.T) {
 			{Message: "ERROR 2", Level: LogLevelError, Timestamp: now.Add(-3 * time.Second)},
 			{Message: "after 1", Level: LogLevelInfo, Timestamp: now.Add(-2 * time.Second)},
 		}
-		lb := &LogBuffer{entries: entries, maxSize: 1000}
+		lb := newTestLogBuffer(entries)
 
 		results := lb.GetLogsWithContext(LogLevelError, 50, 2, time.Time{})
 
@@ -400,12 +408,9 @@ func TestLogBuffer_GetErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lb := &LogBuffer{
-				entries: tt.entries,
-				maxSize: 1000,
-			}
+			lb := newTestLogBuffer(tt.entries)
 
-			errors := lb.GetErrors(tt.limit, tt.contextLines, tt.includeStderr, tt.since)
+errors := lb.GetErrors(tt.limit, tt.contextLines, tt.includeStderr, tt.since)
 
 			if len(errors) != tt.wantCount {
 				t.Errorf("got %d errors, want %d", len(errors), tt.wantCount)
@@ -429,13 +434,10 @@ func TestLogBuffer_GetErrors_Context(t *testing.T) {
 		{Message: "context after 2", Level: LogLevelInfo, Timestamp: now.Add(-1 * time.Second)},
 	}
 
-	lb := &LogBuffer{
-		entries: entries,
-		maxSize: 1000,
-	}
+	lb := newTestLogBuffer(entries)
 
-	t.Run("extracts context lines", func(t *testing.T) {
-		errors := lb.GetErrors(50, 2, false, time.Time{})
+t.Run("extracts context lines", func(t *testing.T) {
+errors := lb.GetErrors(50, 2, false, time.Time{})
 
 		if len(errors) != 1 {
 			t.Fatalf("got %d errors, want 1", len(errors))
@@ -475,7 +477,7 @@ func TestLogBuffer_GetErrors_Context(t *testing.T) {
 			{Message: "THE ERROR", Level: LogLevelError, Timestamp: now.Add(-2 * time.Second)},
 			{Message: "after", Level: LogLevelInfo, Timestamp: now.Add(-1 * time.Second)},
 		}
-		edgeLb := &LogBuffer{entries: edgeEntries, maxSize: 1000}
+		edgeLb := newTestLogBuffer(edgeEntries)
 
 		errors := edgeLb.GetErrors(50, 3, false, time.Time{})
 
@@ -499,7 +501,7 @@ func TestLogBuffer_GetErrors_Context(t *testing.T) {
 			{Message: "before", Level: LogLevelInfo, Timestamp: now.Add(-2 * time.Second)},
 			{Message: "THE ERROR", Level: LogLevelError, Timestamp: now.Add(-1 * time.Second)},
 		}
-		edgeLb := &LogBuffer{entries: edgeEntries, maxSize: 1000}
+		edgeLb := newTestLogBuffer(edgeEntries)
 
 		errors := edgeLb.GetErrors(50, 3, false, time.Time{})
 
@@ -556,7 +558,7 @@ func TestLogBuffer_GetErrors_Context(t *testing.T) {
 			}
 		}
 
-		manyLb := &LogBuffer{entries: manyEntries, maxSize: 1000}
+		manyLb := newTestLogBuffer(manyEntries)
 
 		// Request 20 context lines, should be clamped to 10
 		errors := manyLb.GetErrors(50, 20, false, time.Time{})
