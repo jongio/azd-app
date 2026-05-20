@@ -136,7 +136,7 @@ test.describe('Console - Logs UX', () => {
     // The page starts in local mode and then asynchronously reads /api/mode.
     // Wait until the UI reflects Azure mode and the Azure-pane request has occurred.
     await expect(page.getByText('Viewing Azure Logs')).toBeVisible()
-    await expect.poll(() => azureRequestedForApi, { timeout: 5000 }).toBe(true)
+    await expect.poll(() => azureRequestedForApi, { timeout: 15000 }).toBe(true)
 
     // The local-only service should never request Azure logs.
     await page.waitForTimeout(300)

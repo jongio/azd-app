@@ -1102,6 +1102,22 @@ export async function mockConnectRoutes(page: Page, options: MockConnectOptions 
   }))
   await mockConnectServerStream(page, 'LogsService', 'StreamLocalLogs', () => [])
 
+  // -- AzureService -----------------------------------------------------
+  await mockConnectUnary(page, 'AzureService', 'GetAzureLogs', () => ({
+    entries: [],
+  }))
+  await mockConnectUnary(page, 'AzureService', 'GetAzureLogsHealth', () => ({
+    status: 'healthy',
+    checks: [],
+  }))
+  await mockConnectUnary(page, 'AzureService', 'GetAzureServices', () => ({
+    services: [],
+  }))
+  await mockConnectUnary(page, 'AzureService', 'EnableAzureLogging', () => ({
+    success: true,
+  }))
+  await mockConnectServerStream(page, 'AzureService', 'StreamAzureLogs', () => [])
+
   // -- BicepService -----------------------------------------------------
   await mockConnectUnary(page, 'BicepService', 'GetBicepTemplate', () => ({
     template: '// mocked',
