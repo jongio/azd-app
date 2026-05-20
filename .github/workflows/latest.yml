@@ -1,0 +1,137 @@
+name: Latest Build
+
+# Produces installable binaries from main on every push.
+# Downloads are available at: https://github.com/jongio/azd-app/releases/tag/latest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cli/**'
+      - '.github/workflows/latest.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: latest-build
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+    working-directory: cli
+
+env:
+  GO_VERSION: '1.26.3'
+
+jobs:
+  build:
+    name: Build Latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version: '${{ env.GO_VERSION }}'
+          cache: true
+          cache-dependency-path: cli/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@5b4374b04084dc1f9032b52464284b769ac5059e # v4
+        with:
+          version: 9
+
+      - name: Build dashboard
+        run: |
+          cd dashboard
+          pnpm install
+          pnpm run build
+
+      - name: Install azd
+        run: curl -fsSL https://aka.ms/install-azd.sh | bash
+
+      - name: Install azd extensions
+        run: |
+          azd extension source add azd --location https://aka.ms/azd/extensions/registry --type url 2>/dev/null || true
+          azd extension install microsoft.azd.extensions --source azd
+
+      - name: Build binaries
+        run: |
+          export EXTENSION_ID="jongio.azd.app"
+          export EXTENSION_VERSION="0.0.0-dev.$(date +%Y%m%d).$(echo $GITHUB_SHA | cut -c1-7)"
+          azd x build --all
+
+      - name: Package
+        run: azd x pack
+
+      - name: Prepare release assets
+        id: assets
+        run: |
+          echo "sha_short=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
+          echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
+          # List what was built
+          echo "=== Build output ==="
+          find output/ -type f 2>/dev/null || find bin/ -type f 2>/dev/null || echo "No output found"
+
+      - name: Update latest release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd ..
+          SHA_SHORT="${{ steps.assets.outputs.sha_short }}"
+          BUILD_DATE="${{ steps.assets.outputs.date }}"
+          
+          cat > /tmp/release-notes.md << 'EOF'
+          ## Latest Build from `main`
+
+          **Commit:** [`${{ steps.assets.outputs.sha_short }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          **Built:** ${{ steps.assets.outputs.date }}
+
+          ---
+
+          > ⚠️ This is an automatically-built pre-release from the `main` branch.
+          > It may contain bugs. For stable releases, see the [Releases page](https://github.com/${{ github.repository }}/releases).
+
+          ### Install
+
+          ```bash
+          azd extension install jongio.azd.app --version latest
+          ```
+          EOF
+
+          # Delete existing latest release (if any) to recreate it
+          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
+          
+          # Find the packed assets
+          ASSETS=$(find cli/output/ -type f 2>/dev/null)
+          if [ -z "$ASSETS" ]; then
+            echo "No assets found in cli/output/, checking cli/bin/..."
+            ASSETS=$(find cli/bin/ -type f 2>/dev/null)
+          fi
+
+          if [ -n "$ASSETS" ]; then
+            # Create release with assets
+            echo "$ASSETS" | xargs gh release create latest \
+              --title "Latest Build (${SHA_SHORT})" \
+              --notes-file /tmp/release-notes.md \
+              --prerelease \
+              --target "${{ github.sha }}"
+          else
+            # Create release without assets (shouldn't happen but be safe)
+            gh release create latest \
+              --title "Latest Build (${SHA_SHORT})" \
+              --notes-file /tmp/release-notes.md \
+              --prerelease \
+              --target "${{ github.sha }}"
+          fi
