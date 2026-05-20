@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -592,6 +593,10 @@ func TestPackageJSONHasWorkspacePackages(t *testing.T) {
 }
 
 func TestIsFileLockingError(t *testing.T) {
+	// isFileLockingError only returns true on Windows; on other platforms it
+	// always returns false because these file-locking errors are Windows-specific.
+	isWindows := runtime.GOOS == "windows"
+
 	tests := []struct {
 		name   string
 		stderr string
@@ -600,17 +605,17 @@ func TestIsFileLockingError(t *testing.T) {
 		{
 			name:   "ebusy_error",
 			stderr: "npm ERR! Error: EBUSY: resource busy or locked",
-			want:   true,
+			want:   isWindows,
 		},
 		{
 			name:   "enotempty_error",
 			stderr: "npm ERR! Error: ENOTEMPTY: directory not empty",
-			want:   true,
+			want:   isWindows,
 		},
 		{
 			name:   "eperm_error_windows",
 			stderr: "npm ERR! Error: EPERM: operation not permitted",
-			want:   true, // Will be true on Windows
+			want:   isWindows,
 		},
 		{
 			name:   "no_error",
@@ -627,11 +632,7 @@ func TestIsFileLockingError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := isFileLockingError(tt.stderr)
-			// EPERM check is platform-specific
-			if tt.name == "eperm_error_windows" {
-				// Just verify it doesn't panic
-				_ = got
-			} else if got != tt.want {
+			if got != tt.want {
 				t.Errorf("isFileLockingError() = %v, want %v", got, tt.want)
 			}
 		})

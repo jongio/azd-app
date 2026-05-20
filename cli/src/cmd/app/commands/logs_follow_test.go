@@ -3,28 +3,48 @@ package commands
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
+// safeBuf wraps bytes.Buffer with a mutex for concurrent read/write safety.
+type safeBuf struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (s *safeBuf) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.Write(p)
+}
+
+func (s *safeBuf) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.String()
+}
+
 // newTestExecutor creates a logsExecutor for testing with the given options.
-func newTestExecutor(buf *bytes.Buffer, sigChan chan os.Signal, opts *logsOptions) *logsExecutor {
+func newTestExecutor(w io.Writer, sigChan chan os.Signal, opts *logsOptions) *logsExecutor {
 	if opts == nil {
 		opts = &logsOptions{format: "text"}
 	}
 	return &logsExecutor{
-		outputWriter: buf,
+		outputWriter: w,
 		signalChan:   sigChan,
 		opts:         opts,
 	}
 }
 
 // waitForOutput polls the buffer until it contains the expected string or times out.
-func waitForOutput(buf *bytes.Buffer, contains string, timeout time.Duration) bool {
+func waitForOutput(buf *safeBuf, contains string, timeout time.Duration) bool {
 	deadline := time.After(timeout)
 	for {
 		select {
@@ -53,7 +73,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 	})
 
 	t.Run("streams logs until context cancel", func(t *testing.T) {
-		var buf bytes.Buffer
+		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
 			format:     "text",
@@ -94,7 +114,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 	})
 
 	t.Run("filters by level", func(t *testing.T) {
-		var buf bytes.Buffer
+		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
 			format:     "text",
@@ -132,7 +152,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 	})
 
 	t.Run("filters by service", func(t *testing.T) {
-		var buf bytes.Buffer
+		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
 			format:     "text",
@@ -224,7 +244,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 	})
 
 	t.Run("processes logs from subscription", func(t *testing.T) {
-		var buf bytes.Buffer
+		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
 			format:     "text",
@@ -264,7 +284,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 	})
 
 	t.Run("filters by level", func(t *testing.T) {
-		var buf bytes.Buffer
+		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
 			format:  "text",
@@ -333,7 +353,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 	})
 
 	t.Run("JSON format output", func(t *testing.T) {
-		var buf bytes.Buffer
+		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{format: "json"})
 
