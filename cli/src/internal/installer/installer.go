@@ -818,7 +818,11 @@ func runWithRetry(ctx context.Context, cmd *exec.Cmd, stderrBuf *bytes.Buffer, m
 			if !cliout.IsJSON() {
 				cliout.ItemWarning("File locking error detected, retrying in %v... (attempt %d/%d)", delay, attempt, maxRetries)
 			}
-			time.Sleep(delay)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(delay):
+			}
 
 			// Reset stderr buffer for next attempt
 			stderrBuf.Reset()
@@ -828,7 +832,7 @@ func runWithRetry(ctx context.Context, cmd *exec.Cmd, stderrBuf *bytes.Buffer, m
 			newCmd.Dir = cmd.Dir
 			newCmd.Env = cmd.Env
 			newCmd.Stdout = cmd.Stdout
-			newCmd.Stderr = io.MultiWriter(cmd.Stderr, stderrBuf)
+			newCmd.Stderr = cmd.Stderr
 			newCmd.Stdin = cmd.Stdin
 			cmd = newCmd
 			continue
@@ -842,12 +846,16 @@ func runWithRetry(ctx context.Context, cmd *exec.Cmd, stderrBuf *bytes.Buffer, m
 }
 
 // isFileLockingError checks if the error message indicates a Windows file locking issue.
-// Common errors include EBUSY (file busy) and ENOTEMPTY (directory not empty).
+// Common errors include EBUSY (file busy), ENOTEMPTY (directory not empty), and EPERM.
+// These are Windows-specific; on other platforms we don't retry.
 func isFileLockingError(stderr string) bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
 	lowerStderr := strings.ToLower(stderr)
 	return strings.Contains(lowerStderr, "ebusy") ||
 		strings.Contains(lowerStderr, "enotempty") ||
-		strings.Contains(lowerStderr, "eperm") && runtime.GOOS == "windows"
+		strings.Contains(lowerStderr, "eperm")
 }
 
 // packageJSONHasWorkspacePackages checks whether the package.json in dir

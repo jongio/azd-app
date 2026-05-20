@@ -32,8 +32,9 @@ func (s *Server) setupRoutes() {
 	// All legacy /api/* REST handlers and /api/ws WebSocket have been
 	// removed; dashboard clients use the azdapp.v1.* Connect services.
 	rpc.Mount(s.mux, rpc.Dependencies{
-		Broadcast:  s.broadcast,
-		Version:    version.Version,
+		Broadcast:    s.broadcast,
+		Version:      version.Version,
+		SessionToken: s.sessionToken,
 		Project:    rpc.ProjectSourceFunc(service.ParseAzureYaml),
 		ProjectDir: s.projectDir,
 		Mode: rpc.ModeStoreFuncs{
@@ -79,6 +80,14 @@ func (s *Server) setupRoutes() {
 		// rpc_azure_adapter.go. Closures over s.azureYamlMu serialise
 		// azure.yaml writes with the parallel REST handlers.
 		Azure: newAzureStoreFuncs(s),
+	})
+
+	// Serve session token for dashboard authentication.
+	// The React app fetches this on startup and includes it in all RPC calls.
+	s.mux.HandleFunc("/api/session-token", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write([]byte(s.sessionToken))
 	})
 
 	// Pre-read index.html once for SPA client-side routing fallback

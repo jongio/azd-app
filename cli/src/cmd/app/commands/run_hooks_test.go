@@ -48,7 +48,7 @@ services:
 		t.Fatalf("Failed to parse azure.yaml: %v", err)
 	}
 
-	err = executePrerunHook(azureYaml, tmpDir)
+	err = executePrerunHook(context.Background(), azureYaml, tmpDir)
 	if err != nil {
 		t.Errorf("Expected prerun hook to succeed, got error: %v", err)
 	}
@@ -91,7 +91,7 @@ services:
 		t.Fatalf("Failed to parse azure.yaml: %v", err)
 	}
 
-	err = executePrerunHook(azureYaml, tmpDir)
+	err = executePrerunHook(context.Background(), azureYaml, tmpDir)
 	if err == nil {
 		t.Error("Expected prerun hook to fail, but it succeeded")
 	}
@@ -134,7 +134,7 @@ services:
 		t.Fatalf("Failed to parse azure.yaml: %v", err)
 	}
 
-	err = executePrerunHook(azureYaml, tmpDir)
+	err = executePrerunHook(context.Background(), azureYaml, tmpDir)
 	if err != nil {
 		t.Errorf("Expected prerun hook to continue on error, got: %v", err)
 	}
@@ -174,7 +174,7 @@ services:
 		t.Fatalf("Failed to parse azure.yaml: %v", err)
 	}
 
-	err = executePostrunHook(azureYaml, tmpDir)
+	err = executePostrunHook(context.Background(), azureYaml, tmpDir)
 	if err != nil {
 		t.Errorf("Expected postrun hook to succeed, got error: %v", err)
 	}
@@ -217,7 +217,7 @@ services:
 		t.Fatalf("Failed to parse azure.yaml: %v", err)
 	}
 
-	err = executePostrunHook(azureYaml, tmpDir)
+	err = executePostrunHook(context.Background(), azureYaml, tmpDir)
 	if err == nil {
 		t.Error("Expected postrun hook to fail, but it succeeded")
 	}
@@ -245,12 +245,12 @@ services:
 	}
 
 	// Should not error when no hooks configured
-	err = executePrerunHook(azureYaml, tmpDir)
+	err = executePrerunHook(context.Background(), azureYaml, tmpDir)
 	if err != nil {
 		t.Errorf("Expected no error when hooks not configured, got: %v", err)
 	}
 
-	err = executePostrunHook(azureYaml, tmpDir)
+	err = executePostrunHook(context.Background(), azureYaml, tmpDir)
 	if err != nil {
 		t.Errorf("Expected no error when hooks not configured, got: %v", err)
 	}
@@ -492,7 +492,7 @@ services:
 	}
 
 	// Execute prerun hook - it should have access to environment variables
-	err = executePrerunHook(azureYaml, tmpDir)
+	err = executePrerunHook(context.Background(), azureYaml, tmpDir)
 	if err != nil {
 		t.Logf("Hook execution error (may be platform-specific): %v", err)
 		// Don't fail the test - the environment variable logic may vary by platform
@@ -546,7 +546,7 @@ services:
 
 	done := make(chan error, 1)
 	go func() {
-		done <- executePrerunHook(azureYaml, tmpDir)
+		done <- executePrerunHook(context.Background(), azureYaml, tmpDir)
 	}()
 
 	select {
@@ -600,7 +600,7 @@ services:
 	}
 
 	// Execute prerun hook - should use platform-specific command
-	err = executePrerunHook(azureYaml, tmpDir)
+	err = executePrerunHook(context.Background(), azureYaml, tmpDir)
 	if err != nil {
 		t.Errorf("Expected platform-specific hook to succeed, got error: %v", err)
 	}

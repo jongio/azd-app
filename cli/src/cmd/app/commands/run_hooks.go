@@ -12,18 +12,18 @@ import (
 )
 
 // executePrerunHook executes the prerun hook if configured.
-func executePrerunHook(azureYaml *service.AzureYaml, workingDir string) error {
-	return executeHook(azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPrerun(), "prerun", workingDir)
+func executePrerunHook(ctx context.Context, azureYaml *service.AzureYaml, workingDir string) error {
+	return executeHook(ctx, azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPrerun(), "prerun", workingDir)
 }
 
 // executePostrunHook executes the postrun hook if configured.
-func executePostrunHook(azureYaml *service.AzureYaml, workingDir string) error {
-	return executeHook(azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPostrun(), "postrun", workingDir)
+func executePostrunHook(ctx context.Context, azureYaml *service.AzureYaml, workingDir string) error {
+	return executeHook(ctx, azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPostrun(), "postrun", workingDir)
 }
 
 // executeHook executes a lifecycle hook with the given name and configuration.
 // This is a common helper function to avoid duplication between prerun and postrun hooks.
-func executeHook(azureYaml *service.AzureYaml, hooks *service.Hooks, hook *service.Hook, hookName, workingDir string) error {
+func executeHook(ctx context.Context, azureYaml *service.AzureYaml, hooks *service.Hooks, hook *service.Hook, hookName, workingDir string) error {
 	if hooks == nil || hook == nil {
 		return nil // No hook configured
 	}
@@ -40,7 +40,7 @@ func executeHook(azureYaml *service.AzureYaml, hooks *service.Hooks, hook *servi
 	hookEnvVars := buildHookEnvironmentVariables(azureYaml, workingDir)
 	config.Env = hookEnvVars
 
-	return executor.ExecuteHook(context.Background(), hookName, *config, workingDir)
+	return executor.ExecuteHook(ctx, hookName, *config, workingDir)
 }
 
 // buildHookEnvironmentVariables builds environment variables to pass to hooks

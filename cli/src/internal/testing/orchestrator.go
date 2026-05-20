@@ -838,8 +838,8 @@ func (o *TestOrchestrator) executeCommands(dir string, commands []string, stage 
 		}
 		log.Debug("executing command", "stage", stage, "index", i+1, "total", len(commands), "command", cmd)
 
-		// Execute command using os/exec
-		if err := runCommand(dir, cmd); err != nil {
+		// TODO: propagate context from ExecuteTests for cancellation support
+		if err := runCommand(context.TODO(), dir, cmd); err != nil {
 			return fmt.Errorf("command '%s' failed: %w", cmd, err)
 		}
 	}
@@ -848,14 +848,14 @@ func (o *TestOrchestrator) executeCommands(dir string, commands []string, stage 
 
 // runCommand executes a command in the specified directory.
 // Parses the command string into command and arguments to avoid shell injection.
-func runCommand(dir, cmd string) error {
+func runCommand(ctx context.Context, dir, cmd string) error {
 	parts := parseCommandString(cmd)
 	if len(parts) == 0 {
 		return fmt.Errorf("empty command")
 	}
 
 	// #nosec G204 -- Command parts are validated and from azure.yaml
-	command := exec.CommandContext(context.Background(), parts[0], parts[1:]...)
+	command := exec.CommandContext(ctx, parts[0], parts[1:]...)
 	command.Dir = dir
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr

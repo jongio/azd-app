@@ -27,8 +27,12 @@ import (
 // All handlers share the same []connect.HandlerOption set so observability
 // and policy interceptors apply uniformly.
 func Mount(mux *http.ServeMux, deps Dependencies) {
+	interceptors := []connect.Interceptor{NewObservabilityInterceptor()}
+	if deps.SessionToken != "" {
+		interceptors = append([]connect.Interceptor{NewAuthInterceptor(deps.SessionToken)}, interceptors...)
+	}
 	opts := []connect.HandlerOption{
-		connect.WithInterceptors(NewObservabilityInterceptor()),
+		connect.WithInterceptors(interceptors...),
 	}
 
 	{
@@ -201,4 +205,9 @@ type Dependencies struct {
 	// AzureStoreFuncs closing over the dashboard's azure.yaml mutex
 	// (azureYamlMu) and package-private azure.* helpers.
 	Azure AzureService
+
+	// SessionToken is the per-session auth token validated by the auth
+	// interceptor. Generated at server startup and injected into the
+	// embedded dashboard HTML. If empty, auth is disabled (for tests).
+	SessionToken string
 }

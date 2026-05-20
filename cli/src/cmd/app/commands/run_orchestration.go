@@ -50,7 +50,7 @@ func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceR
 	logger.LogReady()
 
 	// Execute postrun hook after all services are ready
-	if err := executePostrunHook(azureYaml, azureYamlDir); err != nil {
+	if err := executePostrunHook(ctx, azureYaml, azureYamlDir); err != nil {
 		cliout.Warning("Postrun hook failed but services are running: %v", err)
 	}
 
@@ -257,25 +257,8 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 
 		if result.err != nil {
 			// Update registry to trigger OS notification via state monitor
-			// CRITICAL FIX: Implement retry logic for registry updates
-			maxRetries := 3
-			retryDelay := 100 * time.Millisecond
-			var regErr error
-			for i := 0; i < maxRetries; i++ {
-				regErr = reg.UpdateStatus(serviceName, "error")
-				if regErr == nil {
-					break
-				}
-				if i < maxRetries-1 {
-					time.Sleep(retryDelay)
-					retryDelay *= 2 // Exponential backoff
-				}
-			}
-
-			if regErr != nil {
-				cliout.Error("Failed to update registry for %s after %d retries: %v", serviceName, maxRetries, regErr)
-				// As fallback, try to send direct notification if notification manager is available
-				// This ensures users are informed even if registry update fails
+			if regErr := updateRegistryWithRetry(reg, serviceName, "error"); regErr != nil {
+				cliout.Error("Failed to update registry for %s after retries: %v", serviceName, regErr)
 			}
 
 			// Show mode-appropriate error message
@@ -305,23 +288,8 @@ func monitorServiceProcess(ctx context.Context, wg *sync.WaitGroup, serviceName 
 				cliout.Info("Service %s exited cleanly", serviceName)
 			}
 
-			// CRITICAL FIX: Implement retry logic for clean exit registry updates
-			maxRetries := 3
-			retryDelay := 100 * time.Millisecond
-			var regErr error
-			for i := 0; i < maxRetries; i++ {
-				regErr = reg.UpdateStatus(serviceName, status)
-				if regErr == nil {
-					break
-				}
-				if i < maxRetries-1 {
-					time.Sleep(retryDelay)
-					retryDelay *= 2 // Exponential backoff
-				}
-			}
-
-			if regErr != nil {
-				cliout.Warning("Failed to update registry for %s after %d retries: %v", serviceName, maxRetries, regErr)
+			if regErr := updateRegistryWithRetry(reg, serviceName, status); regErr != nil {
+				cliout.Warning("Failed to update registry for %s after retries: %v", serviceName, regErr)
 			}
 		}
 		// Intentionally don't cancel context - other services should continue
@@ -401,4 +369,22 @@ func runAspireMode(ctx context.Context, rootDir string) error {
 
 	// Run dotnet and let it handle everything (inherits all azd env vars)
 	return executor.StartCommand(ctx, "dotnet", args, aspireProject.Dir)
+}
+
+// updateRegistryWithRetry updates the service registry with retry and exponential backoff.
+func updateRegistryWithRetry(reg *registry.ServiceRegistry, serviceName, status string) error {
+	const maxRetries = 3
+	retryDelay := 100 * time.Millisecond
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		err = reg.UpdateStatus(serviceName, status)
+		if err == nil {
+			return nil
+		}
+		if i < maxRetries-1 {
+			time.Sleep(retryDelay)
+			retryDelay *= 2
+		}
+	}
+	return err
 }

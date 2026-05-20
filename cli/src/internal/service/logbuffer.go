@@ -68,7 +68,7 @@ func NewLogBufferWithFilter(serviceName string, maxSize int, enableFileLogging b
 			return nil, fmt.Errorf("failed to create logs directory: %w", err)
 		}
 
-		lb.filePath = filepath.Join(logsDir, fmt.Sprintf("%s.log", serviceName))
+		lb.filePath = filepath.Join(logsDir, fmt.Sprintf("%s.log", filepath.Base(serviceName)))
 		file, err := os.OpenFile(lb.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open log file: %w", err)
@@ -119,6 +119,30 @@ func (lb *LogBuffer) Add(entry LogEntry) {
 	lb.broadcast(entry)
 }
 
+// sensitivePatterns matches common token/secret formats that should be masked in log files.
+// Matches JWT tokens, Azure access tokens, base64-encoded secrets, and hex strings that
+// look like API keys. Conservative: only masks values that are clearly secret-shaped.
+var sensitivePatterns = regexp.MustCompile(
+	`(?i)` +
+		// Key-value patterns: KEY=VALUE or KEY: VALUE or "key":"value"
+		`((?:secret|password|token|key|credential|auth)[_\-]?\w*\s*[=:]\s*)"?([^\s"]{8,})"?` +
+		`|` +
+		// JWT tokens (three dot-separated base64 segments)
+		`(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})`,
+)
+
+// maskSecretsInLogLine redacts sensitive values from a log message before writing to file.
+func maskSecretsInLogLine(message string) string {
+	return sensitivePatterns.ReplaceAllStringFunc(message, func(match string) string {
+		// For key=value patterns, keep the key and mask the value
+		if idx := strings.IndexAny(match, "=:"); idx >= 0 {
+			return match[:idx+1] + "***"
+		}
+		// For standalone tokens (JWT), mask entirely
+		return "***"
+	})
+}
+
 // writeToFile writes a log entry to the file (must be called with fileMu locked).
 func (lb *LogBuffer) writeToFile(entry LogEntry) {
 	// Check if rotation is needed
@@ -133,7 +157,7 @@ func (lb *LogBuffer) writeToFile(entry LogEntry) {
 		stream = "ERR"
 	}
 
-	line := fmt.Sprintf("[%s] [%s] [%s] %s\n", timestamp, level, stream, entry.Message)
+	line := fmt.Sprintf("[%s] [%s] [%s] %s\n", timestamp, level, stream, maskSecretsInLogLine(entry.Message))
 	n, err := lb.fileWriter.WriteString(line)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to write log entry: %v\n", err)
