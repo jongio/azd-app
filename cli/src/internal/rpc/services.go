@@ -13,6 +13,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/gen/proto/azdapp/v1/azdappv1connect"
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
+	"github.com/jongio/azd-core/security"
 )
 
 // =============================================================================
@@ -179,6 +180,9 @@ func (h *ServicesHandler) StartService(
 	ctx context.Context,
 	req *connect.Request[v1.StartServiceRequest],
 ) (*connect.Response[v1.StartServiceResponse], error) {
+	if err := security.ValidateServiceName(req.Msg.GetServiceName(), true); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	msg, err := h.lifecycle.StartService(ctx, req.Msg.GetServiceName(), req.Msg.GetNoWait())
 	if err != nil {
 		return nil, lifecycleError(err)
@@ -194,6 +198,9 @@ func (h *ServicesHandler) StopService(
 	ctx context.Context,
 	req *connect.Request[v1.StopServiceRequest],
 ) (*connect.Response[v1.StopServiceResponse], error) {
+	if err := security.ValidateServiceName(req.Msg.GetServiceName(), true); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	msg, err := h.lifecycle.StopService(ctx, req.Msg.GetServiceName(), req.Msg.GetForce())
 	if err != nil {
 		return nil, lifecycleError(err)
@@ -209,6 +216,9 @@ func (h *ServicesHandler) RestartService(
 	ctx context.Context,
 	req *connect.Request[v1.RestartServiceRequest],
 ) (*connect.Response[v1.RestartServiceResponse], error) {
+	if err := security.ValidateServiceName(req.Msg.GetServiceName(), true); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
 	msg, err := h.lifecycle.RestartService(ctx, req.Msg.GetServiceName())
 	if err != nil {
 		return nil, lifecycleError(err)

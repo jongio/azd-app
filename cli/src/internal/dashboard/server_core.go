@@ -134,6 +134,8 @@ func (s *Server) Start() (string, error) {
 		Addr:              fmt.Sprintf("127.0.0.1:%d", port),
 		Handler:           securityHeaders(s.mux),
 		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	// Start server in background

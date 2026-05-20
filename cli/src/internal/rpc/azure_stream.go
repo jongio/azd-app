@@ -313,8 +313,10 @@ var errStreamBlocked = errors.New("stream blocked")
 // ticker. The 100ms budget is small enough not to dominate the polling
 // loop's cadence and large enough to amortise the goroutine cost.
 //
-// The context ensures the background goroutine is not leaked when the
-// stream's parent context is cancelled (e.g. client disconnect).
+// Goroutine safety: the buffered channel (cap=1) ensures the background
+// goroutine can always deliver its result and exit, even after timeout.
+// stream.Send unblocks when the RPC context is cancelled (client disconnect),
+// so no goroutine leaks occur in practice.
 func sendWithBackpressure(
 	ctx context.Context,
 	stream *connect.ServerStream[v1.StreamAzureLogsResponse],
@@ -326,6 +328,8 @@ func sendWithBackpressure(
 	case err := <-done:
 		return err
 	case <-ctx.Done():
+		// Drain the goroutine result after context cancellation to avoid leak
+		go func() { <-done }()
 		return ctx.Err()
 	case <-time.After(100 * time.Millisecond):
 		return errStreamBlocked

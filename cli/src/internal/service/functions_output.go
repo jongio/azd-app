@@ -112,6 +112,7 @@ func (p *FunctionsOutputParser) ParseLine(serviceName, line string) {
 // ParseStream processes a stream of func cliout.
 func (p *FunctionsOutputParser) ParseStream(serviceName string, reader io.Reader) {
 	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
 		p.ParseLine(serviceName, line)

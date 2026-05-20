@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"log/slog"
 
@@ -62,7 +63,7 @@ func (a *authInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc
 }
 
 func (a *authInterceptor) validate(token, procedure string) error {
-	if token == a.token {
+	if subtle.ConstantTimeCompare([]byte(token), []byte(a.token)) == 1 {
 		return nil
 	}
 	slog.Warn("rpc auth rejected", "procedure", procedure, "reason", "invalid or missing session token")

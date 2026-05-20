@@ -344,14 +344,16 @@ func isValidEnvVarName(name string) bool {
 }
 
 // substituteEnvVars performs variable substitution in a string.
-// Supports ${VAR} and $VAR syntax.
+// Supports ${VAR} and $VAR syntax. Only resolves against the provided env map;
+// host environment variables are never leaked into service environments.
 func substituteEnvVars(value string, env map[string]string) string {
 	// Replace ${VAR} syntax
 	result := os.Expand(value, func(key string) string {
 		if val, exists := env[key]; exists {
 			return val
 		}
-		return os.Getenv(key)
+		// Don't fall through to host environment - services should be isolated
+		return ""
 	})
 
 	return result

@@ -326,8 +326,8 @@ func validateProjectDir(dir string) (string, error) {
 	// 1. Current working directory tree
 	// 2. User's home directory tree
 	// 3. Explicitly disallow system directories (/etc, /usr, /bin, /sbin, etc.)
-	isUnderCwd := strings.HasPrefix(cleanResolved, cwd)
-	isUnderHome := homeDir != "" && strings.HasPrefix(cleanResolved, homeDir)
+	isUnderCwd := strings.HasPrefix(cleanResolved, cwd+string(filepath.Separator)) || cleanResolved == cwd
+	isUnderHome := homeDir != "" && (strings.HasPrefix(cleanResolved, homeDir+string(filepath.Separator)) || cleanResolved == homeDir)
 
 	// Check for system directory access attempts (Unix-like systems)
 	systemDirs := []string{"/etc", "/usr", "/bin", "/sbin", "/var", "/sys", "/proc", "/dev", "/root"}

@@ -201,8 +201,8 @@ func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 		if err := process.Process.Kill(); err != nil {
 			return fmt.Errorf("failed to force kill process after timeout: %w", err)
 		}
-		// Wait for kill to complete
-		_, waitErr := process.Process.Wait()
+		// Reuse the goroutine's Wait result to avoid concurrent Wait() calls
+		waitErr := <-done
 		slog.Info("service stopped (forced after timeout)",
 			slog.String("service", process.Name))
 		return waitErr
@@ -212,6 +212,7 @@ func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 // ReadServiceOutput reads and forwards output from a service.
 func ReadServiceOutput(reader io.Reader, outputChan chan<- string) {
 	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	for scanner.Scan() {
 		outputChan <- scanner.Text()
 	}
@@ -327,6 +328,7 @@ func StartLogCollection(process *ServiceProcess, projectDir string, parser *Func
 // collectStreamLogs reads from a stream and adds entries to the log buffer.
 func collectStreamLogs(reader io.ReadCloser, serviceName string, buffer *LogBuffer, isStderr bool) {
 	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	for scanner.Scan() {
 		entry := LogEntry{
 			Service:   serviceName,
@@ -345,6 +347,7 @@ func collectStreamLogs(reader io.ReadCloser, serviceName string, buffer *LogBuff
 // collectFunctionsStreamLogs reads from a stream, adds entries to the log buffer, and parses Functions output.
 func collectFunctionsStreamLogs(reader io.ReadCloser, serviceName string, buffer *LogBuffer, parser *FunctionsOutputParser, isStderr bool) {
 	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
 

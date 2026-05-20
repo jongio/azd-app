@@ -147,7 +147,14 @@ func OrchestrateServices(ctx context.Context, runtimes []*ServiceRuntime, servic
 			slog.Warn("service orchestration timeout at level",
 				slog.Int("level", levelIdx),
 				slog.Duration("timeout", DefaultServiceStartTimeout))
-			StopAllServices(result.Processes)
+			// Snapshot processes under lock to avoid racing with goroutines still writing
+			mu.Lock()
+			snapshot := make(map[string]*ServiceProcess, len(result.Processes))
+			for k, v := range result.Processes {
+				snapshot[k] = v
+			}
+			mu.Unlock()
+			StopAllServices(snapshot)
 			return result, fmt.Errorf("service orchestration timed out at level %d after %v", levelIdx, DefaultServiceStartTimeout)
 		}
 
