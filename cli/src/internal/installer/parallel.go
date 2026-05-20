@@ -71,44 +71,35 @@ func (pi *ParallelInstaller) AddTask(task ProjectInstallTask) {
 
 // AddNodeProject adds a Node.js project installation task.
 func (pi *ParallelInstaller) AddNodeProject(project types.NodeProject) {
-	projectName := getProjectName(project.Dir)
-	task := ProjectInstallTask{
-		ID:          project.Dir,
-		Description: projectName + " (" + project.PackageManager + ")",
-		Type:        "node",
-		Dir:         project.Dir,
-		Manager:     project.PackageManager,
-		Project:     project,
-	}
-	pi.AddTask(task)
+	pi.AddTask(newProjectTask(project.Dir, project.PackageManager, "node", project))
 }
 
 // AddPythonProject adds a Python project installation task.
 func (pi *ParallelInstaller) AddPythonProject(project types.PythonProject) {
-	projectName := getProjectName(project.Dir)
-	task := ProjectInstallTask{
-		ID:          project.Dir,
-		Description: projectName + " (" + project.PackageManager + ")",
-		Type:        "python",
-		Dir:         project.Dir,
-		Manager:     project.PackageManager,
-		Project:     project,
-	}
-	pi.AddTask(task)
+	pi.AddTask(newProjectTask(project.Dir, project.PackageManager, "python", project))
 }
 
 // AddDotnetProject adds a .NET project installation task.
 func (pi *ParallelInstaller) AddDotnetProject(project types.DotnetProject) {
-	projectName := getProjectName(project.Path)
+	pi.AddTask(newProjectTask(project.Path, "dotnet", "dotnet", project))
+}
+
+// newProjectTask constructs a ProjectInstallTask with consistent description formatting.
+func newProjectTask(pathOrDir string, manager string, taskType string, project interface{}) ProjectInstallTask {
+	projectName := getProjectName(pathOrDir)
 	task := ProjectInstallTask{
-		ID:          project.Path,
-		Description: projectName + " (dotnet)",
-		Type:        "dotnet",
-		Path:        project.Path,
-		Manager:     "dotnet",
+		ID:          pathOrDir,
+		Description: projectName + " (" + manager + ")",
+		Type:        taskType,
+		Manager:     manager,
 		Project:     project,
 	}
-	pi.AddTask(task)
+	if taskType == "dotnet" {
+		task.Path = pathOrDir
+	} else {
+		task.Dir = pathOrDir
+	}
+	return task
 }
 
 // executeTask is the unified task execution logic.

@@ -281,7 +281,7 @@ func TestDiscovery_GenerateYAML(t *testing.T) {
 	services := orchestrator.GetServices()
 	autoDetected := GetAutoDetectedServices(validations, services)
 
-	yaml := GenerateTestConfigYAML(autoDetected, services)
+	yaml := generateTestConfigYAML(autoDetected, services)
 
 	// Verify YAML contains expected services
 	expectedServices := []string{"web", "api", "backend", "gateway", "nested"}
