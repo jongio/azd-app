@@ -1988,11 +1988,29 @@ func TestSendWithBackpressure_TimesOutOnSlowClient(t *testing.T) {
 	// exercise. Wire FetchLogs to return one entry per poll so the polling
 	// loop reaches sendWithBackpressure.
 	t0 := time.Now()
-	funcs.FetchLogsFn = func(context.Context, azure.StandaloneLogsConfig) ([]azure.LogEntry, error) {
-		return []azure.LogEntry{makeAzureLogEntry("api", "x", t0)}, nil
+
+	// handlerDone signals when the server handler has exited, preventing a
+	// race between the handler's last Send and httptest.Server.Close().
+	handlerDone := make(chan struct{})
+	funcs.FetchLogsFn = func(ctx context.Context, cfg azure.StandaloneLogsConfig) ([]azure.LogEntry, error) {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			return []azure.LogEntry{makeAzureLogEntry("api", "x", t0)}, nil
+		}
 	}
 	Mount(mux, Dependencies{Broadcast: mgr, Azure: funcs})
-	srv := httptest.NewServer(mux)
+
+	// Wrap the mux to detect when the streaming handler exits.
+	wrappedMux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux.ServeHTTP(w, r)
+		select {
+		case handlerDone <- struct{}{}:
+		default:
+		}
+	})
+	srv := httptest.NewServer(wrappedMux)
 	defer srv.Close()
 	defer mgr.StopAll()
 
@@ -2016,20 +2034,12 @@ func TestSendWithBackpressure_TimesOutOnSlowClient(t *testing.T) {
 	}
 	cancel()
 
-	// We can't directly observe errStreamBlocked from the client side, so
-	// the assertion is that the server tears the stream down within the
-	// backpressure timeout window (handler exits cleanly).
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		if !stream.Receive() {
-			break
-		}
-	}
-	rerr := stream.Err()
-	if rerr != nil &&
-		connect.CodeOf(rerr) != connect.CodeCanceled &&
-		!strings.Contains(strings.ToLower(rerr.Error()), "cancel") {
-		t.Logf("post-cancel err (acceptable): %v", rerr)
+	// Wait for the server handler to exit before we close the server,
+	// avoiding a data race on the http.ResponseWriter.
+	select {
+	case <-handlerDone:
+	case <-time.After(3 * time.Second):
+		t.Log("handler did not exit within 3s (acceptable)")
 	}
 }
 

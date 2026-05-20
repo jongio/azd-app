@@ -376,8 +376,6 @@ func cleanDirectory(path string) error {
 	return nil
 }
 
-
-
 // detectAllProjects detects all project types in the given directory.
 // This is a convenience wrapper for testing and backward compatibility.
 func detectAllProjects(searchRoot string) ([]types.NodeProject, []types.PythonProject, []types.DotnetProject, error) {

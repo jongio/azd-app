@@ -35,8 +35,8 @@ func (s *Server) setupRoutes() {
 		Broadcast:    s.broadcast,
 		Version:      version.Version,
 		SessionToken: s.sessionToken,
-		Project:    rpc.ProjectSourceFunc(service.ParseAzureYaml),
-		ProjectDir: s.projectDir,
+		Project:      rpc.ProjectSourceFunc(service.ParseAzureYaml),
+		ProjectDir:   s.projectDir,
 		Mode: rpc.ModeStoreFuncs{
 			Get: s.getCurrentMode,
 			Set: s.setCurrentMode,
