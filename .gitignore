@@ -148,3 +148,9 @@ cli/output-coverage
 
 
 .github/agents/**tmp/
+
+# Git worktrees (local development)
+.worktrees/
+
+# Test-generated temp directories
+cli/src/**/test_azure_yaml_resource*/

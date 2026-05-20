@@ -1185,6 +1185,10 @@ export async function setupTest(page: Page, options: {
   // Setup mocks
   await mockEventSource(page, scenario)
   await mockWebSocket(page)
+  // Mock the session token endpoint so the Connect interceptor doesn't block
+  await page.route('/api/session-token', async route => {
+    await route.fulfill({ status: 200, contentType: 'text/plain', body: 'test-token' })
+  })
   await mockApiRoutes(page, { scenario, projectName, azure })
   await mockConnectRoutes(page, { scenario, projectName, azure, codespace, environmentName })
 }
