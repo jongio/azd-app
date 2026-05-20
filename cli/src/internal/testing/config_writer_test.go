@@ -99,9 +99,9 @@ func TestGenerateTestConfigYAML(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GenerateTestConfigYAML(tt.validations, tt.services)
+			got := generateTestConfigYAML(tt.validations, tt.services)
 			if got != tt.want {
-				t.Errorf("GenerateTestConfigYAML() =\n%q\nwant:\n%q", got, tt.want)
+				t.Errorf("generateTestConfigYAML() =\n%q\nwant:\n%q", got, tt.want)
 			}
 		})
 	}

@@ -94,28 +94,26 @@ func (lb *LogBuffer) Add(entry LogEntry) {
 		return // Skip noisy log entry
 	}
 
+	// Hold the main lock only for the ring buffer update (fast, O(1))
 	lb.mu.Lock()
-	defer lb.mu.Unlock()
-
-	// Write into the ring buffer at the next position (O(1))
 	idx := (lb.head + lb.count) % lb.maxSize
 	if lb.count >= lb.maxSize {
-		// Buffer full: overwrite oldest, advance head
 		lb.entries[lb.head] = entry
 		lb.head = (lb.head + 1) % lb.maxSize
 	} else {
 		lb.entries[idx] = entry
 		lb.count++
 	}
+	lb.mu.Unlock()
 
-	// Write to file if enabled
+	// File I/O and broadcast happen outside the main lock to avoid
+	// blocking producers on disk latency or slow subscribers.
 	if lb.fileWriter != nil {
 		lb.fileMu.Lock()
 		lb.writeToFile(entry)
 		lb.fileMu.Unlock()
 	}
 
-	// Broadcast to subscribers
 	lb.broadcast(entry)
 }
 

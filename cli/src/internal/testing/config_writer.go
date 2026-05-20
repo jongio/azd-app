@@ -13,10 +13,10 @@ import (
 
 const configTest = "test"
 
-// GenerateTestConfigYAML generates a YAML snippet for discovered test configurations.
+// generateTestConfigYAML generates a YAML snippet for discovered test configurations.
 // Only includes services that were auto-detected (had no config in azure.yaml).
 // Returns an empty string if no auto-detected services are found.
-func GenerateTestConfigYAML(validations []ServiceValidation, services []ServiceInfo) string {
+func generateTestConfigYAML(validations []ServiceValidation, services []ServiceInfo) string {
 	// Find services that were auto-detected (no Config in azure.yaml)
 	autoDetected := make(map[string]ServiceValidation)
 	for i, v := range validations {

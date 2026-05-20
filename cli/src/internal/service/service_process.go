@@ -184,13 +184,16 @@ func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 		done <- err
 	}()
 
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
 	select {
 	case err := <-done:
 		// Process exited within timeout
 		slog.Info("service stopped gracefully",
 			slog.String("service", process.Name))
 		return err
-	case <-time.After(timeout):
+	case <-timer.C:
 		// Timeout expired, force kill
 		slog.Warn("graceful shutdown timeout, forcing kill",
 			slog.String("service", process.Name),
