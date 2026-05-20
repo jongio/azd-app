@@ -124,8 +124,8 @@ export function useNotifications() {
     const notification = history.find(n => n.id === id)
     if (notification) {
       markAsRead(id)
-      // Navigate to service - will be implemented with router
-      // TODO: Implement navigation to service
+      // No-op for navigation: dashboard is single-page without a router.
+      // When routing is added, navigate to the relevant service panel here.
     }
   }, [history, markAsRead])
 
