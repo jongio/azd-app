@@ -5,14 +5,47 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"log/slog"
 )
 
+// isLocalhostURL checks if a URL targets localhost/loopback addresses only.
+// Health check URLs from azure.yaml are restricted to local services to prevent SSRF.
+func isLocalhostURL(urlStr string) error {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	host := parsed.Hostname()
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]" {
+		return nil
+	}
+
+	// Check if it resolves to a loopback address
+	ip := net.ParseIP(host)
+	if ip != nil && ip.IsLoopback() {
+		return nil
+	}
+
+	return fmt.Errorf("health check URL must target localhost (got %q) - non-local URLs are blocked for security", host)
+}
+
 func (c *HealthChecker) performHTTPCheck(ctx context.Context, urlStr string) *httpHealthCheckResult {
+	// Restrict health check URLs to localhost to prevent SSRF
+	if err := isLocalhostURL(urlStr); err != nil {
+		return &httpHealthCheckResult{
+			Endpoint: urlStr,
+			Status:   HealthStatusUnhealthy,
+			Error:    err.Error(),
+		}
+	}
+
 	startTime := time.Now()
 	req, err := http.NewRequestWithContext(ctx, "GET", urlStr, nil)
 	if err != nil {

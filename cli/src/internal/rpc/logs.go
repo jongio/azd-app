@@ -64,6 +64,15 @@ func NewLogsHandler(store LogsStore) *LogsHandler {
 	if store == nil {
 		panic("rpc: NewLogsHandler called with nil LogsStore")
 	}
+	// Validate LogsStoreFuncs fields to fail at wiring time, not at request time
+	if f, ok := store.(LogsStoreFuncs); ok {
+		if f.GetRecentFn == nil || f.GetAllFn == nil || f.ServiceNamesFn == nil ||
+			f.SubscribeFn == nil || f.UnsubscribeFn == nil ||
+			f.LoadClassificationsFn == nil || f.SaveClassificationsFn == nil ||
+			f.LoadPreferencesFn == nil || f.SavePreferencesFn == nil {
+			panic("rpc: LogsStoreFuncs has nil function field(s) - all fields must be set")
+		}
+	}
 	return &LogsHandler{store: store}
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard/broadcast"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
+	"github.com/jongio/azd-app/cli/src/internal/rpc"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
@@ -36,6 +37,7 @@ type Server struct {
 	currentMode  service.LogMode // Current log source mode (local or azure)
 	modeMu       sync.RWMutex    // Protect currentMode
 	azureYamlMu  sync.RWMutex    // Protect azure.yaml read/write across Connect handlers
+	sessionToken string          // Per-session auth token for RPC endpoints
 
 	// broadcast fans coarse-grained UI events out to Connect
 	// StreamBroadcast subscribers. See cli/src/internal/dashboard/broadcast
@@ -58,12 +60,13 @@ func GetServer(projectDir string) *Server {
 
 	// Create new server instance for this project
 	srv := &Server{
-		port:        0, // Will be assigned by port manager
-		mux:         http.NewServeMux(),
-		projectDir:  absPath,
-		stopChan:    make(chan struct{}),
-		currentMode: service.LogModeLocal, // Default to local mode
-		broadcast:   broadcast.New(),
+		port:         0, // Will be assigned by port manager
+		mux:          http.NewServeMux(),
+		projectDir:   absPath,
+		stopChan:     make(chan struct{}),
+		currentMode:  service.LogModeLocal, // Default to local mode
+		broadcast:    broadcast.New(),
+		sessionToken: rpc.GenerateSessionToken(),
 	}
 	srv.setupRoutes()
 	servers[key] = srv

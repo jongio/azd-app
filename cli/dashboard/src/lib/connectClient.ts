@@ -20,7 +20,7 @@
  * below. Do NOT cache the client at module scope — the caller (typically
  * a hook with a stable transport reference) is responsible for memoising.
  */
-import { createClient, type Client, type Transport } from '@connectrpc/connect'
+import { createClient, type Client, type Interceptor, type Transport } from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
 
 import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
@@ -55,6 +55,40 @@ function defaultBaseUrl(): string {
 }
 
 let cachedDefaultTransport: Transport | null = null
+let cachedSessionToken: string | null = null
+
+/**
+ * Fetch the session token from the server. Called once and cached.
+ * The token is used to authenticate all RPC requests.
+ */
+async function getSessionToken(): Promise<string> {
+  if (cachedSessionToken !== null) {
+    return cachedSessionToken
+  }
+  try {
+    const resp = await fetch('/api/session-token')
+    if (resp.ok) {
+      cachedSessionToken = await resp.text()
+    }
+  } catch {
+    // Server may not support session tokens (e.g., test environments)
+  }
+  return cachedSessionToken ?? ''
+}
+
+/**
+ * Connect interceptor that attaches the session token to every outbound
+ * request. The token is fetched lazily on first use.
+ */
+function sessionTokenInterceptor(): Interceptor {
+  return (next) => async (req) => {
+    const token = await getSessionToken()
+    if (token) {
+      req.header.set('X-Session-Token', token)
+    }
+    return next(req)
+  }
+}
 
 /**
  * Returns the singleton dashboard transport. Construction is deferred to
@@ -74,6 +108,7 @@ export function getDefaultTransport(): Transport {
       // handlers (no protobuf-binary opt-in yet) and keeps wire payloads
       // inspectable in DevTools during the migration.
       useBinaryFormat: false,
+      interceptors: [sessionTokenInterceptor()],
     })
   }
   return cachedDefaultTransport

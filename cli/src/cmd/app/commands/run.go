@@ -146,7 +146,7 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	// Azure logs are now fetched on-demand via /api/azure/logs endpoint
 
 	// Execute prerun hook before starting services
-	if err = executePrerunHook(azureYaml, azureYamlDir); err != nil {
+	if err = executePrerunHook(ctx, azureYaml, azureYamlDir); err != nil {
 		return err
 	}
 
