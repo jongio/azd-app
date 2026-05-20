@@ -87,51 +87,53 @@ jobs:
       - name: Update latest release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: .
         run: |
-          cd ..
           SHA_SHORT="${{ steps.assets.outputs.sha_short }}"
           BUILD_DATE="${{ steps.assets.outputs.date }}"
           
-          cat > /tmp/release-notes.md << 'EOF'
-          ## Latest Build from `main`
+          cat > /tmp/release-notes.md << EOF
+          ## Latest Build from main
 
-          **Commit:** [`${{ steps.assets.outputs.sha_short }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-          **Built:** ${{ steps.assets.outputs.date }}
+          **Commit:** [${SHA_SHORT}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          **Built:** ${BUILD_DATE}
 
           ---
 
-          > ⚠️ This is an automatically-built pre-release from the `main` branch.
+          > ⚠️ This is an automatically-built pre-release from the main branch.
           > It may contain bugs. For stable releases, see the [Releases page](https://github.com/${{ github.repository }}/releases).
 
           ### Install
 
-          ```bash
           azd extension install jongio.azd.app --version latest
-          ```
           EOF
 
           # Delete existing latest release (if any) to recreate it
           gh release delete latest --yes --cleanup-tag 2>/dev/null || true
           
-          # Find the packed assets
-          ASSETS=$(find cli/output/ -type f 2>/dev/null)
-          if [ -z "$ASSETS" ]; then
-            echo "No assets found in cli/output/, checking cli/bin/..."
-            ASSETS=$(find cli/bin/ -type f 2>/dev/null)
+          # Collect assets into an array
+          shopt -s nullglob
+          FILES=(cli/bin/*)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "No assets in cli/bin/, trying cli/output/..."
+            FILES=(cli/output/*)
           fi
 
-          if [ -n "$ASSETS" ]; then
-            # Create release with assets
-            echo "$ASSETS" | xargs gh release create latest \
+          echo "Found ${#FILES[@]} asset(s)"
+          printf '  %s\n' "${FILES[@]}"
+
+          if [ ${#FILES[@]} -gt 0 ]; then
+            gh release create latest "${FILES[@]}" \
               --title "Latest Build (${SHA_SHORT})" \
               --notes-file /tmp/release-notes.md \
               --prerelease \
               --target "${{ github.sha }}"
           else
-            # Create release without assets (shouldn't happen but be safe)
             gh release create latest \
               --title "Latest Build (${SHA_SHORT})" \
               --notes-file /tmp/release-notes.md \
               --prerelease \
               --target "${{ github.sha }}"
           fi
+          
+          echo "✅ Latest release updated: https://github.com/${{ github.repository }}/releases/tag/latest"
