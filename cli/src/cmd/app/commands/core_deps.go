@@ -464,12 +464,16 @@ func linkWorkspaceChildren(projects []types.NodeProject, searchRoot string) []ty
 		return projects
 	}
 
-	// Collect existing workspace roots
-	workspaceRoots := make(map[string]bool)
+	// Collect existing workspace roots, mapping absolute path to original Dir value.
+	// This ensures children's WorkspaceRoot matches the root's Dir in FilterNodeProjects.
+	workspaceRootDirs := make(map[string]string) // abs path → project.Dir
 	for _, p := range projects {
 		if p.IsWorkspaceRoot {
-			absDir, _ := filepath.Abs(p.Dir)
-			workspaceRoots[absDir] = true
+			absDir, err := filepath.Abs(p.Dir)
+			if err != nil {
+				continue
+			}
+			workspaceRootDirs[absDir] = p.Dir
 		}
 	}
 
@@ -487,26 +491,28 @@ func linkWorkspaceChildren(projects []types.NodeProject, searchRoot string) []ty
 
 		// Walk up from project dir looking for a workspace root
 		root := findWorkspaceRootUpward(absDir, searchRoot)
-		if root != "" {
+		if root == "" {
+			continue
+		}
+
+		if origDir, exists := workspaceRootDirs[root]; exists {
+			// Root already in project list; use its original Dir for path consistency
+			projects[i].WorkspaceRoot = origDir
+		} else {
+			// Root not in project list; use absolute path (will match added root's Dir)
 			projects[i].WorkspaceRoot = root
-			if !workspaceRoots[root] {
-				discoveredRoots[root] = true
-			}
+			discoveredRoots[root] = true
 		}
 	}
 
 	// Add discovered workspace roots that aren't already in the list
 	for root := range discoveredRoots {
-		if workspaceRoots[root] {
-			continue
-		}
 		pm := detector.DetectNodePackageManager(root)
 		projects = append([]types.NodeProject{{
 			Dir:             root,
 			PackageManager:  pm,
 			IsWorkspaceRoot: true,
 		}}, projects...)
-		workspaceRoots[root] = true
 	}
 
 	return projects
