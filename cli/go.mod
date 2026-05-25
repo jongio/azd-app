@@ -6,7 +6,7 @@ go 1.26.3
 // CI: azd-core is pinned to a tagged version in go.mod
 
 require (
-	connectrpc.com/connect v1.19.2
+	connectrpc.com/connect v1.20.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/monitor/query/azlogs v1.2.0
