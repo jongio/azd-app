@@ -457,6 +457,25 @@ func TestLoadAzdEnvironment(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects path traversal in env name", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
+		if err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		traversalNames := []string{"../../etc", "foo/bar", `foo\bar`, ".."}
+		for _, name := range traversalNames {
+			err := loadAzdEnvironment(azureYamlPath, name)
+			if err == nil {
+				t.Errorf("Expected error for env name %q, got nil", name)
+			}
+			if err != nil && !strings.Contains(err.Error(), "invalid environment name") {
+				t.Errorf("Expected 'invalid environment name' error for %q, got: %v", name, err)
+			}
+		}
+	})
+
 	t.Run("handles empty env file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 

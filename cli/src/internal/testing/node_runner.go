@@ -17,6 +17,13 @@ import (
 // ansiStripRegex matches ANSI escape sequences for removal.
 var ansiStripRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
+// Package-level compiled regexes for Node test output parsing.
+var (
+	reNodeTimeDuration  = regexp.MustCompile(`Time:\s*([\d.]+)\s*s`)
+	reVitestTotal       = regexp.MustCompile(`\((\d+)\)\s*$`)
+	reVitestDurationSec = regexp.MustCompile(`Duration\s+([\d.]+)s`)
+)
+
 const (
 	pkgMgrNPM  = "npm"
 	pkgMgrPNPM = "pnpm"
@@ -257,8 +264,7 @@ func (r *NodeTestRunner) parseMochaSummary(line string, result *TestResult) {
 // parseDuration parses duration from test output.
 func (r *NodeTestRunner) parseDuration(line string, result *TestResult) {
 	// Example: "Time: 2.456 s"
-	re := regexp.MustCompile(`Time:\s*([\d.]+)\s*s`)
-	matches := re.FindStringSubmatch(line)
+	matches := reNodeTimeDuration.FindStringSubmatch(line)
 	if len(matches) > 1 {
 		if duration, err := strconv.ParseFloat(matches[1], 64); err == nil {
 			result.Duration = duration
@@ -282,8 +288,7 @@ func (r *NodeTestRunner) parseVitestSummary(line string, result *TestResult) {
 	}
 
 	// Extract total from parenthesized value at end: "(X)"
-	totalRe := regexp.MustCompile(`\((\d+)\)\s*$`)
-	if matches := totalRe.FindStringSubmatch(line); len(matches) > 1 {
+	if matches := reVitestTotal.FindStringSubmatch(line); len(matches) > 1 {
 		if num, err := strconv.Atoi(matches[1]); err == nil {
 			result.Total = num
 		}
@@ -291,7 +296,7 @@ func (r *NodeTestRunner) parseVitestSummary(line string, result *TestResult) {
 
 	// Parse "X passed", "X failed", "X skipped" segments separated by "|"
 	// Remove the trailing "(X)" first
-	line = totalRe.ReplaceAllString(line, "")
+	line = reVitestTotal.ReplaceAllString(line, "")
 	segments := strings.Split(line, "|")
 	for _, seg := range segments {
 		seg = strings.TrimSpace(seg)
@@ -319,8 +324,7 @@ func (r *NodeTestRunner) parseVitestSummary(line string, result *TestResult) {
 // parseVitestDuration parses Vitest v2+ duration line.
 // Example: "Duration  1.52s (transform 100ms, setup 0ms, collect 300ms, tests 20ms)"
 func (r *NodeTestRunner) parseVitestDuration(line string, result *TestResult) {
-	re := regexp.MustCompile(`Duration\s+([\d.]+)s`)
-	matches := re.FindStringSubmatch(line)
+	matches := reVitestDurationSec.FindStringSubmatch(line)
 	if len(matches) > 1 {
 		if duration, err := strconv.ParseFloat(matches[1], 64); err == nil {
 			result.Duration = duration

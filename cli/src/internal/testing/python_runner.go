@@ -15,6 +15,16 @@ import (
 
 const pkgMgrPoetry = "poetry"
 
+// Package-level compiled regexes for python test output parsing.
+var (
+	rePytestDuration = regexp.MustCompile(`in ([\d.]+)s`)
+	rePytestPassed   = regexp.MustCompile(`(\d+)\s+passed`)
+	rePytestFailed   = regexp.MustCompile(`(\d+)\s+failed`)
+	rePytestSkipped  = regexp.MustCompile(`(\d+)\s+skipped`)
+	reUnittestDur    = regexp.MustCompile(`in ([\d.]+)s`)
+	reUnittestFails  = regexp.MustCompile(`failures=(\d+)`)
+)
+
 // PythonTestRunner runs tests for Python projects.
 type PythonTestRunner struct {
 	projectDir     string
@@ -231,19 +241,25 @@ func (r *PythonTestRunner) parseCommand(cmdStr string) (string, []string) {
 func (r *PythonTestRunner) parseTestOutput(output string, result *TestResult) {
 	lines := strings.Split(output, "\n")
 
+	// Determine framework safely (nil-safe config access)
+	framework := ""
+	if r.config != nil {
+		framework = r.config.Framework
+	}
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
 		// Parse pytest summary line
 		// Example: "5 passed in 1.23s"
 		// Example: "4 passed, 1 failed in 1.23s"
-		if r.config.Framework == frameworkPytest || r.config.Framework == "" {
+		if framework == frameworkPytest || framework == "" {
 			r.parsePytestSummary(line, result)
 		}
 
 		// Parse unittest summary
 		// Example: "Ran 5 tests in 1.234s"
-		if r.config.Framework == "unittest" {
+		if framework == "unittest" {
 			r.parseUnittestSummary(line, result)
 		}
 	}
@@ -290,7 +306,7 @@ func (r *PythonTestRunner) parsePytestSummary(line string, result *TestResult) {
 
 	// Extract duration first
 	if strings.Contains(line, " in ") && strings.Contains(line, "s") {
-		durationMatch := regexp.MustCompile(`in ([\d.]+)s`).FindStringSubmatch(line)
+		durationMatch := rePytestDuration.FindStringSubmatch(line)
 		if len(durationMatch) > 1 {
 			if duration, err := strconv.ParseFloat(durationMatch[1], 64); err == nil {
 				result.Duration = duration
@@ -298,23 +314,20 @@ func (r *PythonTestRunner) parsePytestSummary(line string, result *TestResult) {
 		}
 	}
 
-	// Parse test counts using regex for more accurate parsing
-	passedRe := regexp.MustCompile(`(\d+)\s+passed`)
-	if match := passedRe.FindStringSubmatch(line); len(match) > 1 {
+	// Parse test counts
+	if match := rePytestPassed.FindStringSubmatch(line); len(match) > 1 {
 		if num, err := strconv.Atoi(match[1]); err == nil {
 			result.Passed = num
 		}
 	}
 
-	failedRe := regexp.MustCompile(`(\d+)\s+failed`)
-	if match := failedRe.FindStringSubmatch(line); len(match) > 1 {
+	if match := rePytestFailed.FindStringSubmatch(line); len(match) > 1 {
 		if num, err := strconv.Atoi(match[1]); err == nil {
 			result.Failed = num
 		}
 	}
 
-	skippedRe := regexp.MustCompile(`(\d+)\s+skipped`)
-	if match := skippedRe.FindStringSubmatch(line); len(match) > 1 {
+	if match := rePytestSkipped.FindStringSubmatch(line); len(match) > 1 {
 		if num, err := strconv.Atoi(match[1]); err == nil {
 			result.Skipped = num
 		}
@@ -339,7 +352,7 @@ func (r *PythonTestRunner) parseUnittestSummary(line string, result *TestResult)
 
 		// Extract duration
 		if strings.Contains(line, " in ") {
-			durationMatch := regexp.MustCompile(`in ([\d.]+)s`).FindStringSubmatch(line)
+			durationMatch := reUnittestDur.FindStringSubmatch(line)
 			if len(durationMatch) > 1 {
 				if duration, err := strconv.ParseFloat(durationMatch[1], 64); err == nil {
 					result.Duration = duration
@@ -355,7 +368,7 @@ func (r *PythonTestRunner) parseUnittestSummary(line string, result *TestResult)
 		}
 	} else if strings.Contains(line, "FAILED") {
 		// Pattern: "FAILED (failures=1)"
-		failureMatch := regexp.MustCompile(`failures=(\d+)`).FindStringSubmatch(line)
+		failureMatch := reUnittestFails.FindStringSubmatch(line)
 		if len(failureMatch) > 1 {
 			if num, err := strconv.Atoi(failureMatch[1]); err == nil {
 				result.Failed = num

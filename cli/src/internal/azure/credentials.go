@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -62,36 +62,42 @@ func extractJWTExpiry(token string) time.Time {
 	// JWT format: header.payload.signature
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		log.Printf("[azure] token is not a JWT (expected 3 parts, got %d); using %v fallback expiry", len(parts), fallbackDuration)
+		slog.Debug("token is not a JWT", "parts", len(parts), "fallback", fallbackDuration)
 		return fallback
 	}
 
 	// Decode the payload (second part) - JWT uses base64url without padding
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		log.Printf("[azure] failed to decode JWT payload: %v; using %v fallback expiry", err, fallbackDuration)
+		slog.Debug("failed to decode JWT payload", "error", err, "fallback", fallbackDuration)
 		return fallback
 	}
 
-	// Extract the exp claim
+	// Extract the exp claim using json.Number for int64 precision
 	var claims struct {
-		Exp *float64 `json:"exp"`
+		Exp *json.Number `json:"exp"`
 	}
 	if err := json.Unmarshal(payload, &claims); err != nil {
-		log.Printf("[azure] failed to parse JWT claims: %v; using %v fallback expiry", err, fallbackDuration)
+		slog.Debug("failed to parse JWT claims", "error", err, "fallback", fallbackDuration)
 		return fallback
 	}
 
 	if claims.Exp == nil {
-		log.Printf("[azure] JWT token has no exp claim; using %v fallback expiry", fallbackDuration)
+		slog.Debug("JWT token has no exp claim", "fallback", fallbackDuration)
 		return fallback
 	}
 
-	expTime := time.Unix(int64(*claims.Exp), 0)
+	expInt, err := claims.Exp.Int64()
+	if err != nil {
+		slog.Warn("failed to parse JWT exp as int64", "error", err, "fallback", fallbackDuration)
+		return fallback
+	}
+
+	expTime := time.Unix(expInt, 0)
 
 	// Sanity check: if exp is in the past, use fallback
 	if expTime.Before(time.Now()) {
-		log.Printf("[azure] JWT exp claim is in the past (%v); using %v fallback expiry", expTime, fallbackDuration)
+		slog.Debug("JWT exp claim is in the past", "exp", expTime, "fallback", fallbackDuration)
 		return fallback
 	}
 

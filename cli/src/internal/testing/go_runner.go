@@ -19,6 +19,13 @@ type GoTestRunner struct {
 	config     *ServiceTestConfig
 }
 
+// Package-level compiled regexes for Go test output parsing.
+var (
+	reGoTestDuration   = regexp.MustCompile(`\(([\d.]+)s\)`)
+	reGoPackageDur     = regexp.MustCompile(`([\d.]+)s$`)
+	reGoCoveragePercent = regexp.MustCompile(`coverage:\s*([\d.]+)%`)
+)
+
 // NewGoTestRunner creates a new Go test runner.
 func NewGoTestRunner(projectDir string, config *ServiceTestConfig) *GoTestRunner {
 	return &GoTestRunner{
@@ -200,7 +207,7 @@ func (r *GoTestRunner) parseTestOutput(output string, result *TestResult) {
 		if runCount > 0 {
 			// We know tests ran but couldn't parse individual results
 			// Check overall pass/fail to attribute them
-			if strings.Contains(output, "FAIL") {
+			if strings.Contains(output, "FAIL\t") {
 				result.Failed = runCount
 			} else {
 				result.Passed = runCount
@@ -213,8 +220,7 @@ func (r *GoTestRunner) parseTestOutput(output string, result *TestResult) {
 // parseTestDuration extracts duration from test result line.
 func (r *GoTestRunner) parseTestDuration(line string, result *TestResult) {
 	// Example: "--- PASS: TestAdd (0.00s)"
-	re := regexp.MustCompile(`\(([\d.]+)s\)`)
-	matches := re.FindStringSubmatch(line)
+	matches := reGoTestDuration.FindStringSubmatch(line)
 	if len(matches) > 1 {
 		if duration, err := strconv.ParseFloat(matches[1], 64); err == nil {
 			result.Duration += duration
@@ -225,8 +231,7 @@ func (r *GoTestRunner) parseTestDuration(line string, result *TestResult) {
 // parsePackageSummary parses package summary line for duration.
 func (r *GoTestRunner) parsePackageSummary(line string, result *TestResult) {
 	// Example: "ok      github.com/user/pkg    0.123s"
-	re := regexp.MustCompile(`([\d.]+)s$`)
-	matches := re.FindStringSubmatch(strings.TrimSpace(line))
+	matches := reGoPackageDur.FindStringSubmatch(strings.TrimSpace(line))
 	if len(matches) > 1 {
 		if duration, err := strconv.ParseFloat(matches[1], 64); err == nil {
 			// Only use package duration if we don't have individual test durations
@@ -240,8 +245,7 @@ func (r *GoTestRunner) parsePackageSummary(line string, result *TestResult) {
 // parseCoverage extracts coverage percentage from output.
 func (r *GoTestRunner) parseCoverage(line string, result *TestResult) {
 	// Example: "coverage: 85.7% of statements"
-	re := regexp.MustCompile(`coverage:\s*([\d.]+)%`)
-	matches := re.FindStringSubmatch(line)
+	matches := reGoCoveragePercent.FindStringSubmatch(line)
 	if len(matches) > 1 {
 		if percent, err := strconv.ParseFloat(matches[1], 64); err == nil {
 			// Initialize coverage if nil

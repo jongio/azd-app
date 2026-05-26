@@ -471,6 +471,11 @@ func displayTestResults(result *testing.AggregateResult) {
 // and sets them in the current process so child processes (test runners) inherit them.
 // The env file is located at .azure/<envName>/.env relative to the project root.
 func loadAzdEnvironment(azureYamlPath string, envName string) error {
+	// Validate envName to prevent path traversal
+	if strings.ContainsAny(envName, `/\`) || strings.Contains(envName, "..") {
+		return fmt.Errorf("invalid environment name %q: must not contain path separators or '..'", envName)
+	}
+
 	projectDir := filepath.Dir(azureYamlPath)
 	envFilePath := filepath.Join(projectDir, ".azure", envName, ".env")
 
