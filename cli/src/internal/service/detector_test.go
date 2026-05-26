@@ -1454,3 +1454,128 @@ services:
 		t.Errorf("Expected 4 services, got %d", len(parsed.Services))
 	}
 }
+
+// TestStaticWebAppFunctionsDetection tests that host: staticwebapp services with
+// Azure Functions indicators (host.json + function definitions) are detected as Functions runtime.
+func TestStaticWebAppFunctionsDetection(t *testing.T) {
+	tests := []struct {
+		name             string
+		projectFiles     map[string]string
+		expectFunctions  bool
+		expectedLanguage string
+		description      string
+	}{
+		{
+			name: "staticwebapp with Node.js Functions (host.json + package.json)",
+			projectFiles: map[string]string{
+				"host.json":    `{"version": "2.0"}`,
+				"package.json": `{"name":"swa-api","dependencies":{"@azure/functions":"^4.0.0"}}`,
+				"src/functions/hello.js": `const { app } = require('@azure/functions');
+app.http('hello', { methods: ['GET'], handler: async (req, ctx) => ({ body: 'Hello' }) });`,
+			},
+			expectFunctions:  true,
+			expectedLanguage: "JavaScript",
+			description:      "Should detect Functions for staticwebapp with host.json and Node.js function files",
+		},
+		{
+			name: "staticwebapp with Python Functions (host.json + function_app.py)",
+			projectFiles: map[string]string{
+				"host.json":       `{"version": "2.0"}`,
+				"function_app.py": `import azure.functions as func\napp = func.FunctionApp()`,
+				"requirements.txt": "azure-functions",
+			},
+			expectFunctions:  true,
+			expectedLanguage: "Python",
+			description:      "Should detect Functions for staticwebapp with host.json and Python function files",
+		},
+		{
+			name: "staticwebapp without Functions indicators (no host.json)",
+			projectFiles: map[string]string{
+				"package.json": `{"name":"swa-frontend","dependencies":{"react":"^18.0.0"}}`,
+				"src/App.jsx":  `export default function App() { return <div>Hello</div>; }`,
+			},
+			expectFunctions:  false,
+			expectedLanguage: "",
+			description:      "Should NOT detect Functions for staticwebapp without host.json",
+		},
+		{
+			name: "staticwebapp with host.json but no function definitions",
+			projectFiles: map[string]string{
+				"host.json":    `{"version": "2.0"}`,
+				"package.json": `{"name":"swa-frontend","dependencies":{"react":"^18.0.0"}}`,
+			},
+			expectFunctions:  false,
+			expectedLanguage: "",
+			description:      "Should NOT detect Functions when host.json exists but no function definitions found",
+		},
+		{
+			name: "host: function still works (regression check)",
+			projectFiles: map[string]string{
+				"host.json":    `{"version": "2.0"}`,
+				"package.json": `{"name":"func-api","dependencies":{"@azure/functions":"^4.0.0"}}`,
+				"src/functions/hello.js": `const { app } = require('@azure/functions');
+app.http('hello', { methods: ['GET'], handler: async (req, ctx) => ({ body: 'Hello' }) });`,
+			},
+			expectFunctions:  true,
+			expectedLanguage: "JavaScript",
+			description:      "Existing host: function behavior must be unchanged",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			// Create project files
+			for filename, content := range tt.projectFiles {
+				filePath := filepath.Join(tmpDir, filename)
+				dir := filepath.Dir(filePath)
+				if err := os.MkdirAll(dir, 0o755); err != nil {
+					t.Fatalf("Failed to create directory %s: %v", dir, err)
+				}
+				if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
+					t.Fatalf("Failed to write file %s: %v", filePath, err)
+				}
+			}
+
+			// Determine host type - last test uses "function" for regression check
+			host := "staticwebapp"
+			if tt.name == "host: function still works (regression check)" {
+				host = "function"
+			}
+
+			svc := service.Service{
+				Project: ".",
+				Host:    host,
+			}
+			usedPorts := make(map[int]bool)
+			runtime, err := service.DetectServiceRuntime("api", svc, usedPorts, tmpDir, "azd")
+
+			if tt.expectFunctions {
+				if err != nil {
+					t.Fatalf("Expected successful Functions detection, got error: %v", err)
+				}
+				if runtime.Language != tt.expectedLanguage {
+					t.Errorf("Expected Language %q, got %q", tt.expectedLanguage, runtime.Language)
+				}
+				// Functions runtime should use port 7071 by default
+				if runtime.Port != 7071 {
+					t.Errorf("Expected Functions default port 7071, got %d", runtime.Port)
+				}
+				// Should have func start command
+				if !strings.Contains(runtime.Command, "func") {
+					t.Errorf("Expected command containing 'func', got %q", runtime.Command)
+				}
+			} else {
+				if err != nil {
+					// Non-functions staticwebapp with no detectable language may error; that's OK
+					return
+				}
+				// If it succeeded, it should NOT be a Functions runtime
+				if runtime.Port == 7071 && strings.Contains(runtime.Command, "func") {
+					t.Errorf("Did NOT expect Functions runtime, but got port=7071 and func command")
+				}
+			}
+		})
+	}
+}

@@ -86,6 +86,14 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 		return buildFunctionsRuntime(serviceName, service, projectDir, usedPorts, azureYamlDir)
 	}
 
+	// Static Web Apps may contain managed Azure Functions as the API backend.
+	// Probe the project directory for Functions indicators (host.json + function definitions).
+	if service.Host == "staticwebapp" {
+		if variant := detectFunctionsVariant(projectDir); variant != FunctionsVariantUnknown {
+			return buildFunctionsRuntime(serviceName, service, projectDir, usedPorts, azureYamlDir)
+		}
+	}
+
 	// Detect language (use explicit language if provided)
 	language := service.Language
 	if language == "" {
