@@ -24,7 +24,26 @@ var (
 	logManagersMu sync.RWMutex
 )
 
-// GetLogManager returns the log manager for a project directory.
+// NewLogManager creates a new LogManager for the given project directory.
+// Unlike GetLogManager, this always creates a fresh instance without caching,
+// making it suitable for testing and scenarios requiring isolated log management.
+func NewLogManager(projectDir string) (*LogManager, error) {
+	absPath, err := filepath.Abs(projectDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve project directory: %w", err)
+	}
+
+	logFilter := loadLogFilterForProject(absPath)
+	return &LogManager{
+		projectDir: absPath,
+		buffers:    make(map[string]*LogBuffer),
+		logFilter:  logFilter,
+	}, nil
+}
+
+// GetLogManager returns the cached log manager for a project directory.
+// It uses a global cache to ensure one LogManager per project directory.
+// For testing or isolated usage, prefer NewLogManager instead.
 func GetLogManager(projectDir string) *LogManager {
 	if projectDir == "" {
 		cwd, err := os.Getwd()
@@ -48,11 +67,14 @@ func GetLogManager(projectDir string) *LogManager {
 	}
 	logManagersMu.RUnlock()
 
-	logFilter := loadLogFilterForProject(absPath)
-	candidate := &LogManager{
-		projectDir: absPath,
-		buffers:    make(map[string]*LogBuffer),
-		logFilter:  logFilter,
+	// Create via NewLogManager to avoid duplicating initialization logic
+	candidate, newErr := NewLogManager(absPath)
+	if newErr != nil {
+		// Fallback: use the raw path if Abs fails (shouldn't happen since absPath is already absolute)
+		candidate = &LogManager{
+			projectDir: absPath,
+			buffers:    make(map[string]*LogBuffer),
+		}
 	}
 
 	logManagersMu.Lock()
