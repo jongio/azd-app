@@ -12,6 +12,8 @@ import (
 )
 
 func TestEnvironmentUnmarshalYAML(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		yaml    string
@@ -144,7 +146,10 @@ environment:
 	}
 
 	for _, tt := range tests {
+		tt := tt // capture loop var
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var result struct {
 				Environment Environment `yaml:"environment"`
 			}
@@ -173,6 +178,8 @@ environment:
 }
 
 func TestServiceEnvironmentFields(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		yaml string
@@ -332,6 +339,8 @@ services:
 }
 
 func TestGetEnvironment(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		service Service
@@ -392,6 +401,8 @@ func TestGetEnvironment(t *testing.T) {
 }
 
 func TestResolveEnvironment(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		service     Service
@@ -481,6 +492,8 @@ func TestResolveEnvironment(t *testing.T) {
 }
 
 func TestGenerateServiceURLs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		processes map[string]*ServiceProcess

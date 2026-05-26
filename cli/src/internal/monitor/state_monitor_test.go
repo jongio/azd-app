@@ -275,7 +275,7 @@ func TestStateMonitor_RateLimiting(t *testing.T) {
 		Name:      "test-service",
 		PID:       os.Getpid(),
 		Port:      8080,
-		Status:    "starting",
+		Status:    "running",
 		StartTime: time.Now(),
 	}
 	if err := reg.Register(entry); err != nil {
@@ -304,33 +304,34 @@ func TestStateMonitor_RateLimiting(t *testing.T) {
 		return exists
 	}, time.Second, 50*time.Millisecond)
 
-	// Trigger multiple warning transitions rapidly
+	// Trigger multiple critical transitions rapidly by toggling status
 	// These should be rate limited
 	for i := 0; i < 5; i++ {
-		if err := reg.UpdateStatus("test-service", "starting"); err != nil {
+		status := "error"
+		if i%2 == 1 {
+			status = "running"
+		}
+		if err := reg.UpdateStatus("test-service", status); err != nil {
 			t.Fatalf("Failed to update status: %v", err)
 		}
 		time.Sleep(60 * time.Millisecond)
 	}
 
-	time.Sleep(200 * time.Millisecond)
+	// Wait for at least one transition to be processed
+	require.Eventually(t, func() bool {
+		transitionMu.Lock()
+		defer transitionMu.Unlock()
+		return len(transitions) >= 1
+	}, 2*time.Second, 50*time.Millisecond, "expected at least one transition to be detected")
 
 	transitionMu.Lock()
 	defer transitionMu.Unlock()
 
 	// Should have fewer transitions than updates due to rate limiting
-	warningCount := 0
-	for _, trans := range transitions {
-		if trans.Severity == SeverityWarning {
-			warningCount++
-		}
+	if len(transitions) >= 5 {
+		t.Errorf("Rate limiting not working: got %d transitions, expected fewer due to rate limiting", len(transitions))
 	}
-
-	// Should be rate limited, so expect significantly fewer than 5
-	if warningCount >= 4 {
-		t.Errorf("Rate limiting not working: got %d warning transitions, expected fewer due to rate limiting", warningCount)
-	}
-	t.Logf("Rate limiting working: %d warnings from 5 rapid updates", warningCount)
+	t.Logf("Rate limiting working: %d transitions from 5 rapid updates", len(transitions))
 }
 
 func TestStateMonitor_GetHistory(t *testing.T) {

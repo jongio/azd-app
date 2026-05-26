@@ -12,6 +12,8 @@ import (
 // TestDockerComposeStyleEntrypoint tests Docker Compose style entrypoint + command semantics.
 // In Docker Compose: entrypoint is the executable, command is the arguments.
 func TestDockerComposeStyleEntrypoint(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name            string
 		entrypoint      string
@@ -88,7 +90,10 @@ func TestDockerComposeStyleEntrypoint(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt // capture loop var
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			// Create temporary project directory
 			tmpDir := t.TempDir()
 

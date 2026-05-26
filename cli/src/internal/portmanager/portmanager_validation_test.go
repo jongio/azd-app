@@ -6,6 +6,8 @@ import (
 )
 
 func TestAssignPort_ValidationErrors(t *testing.T) {
+	t.Parallel()
+
 	tempDir := t.TempDir()
 	pm := setupTestManager(tempDir, nil)
 
@@ -89,6 +91,8 @@ func TestAssignPort_ValidationErrors(t *testing.T) {
 }
 
 func TestAssignPort_ServiceNameWithSpecialChars(t *testing.T) {
+	t.Parallel()
+
 	tempDir := t.TempDir()
 	pm := setupTestManager(tempDir, nil)
 

@@ -18,6 +18,7 @@ func TestWaitForPort_ExponentialBackoff(t *testing.T) {
 
 	// Start server after delay to test backoff behavior
 	serverReady := make(chan int)
+	done := make(chan struct{})
 	go func() {
 		time.Sleep(1 * time.Second) // Server starts after 1 second
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -25,11 +26,12 @@ func TestWaitForPort_ExponentialBackoff(t *testing.T) {
 		}))
 		port := server.Listener.Addr().(*net.TCPAddr).Port
 		serverReady <- port
-		time.Sleep(3 * time.Second)
+		<-done
 		server.Close()
 	}()
 
 	port := <-serverReady
+	defer close(done)
 
 	startTime := time.Now()
 	err := WaitForPort(port, constants.TestServiceTimeout)
@@ -100,6 +102,7 @@ func TestPerformHealthCheck_ExponentialBackoff(t *testing.T) {
 
 	// Server that starts after a delay
 	serverReady := make(chan int)
+	done := make(chan struct{})
 	go func() {
 		time.Sleep(1 * time.Second)
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -107,11 +110,12 @@ func TestPerformHealthCheck_ExponentialBackoff(t *testing.T) {
 		}))
 		port := server.Listener.Addr().(*net.TCPAddr).Port
 		serverReady <- port
-		time.Sleep(3 * time.Second)
+		<-done
 		server.Close()
 	}()
 
 	port := <-serverReady
+	defer close(done)
 
 	runtime := ServiceRuntime{
 		Name: "test-backoff-health",
