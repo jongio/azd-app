@@ -19,6 +19,9 @@ type LogManager struct {
 	mu         sync.RWMutex
 }
 
+// Compile-time interface compliance checks.
+var _ LogProvider = (*LogManager)(nil)
+
 var (
 	logManagers   = make(map[string]*LogManager)
 	logManagersMu sync.RWMutex
@@ -158,7 +161,7 @@ func (lm *LogManager) GetAllLogs(n int) []LogEntry {
 	lm.mu.RLock()
 	defer lm.mu.RUnlock()
 
-	var allLogs []LogEntry
+	allLogs := make([]LogEntry, 0, len(lm.buffers)*n)
 	for _, buffer := range lm.buffers {
 		logs := buffer.GetRecent(n)
 		allLogs = append(allLogs, logs...)
@@ -215,7 +218,7 @@ func (lm *LogManager) GetAllLogsWithContext(serviceName string, level LogLevel, 
 			continue
 		}
 
-		entries := buffer.GetLogsWithContext(level, 0, contextLines, since) // Get all from buffer, limit later
+		entries := buffer.GetLogsWithContext(level, limit, contextLines, since)
 		allEntries = append(allEntries, entries...)
 	}
 

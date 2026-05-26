@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -124,10 +125,10 @@ func runTests(commandOrchestrator *orchestrator.Orchestrator, opts *TestOptions)
 
 	// Validate mutually exclusive flags
 	if opts.Stream && opts.NoStream {
-		return fmt.Errorf("--stream and --no-stream are mutually exclusive")
+		return errors.New("--stream and --no-stream are mutually exclusive")
 	}
 	if opts.Save && opts.NoSave {
-		return fmt.Errorf("--save and --no-save are mutually exclusive")
+		return errors.New("--save and --no-save are mutually exclusive")
 	}
 
 	// Execute dependencies first (reqs)
@@ -142,7 +143,7 @@ func runTests(commandOrchestrator *orchestrator.Orchestrator, opts *TestOptions)
 	}
 
 	if azureYamlPath == "" {
-		return fmt.Errorf("azure.yaml not found - create one to define services for testing")
+		return errors.New("azure.yaml not found - create one to define services for testing")
 	}
 
 	// Load azd environment variables if --env is specified
@@ -224,7 +225,7 @@ func runTests(commandOrchestrator *orchestrator.Orchestrator, opts *TestOptions)
 
 	// Check if tests passed
 	if !result.Success {
-		return fmt.Errorf("tests failed")
+		return errors.New("tests failed")
 	}
 
 	if opts.Coverage && opts.Threshold > 0 {

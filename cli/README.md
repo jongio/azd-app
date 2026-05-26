@@ -363,6 +363,24 @@ See [Hooks Documentation](docs/features/hooks.md) for complete hook configuratio
 - pnpm dev servers
 - Docker Compose orchestration
 
+### `azd app test`
+
+Run tests across all services with framework auto-detection:
+
+```bash
+azd app test                    # Run all tests
+azd app test --type e2e         # E2E tests only
+azd app test --env staging      # Target a deployed environment
+```
+
+**Flags:**
+- `--type`: Filter by test type (unit, integration, e2e)
+- `--service, -s`: Run tests for specific service(s) only
+- `--coverage`: Enable coverage reporting
+- `--env`: Load azd environment variables for the target environment
+- `--watch`: Re-run tests on file changes
+- `--fail-fast`: Stop on first failure
+
 ## Commands
 
 For complete command reference with all flags and options, see the [CLI Reference Documentation](docs/cli-reference.md).

@@ -270,19 +270,19 @@ func GenerateServiceURLs(processes map[string]*ServiceProcess) map[string]string
 	return urls
 }
 
-// SkippedEnvVar describes an environment variable that was skipped during .env parsing
+// skippedEnvVar describes an environment variable that was skipped during .env parsing
 // due to an invalid variable name.
-type SkippedEnvVar struct {
+type skippedEnvVar struct {
 	Name   string
 	Line   int
 	Reason string
 }
 
-// DotEnvParseResult contains the results of parsing a .env file, including any variables
+// dotEnvParseResult contains the results of parsing a .env file, including any variables
 // that were skipped due to invalid names.
-type DotEnvParseResult struct {
+type dotEnvParseResult struct {
 	Vars    map[string]string
-	Skipped []SkippedEnvVar
+	Skipped []skippedEnvVar
 }
 
 // LoadDotEnv loads environment variables from a .env file.
@@ -324,7 +324,7 @@ func LoadDotEnv(path string) (map[string]string, error) {
 
 // dotEnvParseOutput is the internal result from parseDotEnv including any scanner error.
 type dotEnvParseOutput struct {
-	parsed DotEnvParseResult
+	parsed dotEnvParseResult
 	err    error
 }
 
@@ -332,7 +332,7 @@ type dotEnvParseOutput struct {
 // skipped entries. This is separated from LoadDotEnv for testability.
 func parseDotEnv(r *os.File) dotEnvParseOutput {
 	env := make(map[string]string)
-	var skipped []SkippedEnvVar
+	var skipped []skippedEnvVar
 	scanner := bufio.NewScanner(r)
 	lineNum := 0
 
@@ -360,7 +360,7 @@ func parseDotEnv(r *os.File) dotEnvParseOutput {
 		// Validate variable name - skip invalid but continue loading valid ones
 		if key == "" || !isValidEnvVarName(key) {
 			reason := describeInvalidVarName(key)
-			skipped = append(skipped, SkippedEnvVar{
+			skipped = append(skipped, skippedEnvVar{
 				Name:   key,
 				Line:   lineNum,
 				Reason: reason,
@@ -372,7 +372,7 @@ func parseDotEnv(r *os.File) dotEnvParseOutput {
 	}
 
 	return dotEnvParseOutput{
-		parsed: DotEnvParseResult{
+		parsed: dotEnvParseResult{
 			Vars:    env,
 			Skipped: skipped,
 		},

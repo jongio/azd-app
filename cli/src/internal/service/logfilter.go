@@ -2,6 +2,7 @@
 package service
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"sync"
@@ -38,6 +39,10 @@ var BuiltInLogFilters = []string{
 	`DeprecationWarning:`,
 }
 
+// maxPatternLength is the maximum allowed length for a log filter regex pattern.
+// This prevents user-provided patterns from azure.yaml from causing excessive compilation time.
+const maxPatternLength = 512
+
 // NewLogFilter creates a new log filter with the given patterns.
 // Patterns are compiled as case-insensitive regular expressions.
 func NewLogFilter(patterns []string) (*LogFilter, error) {
@@ -47,6 +52,9 @@ func NewLogFilter(patterns []string) (*LogFilter, error) {
 	}
 
 	for _, pattern := range patterns {
+		if len(pattern) > maxPatternLength {
+			return nil, fmt.Errorf("log filter pattern exceeds maximum length of %d characters", maxPatternLength)
+		}
 		re, err := regexp.Compile("(?i)" + pattern)
 		if err != nil {
 			return nil, err
@@ -86,6 +94,10 @@ func (lf *LogFilter) ShouldFilter(message string) bool {
 
 // AddPattern adds a new pattern to the filter.
 func (lf *LogFilter) AddPattern(pattern string) error {
+	if len(pattern) > maxPatternLength {
+		return fmt.Errorf("log filter pattern exceeds maximum length of %d characters", maxPatternLength)
+	}
+
 	lf.mu.Lock()
 	defer lf.mu.Unlock()
 
