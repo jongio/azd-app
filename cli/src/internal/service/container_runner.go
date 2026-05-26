@@ -186,6 +186,9 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 }
 
 // buildContainerPortMappings converts ServiceRuntime port to Docker port mappings.
+// Currently supports single-port mapping only: the primary port from runtime.Port is mapped
+// as both the host and container port with TCP protocol. Multi-port support (e.g., debug
+// ports, metrics endpoints) is planned but not yet implemented.
 func buildContainerPortMappings(runtime *ServiceRuntime) []docker.PortMapping {
 	var mappings []docker.PortMapping
 
@@ -193,14 +196,14 @@ func buildContainerPortMappings(runtime *ServiceRuntime) []docker.PortMapping {
 	if runtime.Port > 0 {
 		mappings = append(mappings, docker.PortMapping{
 			HostPort:      runtime.Port,
-			ContainerPort: runtime.Port, // Assume same port for now
+			ContainerPort: runtime.Port, // TODO(multi-port): support distinct host:container port mappings
 			Protocol:      "tcp",
 		})
 	}
 
-	// TODO(#1001): Parse additional ports from runtime if needed
-	// Currently only maps the primary port from runtime.Port. Need to support multiple port mappings
-	// for services that expose additional ports (e.g., debug ports, metrics endpoints).
+	// TODO(multi-port): Parse additional ports from runtime config to support services
+	// that expose multiple ports (e.g., debug ports, metrics endpoints, gRPC sidecars).
+	// Tracking: https://github.com/jongio/azd-app/issues/1001
 
 	return mappings
 }

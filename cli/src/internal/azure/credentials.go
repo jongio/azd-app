@@ -3,9 +3,13 @@ package azure
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,18 +37,65 @@ type AzdTokenCredential struct {
 
 // NewAzdTokenCredential creates a credential from an azd access token.
 // The token is expected to come from the AZD_ACCESS_TOKEN environment variable.
+// If the token is a JWT, the expiry is extracted from the `exp` claim.
+// Otherwise, a conservative 1-hour default is used.
 func NewAzdTokenCredential(token string) (*AzdTokenCredential, error) {
 	if token == "" {
 		return nil, ErrNoCredentials
 	}
+
+	expiresOn := extractJWTExpiry(token)
+
 	return &AzdTokenCredential{
-		token: token,
-		// AZD_ACCESS_TOKEN does not currently provide an expiry timestamp through the
-		// extension host API. We pick a conservative 1-hour default so SDK callers do
-		// not cache the token indefinitely; shorter-lived failures are safer than
-		// overstating validity for a token whose real expiry is unknown.
-		expiresOn: time.Now().Add(1 * time.Hour),
+		token:     token,
+		expiresOn: expiresOn,
 	}, nil
+}
+
+// extractJWTExpiry attempts to decode a JWT token and extract the `exp` claim.
+// Returns the extracted expiry time, or a conservative 1-hour fallback if the
+// token is not a valid JWT or lacks an exp claim.
+func extractJWTExpiry(token string) time.Time {
+	const fallbackDuration = 1 * time.Hour
+	fallback := time.Now().Add(fallbackDuration)
+
+	// JWT format: header.payload.signature
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		log.Printf("[azure] token is not a JWT (expected 3 parts, got %d); using %v fallback expiry", len(parts), fallbackDuration)
+		return fallback
+	}
+
+	// Decode the payload (second part) - JWT uses base64url without padding
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		log.Printf("[azure] failed to decode JWT payload: %v; using %v fallback expiry", err, fallbackDuration)
+		return fallback
+	}
+
+	// Extract the exp claim
+	var claims struct {
+		Exp *float64 `json:"exp"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		log.Printf("[azure] failed to parse JWT claims: %v; using %v fallback expiry", err, fallbackDuration)
+		return fallback
+	}
+
+	if claims.Exp == nil {
+		log.Printf("[azure] JWT token has no exp claim; using %v fallback expiry", fallbackDuration)
+		return fallback
+	}
+
+	expTime := time.Unix(int64(*claims.Exp), 0)
+
+	// Sanity check: if exp is in the past, use fallback
+	if expTime.Before(time.Now()) {
+		log.Printf("[azure] JWT exp claim is in the past (%v); using %v fallback expiry", expTime, fallbackDuration)
+		return fallback
+	}
+
+	return expTime
 }
 
 // GetToken returns the azd access token as an Azure SDK token.

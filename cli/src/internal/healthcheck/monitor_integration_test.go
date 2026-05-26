@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-core/registry"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewHealthMonitor(t *testing.T) {
@@ -291,9 +292,8 @@ func TestIsProcessRunning(t *testing.T) {
 	currentPID := os.Getpid()
 	result := isProcessRunning(currentPID)
 
-	// On some systems, this might not work reliably, so we just verify it doesn't panic
-	// and returns a boolean
-	_ = result
+	// The current process must always be running
+	assert.True(t, result, "current process (PID %d) should be reported as running", currentPID)
 
 	// Test with clearly non-existent PID (very high number unlikely to exist)
 	if isProcessRunning(9999999) {

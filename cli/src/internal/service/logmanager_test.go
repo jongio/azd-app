@@ -233,8 +233,11 @@ func TestLogManagerRemoveBuffer(t *testing.T) {
 		t.Error("buffer should not exist after removal")
 	}
 
-	// Removing non-existent buffer should not panic
-	_ = lm.RemoveBuffer("nonexistent")
+	// Removing non-existent buffer should not panic; it returns an error
+	err = lm.RemoveBuffer("nonexistent")
+	if err == nil {
+		t.Error("RemoveBuffer on non-existent buffer should return an error")
+	}
 }
 
 func TestLogManagerClear(t *testing.T) {
@@ -285,8 +288,11 @@ func TestLogManagerClearBuffer(t *testing.T) {
 		t.Errorf("expected 0 logs after clear, got %d", len(logs))
 	}
 
-	// Clearing non-existent buffer should not panic
-	_ = lm.ClearBuffer("nonexistent")
+	// Clearing non-existent buffer should not panic; it returns an error
+	err = lm.ClearBuffer("nonexistent")
+	if err == nil {
+		t.Error("ClearBuffer on non-existent buffer should return an error")
+	}
 }
 
 func TestSortLogEntries(t *testing.T) {

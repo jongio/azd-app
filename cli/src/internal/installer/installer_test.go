@@ -85,34 +85,9 @@ func TestInstallNodeDependencies(t *testing.T) {
 	}
 }
 
-func TestRestoreDotnetProject(t *testing.T) {
-	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "installer-test-*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	// Create a minimal .csproj file
-	csprojContent := `<Project Sdk="Microsoft.NET.Sdk">
-		<PropertyGroup>
-			<OutputType>Exe</OutputType>
-			<TargetFramework>net8.0</TargetFramework>
-		</PropertyGroup>
-	</Project>`
-
-	csprojPath := filepath.Join(tmpDir, "test.csproj")
-	if err := os.WriteFile(csprojPath, []byte(csprojContent), 0o600); err != nil {
-		t.Fatalf("failed to create .csproj: %v", err)
-	}
-
-	_ = types.DotnetProject{
-		Path: csprojPath,
-	}
-
-	// Skip actual dotnet restore in tests
-	t.Skip("Skipping actual dotnet restore in unit tests")
-}
+// NOTE: TestRestoreDotnetProject (setup-then-skip variant) was removed because it created
+// a .csproj then immediately called t.Skip(). Validation is covered by
+// TestRestoreDotnetProject_InvalidPath which exercises the actual error path.
 
 func TestSetupPythonVirtualEnv(t *testing.T) {
 	// Create temporary directory
@@ -227,70 +202,13 @@ func TestSetupPythonVirtualEnv(t *testing.T) {
 	}
 }
 
-// Test that we can detect when a virtual environment already exists.
-func TestSetupWithPip_VenvExists(t *testing.T) {
-	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "installer-test-*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
+// NOTE: TestSetupWithPip_VenvExists (skip variant) was removed - identical logic is covered
+// by TestSetupWithPip_ExistingVenv which actually asserts the return value.
 
-	// Create .venv directory to simulate existing environment
-	venvDir := filepath.Join(tmpDir, ".venv")
-	if err := os.MkdirAll(venvDir, 0o750); err != nil {
-		t.Fatalf("failed to create .venv: %v", err)
-	}
-
-	// Create requirements.txt
-	requirementsPath := filepath.Join(tmpDir, "requirements.txt")
-	if err := os.WriteFile(requirementsPath, []byte("six==1.16.0\n"), 0o600); err != nil {
-		t.Fatalf("failed to create requirements.txt: %v", err)
-	}
-
-	// Test with existing venv - should not fail
-	// This tests the early return path when venv exists
-	t.Skip("Skipping actual Python environment check in unit tests")
-}
-
-// Test package manager fallback behavior.
-func TestSetupWithUv_FallbackToPip(t *testing.T) {
-	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "installer-test-*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	// Create requirements.txt for pip fallback
-	requirementsPath := filepath.Join(tmpDir, "requirements.txt")
-	if err := os.WriteFile(requirementsPath, []byte("six==1.16.0\n"), 0o600); err != nil {
-		t.Fatalf("failed to create requirements.txt: %v", err)
-	}
-
-	// This would test the fallback when uv is not installed
-	// In a real test, we'd mock exec.LookPath to return an error
-	t.Skip("Skipping fallback tests - would require mocking exec.LookPath")
-}
-
-func TestSetupWithPoetry_FallbackToPip(t *testing.T) {
-	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "installer-test-*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	// Create requirements.txt for pip fallback
-	requirementsPath := filepath.Join(tmpDir, "requirements.txt")
-	if err := os.WriteFile(requirementsPath, []byte("six==1.16.0\n"), 0o600); err != nil {
-		t.Fatalf("failed to create requirements.txt: %v", err)
-	}
-
-	// This would test the fallback when poetry is not installed
-	// In a real test, we'd mock exec.LookPath to return an error
-	t.Skip("Skipping fallback tests - would require mocking exec.LookPath")
-}
+// NOTE: TestSetupWithUv_FallbackToPip and TestSetupWithPoetry_FallbackToPip were removed -
+// they immediately called t.Skip() with a comment explaining mocking would be required.
+// The fallback behavior is implicitly tested by TestSetupWithUv_NoUvInstalled and
+// TestSetupWithPoetry_EnvExists which exercise real execution paths.
 
 func TestInstallNodeDependencies_InvalidPath(t *testing.T) {
 	project := types.NodeProject{
@@ -371,13 +289,14 @@ func TestSetupWithPip_NoRequirementsTxt(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	// Try to create venv without requirements.txt
-	// This will succeed if python is available
+	// Try to create venv without requirements.txt.
+	// Outcome depends on python availability: succeeds if python is installed,
+	// errors otherwise. Either result is acceptable - we verify the code path
+	// executes without panicking regardless of environment.
 	err := setupWithPip(context.Background(), tmpDir, nil)
-
-	// We don't assert success/failure as it depends on python availability
-	// Just verify it doesn't panic
-	t.Logf("setupWithPip result: %v", err)
+	if err != nil {
+		t.Logf("setupWithPip returned error (expected if python unavailable): %v", err)
+	}
 }
 
 func TestSetupWithPoetry_EnvExists(t *testing.T) {
@@ -387,13 +306,12 @@ func TestSetupWithPoetry_EnvExists(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	// This tests the path where poetry env info succeeds
-	// In practice, this requires poetry to be installed
+	// Outcome depends on poetry availability. Verifies the poetry setup path
+	// (including pip fallback) executes without panicking.
 	err := setupWithPoetry(context.Background(), tmpDir, nil)
-
-	// We expect this to either succeed or fallback to pip
-	// Just verify it doesn't panic
-	t.Logf("setupWithPoetry result: %v", err)
+	if err != nil {
+		t.Logf("setupWithPoetry returned error (expected if poetry unavailable): %v", err)
+	}
 }
 
 func TestSetupWithUv_NoUvInstalled(t *testing.T) {
@@ -409,12 +327,12 @@ func TestSetupWithUv_NoUvInstalled(t *testing.T) {
 		t.Fatalf("failed to create requirements.txt: %v", err)
 	}
 
-	// This will fallback to pip if uv is not installed
+	// Outcome depends on uv/python availability. Verifies the uv setup path
+	// (including pip fallback) executes without panicking.
 	err := setupWithUv(context.Background(), tmpDir, nil)
-
-	// We don't assert success/failure as it depends on tool availability
-	// Just verify it doesn't panic
-	t.Logf("setupWithUv result: %v", err)
+	if err != nil {
+		t.Logf("setupWithUv returned error (expected if uv/python unavailable): %v", err)
+	}
 }
 
 func TestIsDependenciesUpToDate(t *testing.T) {
