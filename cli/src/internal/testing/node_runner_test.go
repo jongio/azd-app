@@ -502,18 +502,18 @@ func TestNodeRunnerParseTestOutput_BasicIndicators(t *testing.T) {
 		expectedTotal  int
 	}{
 		{
-			name:           "PASS indicator",
+			name:           "PASS indicator without countable tests reports zero",
 			output:         "PASS src/test.js",
-			expectedPassed: 1,
+			expectedPassed: 0,
 			expectedFailed: 0,
-			expectedTotal:  1,
+			expectedTotal:  0,
 		},
 		{
-			name:           "FAIL indicator",
+			name:           "FAIL indicator without countable tests reports zero",
 			output:         "FAIL src/test.js",
 			expectedPassed: 0,
-			expectedFailed: 1,
-			expectedTotal:  1,
+			expectedFailed: 0,
+			expectedTotal:  0,
 		},
 		{
 			name:           "checkmark indicator",
@@ -528,6 +528,20 @@ func TestNodeRunnerParseTestOutput_BasicIndicators(t *testing.T) {
 			expectedPassed: 0,
 			expectedFailed: 1,
 			expectedTotal:  1,
+		},
+		{
+			name:           "multiple checkmarks counted accurately",
+			output:         "✓ test one\n✓ test two\n✓ test three",
+			expectedPassed: 3,
+			expectedFailed: 0,
+			expectedTotal:  3,
+		},
+		{
+			name:           "mixed checkmarks and crosses counted accurately",
+			output:         "✓ test one\n✗ test two\n✓ test three",
+			expectedPassed: 2,
+			expectedFailed: 1,
+			expectedTotal:  3,
 		},
 	}
 
@@ -568,6 +582,83 @@ func TestNodeRunnerParseJestSummary_WithSkipped(t *testing.T) {
 	}
 	if result.Total != 6 {
 		t.Errorf("Expected 6 total, got %d", result.Total)
+	}
+}
+
+func TestNodeRunnerParseVitestSummary(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{Framework: "vitest"}
+	runner := NewNodeTestRunner(tmpDir, config)
+
+	tests := []struct {
+		name           string
+		output         string
+		expectedPassed int
+		expectedFailed int
+		expectedSkipped int
+		expectedTotal  int
+	}{
+		{
+			name:           "Vitest v2 all passed",
+			output:         " Tests  8 passed (8)",
+			expectedPassed: 8,
+			expectedFailed: 0,
+			expectedTotal:  8,
+		},
+		{
+			name:           "Vitest v2 with failures",
+			output:         " Tests  1 failed | 7 passed (8)",
+			expectedPassed: 7,
+			expectedFailed: 1,
+			expectedTotal:  8,
+		},
+		{
+			name:           "Vitest v2 with skipped",
+			output:         " Tests  2 skipped | 6 passed (8)",
+			expectedPassed: 6,
+			expectedSkipped: 2,
+			expectedTotal:  8,
+		},
+		{
+			name:           "Vitest v2 full output with summary",
+			output:         " ✓ src/utils.test.ts (5 tests)\n ✓ src/api.test.ts (3 tests)\n\n Tests  8 passed (8)\n Duration  1.52s",
+			expectedPassed: 8,
+			expectedFailed: 0,
+			expectedTotal:  8,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := &TestResult{}
+			runner.parseTestOutput(tt.output, result)
+
+			if result.Passed != tt.expectedPassed {
+				t.Errorf("Expected %d passed, got %d", tt.expectedPassed, result.Passed)
+			}
+			if result.Failed != tt.expectedFailed {
+				t.Errorf("Expected %d failed, got %d", tt.expectedFailed, result.Failed)
+			}
+			if result.Skipped != tt.expectedSkipped {
+				t.Errorf("Expected %d skipped, got %d", tt.expectedSkipped, result.Skipped)
+			}
+			if result.Total != tt.expectedTotal {
+				t.Errorf("Expected %d total, got %d", tt.expectedTotal, result.Total)
+			}
+		})
+	}
+}
+
+func TestNodeRunnerParseVitestDuration(t *testing.T) {
+	tmpDir := t.TempDir()
+	config := &ServiceTestConfig{Framework: "vitest"}
+	runner := NewNodeTestRunner(tmpDir, config)
+
+	result := &TestResult{}
+	runner.parseTestOutput(" Tests  5 passed (5)\n Duration  1.52s (transform 100ms, setup 0ms, collect 300ms, tests 20ms)", result)
+
+	if result.Duration != 1.52 {
+		t.Errorf("Expected duration 1.52, got %f", result.Duration)
 	}
 }
 

@@ -732,32 +732,46 @@ func TestPythonRunnerParseTestOutput_BasicIndicators(t *testing.T) {
 		expectedTotal  int
 	}{
 		{
-			name:           "PASSED indicator",
-			output:         "test_example.py PASSED",
+			name:           "PASSED indicator (pytest verbose line)",
+			output:         "test_example.py::test_func PASSED",
 			expectedPassed: 1,
 			expectedFailed: 0,
 			expectedTotal:  1,
 		},
 		{
-			name:           "FAILED indicator",
-			output:         "test_example.py FAILED",
+			name:           "FAILED indicator (pytest verbose line)",
+			output:         "test_example.py::test_func FAILED",
 			expectedPassed: 0,
 			expectedFailed: 1,
 			expectedTotal:  1,
 		},
 		{
-			name:           "OK indicator",
+			name:           "OK without countable tests reports zero",
 			output:         "OK",
-			expectedPassed: 1,
+			expectedPassed: 0,
 			expectedFailed: 0,
-			expectedTotal:  1,
+			expectedTotal:  0,
 		},
 		{
-			name:           "ERROR indicator",
+			name:           "ERROR without countable tests reports zero",
 			output:         "ERROR in test",
 			expectedPassed: 0,
+			expectedFailed: 0,
+			expectedTotal:  0,
+		},
+		{
+			name:           "multiple pytest verbose lines counted accurately",
+			output:         "test_a.py::test_one PASSED\ntest_a.py::test_two PASSED\ntest_a.py::test_three FAILED",
+			expectedPassed: 2,
 			expectedFailed: 1,
-			expectedTotal:  1,
+			expectedTotal:  3,
+		},
+		{
+			name:           "unittest verbose lines counted accurately",
+			output:         "test_one (tests.TestCase) ... ok\ntest_two (tests.TestCase) ... ok\ntest_three (tests.TestCase) ... FAIL",
+			expectedPassed: 2,
+			expectedFailed: 1,
+			expectedTotal:  3,
 		},
 	}
 

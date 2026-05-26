@@ -183,14 +183,29 @@ func (r *GoTestRunner) parseTestOutput(output string, result *TestResult) {
 		}
 	}
 
-	// If we couldn't parse anything, check for basic indicators
+	// If structured line parsing didn't find individual test results,
+	// count "=== RUN" lines as a fallback (only top-level tests, not subtests).
 	if result.Total == 0 {
-		if strings.Contains(output, "PASS") && !strings.Contains(output, "FAIL") {
-			result.Passed = 1
-			result.Total = 1
-		} else if strings.Contains(output, "FAIL") {
-			result.Failed = 1
-			result.Total = 1
+		runCount := 0
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			// Top-level tests: "=== RUN   TestName" (no "/" indicating subtest)
+			if strings.HasPrefix(line, "=== RUN") {
+				testName := strings.TrimSpace(strings.TrimPrefix(line, "=== RUN"))
+				if !strings.Contains(testName, "/") {
+					runCount++
+				}
+			}
+		}
+		if runCount > 0 {
+			// We know tests ran but couldn't parse individual results
+			// Check overall pass/fail to attribute them
+			if strings.Contains(output, "FAIL") {
+				result.Failed = runCount
+			} else {
+				result.Passed = runCount
+			}
+			result.Total = runCount
 		}
 	}
 }

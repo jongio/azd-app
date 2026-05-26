@@ -248,16 +248,38 @@ func (r *PythonTestRunner) parseTestOutput(output string, result *TestResult) {
 		}
 	}
 
-	// If we couldn't parse anything, check for basic indicators
+	// If structured parsing didn't find counts, count individual test results in output
 	if result.Total == 0 {
-		if strings.Contains(output, "PASSED") || strings.Contains(output, "OK") {
-			result.Passed = 1
-			result.Total = 1
-		} else if strings.Contains(output, "FAILED") || strings.Contains(output, "ERROR") {
-			result.Failed = 1
-			result.Total = 1
+		passed, failed := countPythonTestIndicators(output)
+		if passed+failed > 0 {
+			result.Passed = passed
+			result.Failed = failed
+			result.Total = passed + failed
 		}
 	}
+}
+
+// countPythonTestIndicators counts individual test result indicators in pytest/unittest output.
+// pytest verbose: "test_name.py::test_func PASSED" or "FAILED"
+// unittest verbose: "test_func (test_module.TestCase) ... ok" or "FAIL"
+func countPythonTestIndicators(output string) (passed, failed int) {
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// pytest verbose output: lines ending in PASSED or FAILED
+		if strings.HasSuffix(line, "PASSED") {
+			passed++
+		} else if strings.HasSuffix(line, "FAILED") {
+			failed++
+		}
+		// unittest verbose output: "... ok" or "... FAIL"
+		if strings.HasSuffix(line, "... ok") {
+			passed++
+		} else if strings.HasSuffix(line, "... FAIL") {
+			failed++
+		}
+	}
+	return passed, failed
 }
 
 // parsePytestSummary parses pytest summary line.

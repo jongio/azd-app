@@ -157,16 +157,23 @@ func (r *NodeTestRunner) parseTestOutput(output string, result *TestResult) {
 	output = stripAnsi(output)
 
 	// Try to parse Jest/Vitest output format
-	// Example: "Tests:  5 passed, 5 total"
-	// Example: "Tests:       1 failed, 9 passed, 10 total"
+	// Jest: "Tests:  5 passed, 5 total"
+	// Jest: "Tests:       1 failed, 9 passed, 10 total"
+	// Vitest v2+: "Tests  5 passed (5)"
+	// Vitest v2+: "Tests  1 failed | 4 passed (5)"
 
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
-		// Jest/Vitest summary line - handle "Tests:" with variable whitespace
+		// Jest/Vitest summary line - handle "Tests:" with variable whitespace (Jest format)
 		if strings.HasPrefix(line, "Tests:") {
 			r.parseJestSummary(line, result)
+		}
+
+		// Vitest v2+ summary format: "Tests  X passed (Y)" (no colon)
+		if strings.HasPrefix(line, "Tests") && !strings.HasPrefix(line, "Tests:") && !strings.HasPrefix(line, "Test Files") {
+			r.parseVitestSummary(line, result)
 		}
 
 		// Mocha summary
@@ -174,21 +181,24 @@ func (r *NodeTestRunner) parseTestOutput(output string, result *TestResult) {
 			r.parseMochaSummary(line, result)
 		}
 
-		// Extract duration
+		// Extract duration from Jest/Vitest "Time:" line
 		if strings.Contains(line, "Time:") {
 			r.parseDuration(line, result)
 		}
+
+		// Extract duration from Vitest v2+ "Duration" line
+		if strings.HasPrefix(line, "Duration") {
+			r.parseVitestDuration(line, result)
+		}
 	}
 
-	// If we couldn't parse anything, set defaults
+	// If structured parsing didn't find counts, try counting test indicators
 	if result.Total == 0 {
-		// Check for simple success/failure indicators
-		if strings.Contains(output, "PASS") || strings.Contains(output, "✓") {
-			result.Passed = 1
-			result.Total = 1
-		} else if strings.Contains(output, "FAIL") || strings.Contains(output, "✗") {
-			result.Failed = 1
-			result.Total = 1
+		passed, failed := countTestIndicators(output)
+		if passed+failed > 0 {
+			result.Passed = passed
+			result.Failed = failed
+			result.Total = passed + failed
 		}
 	}
 }
@@ -254,6 +264,86 @@ func (r *NodeTestRunner) parseDuration(line string, result *TestResult) {
 			result.Duration = duration
 		}
 	}
+}
+
+// parseVitestSummary parses Vitest v2+ summary format.
+// Examples:
+//
+//	"Tests  5 passed (5)"
+//	"Tests  1 failed | 4 passed (5)"
+//	"Tests  2 skipped | 8 passed (10)"
+func (r *NodeTestRunner) parseVitestSummary(line string, result *TestResult) {
+	// Strip "Tests" prefix
+	line = strings.TrimPrefix(line, "Tests")
+	line = strings.TrimSpace(line)
+
+	if line == "" {
+		return
+	}
+
+	// Extract total from parenthesized value at end: "(X)"
+	totalRe := regexp.MustCompile(`\((\d+)\)\s*$`)
+	if matches := totalRe.FindStringSubmatch(line); len(matches) > 1 {
+		if num, err := strconv.Atoi(matches[1]); err == nil {
+			result.Total = num
+		}
+	}
+
+	// Parse "X passed", "X failed", "X skipped" segments separated by "|"
+	// Remove the trailing "(X)" first
+	line = totalRe.ReplaceAllString(line, "")
+	segments := strings.Split(line, "|")
+	for _, seg := range segments {
+		seg = strings.TrimSpace(seg)
+		if strings.Contains(seg, "passed") {
+			if num := extractNumber(seg); num >= 0 {
+				result.Passed = num
+			}
+		} else if strings.Contains(seg, "failed") {
+			if num := extractNumber(seg); num >= 0 {
+				result.Failed = num
+			}
+		} else if strings.Contains(seg, "skipped") {
+			if num := extractNumber(seg); num >= 0 {
+				result.Skipped = num
+			}
+		}
+	}
+
+	// If we got individual counts but no total, sum them
+	if result.Total == 0 && (result.Passed > 0 || result.Failed > 0) {
+		result.Total = result.Passed + result.Failed + result.Skipped
+	}
+}
+
+// parseVitestDuration parses Vitest v2+ duration line.
+// Example: "Duration  1.52s (transform 100ms, setup 0ms, collect 300ms, tests 20ms)"
+func (r *NodeTestRunner) parseVitestDuration(line string, result *TestResult) {
+	re := regexp.MustCompile(`Duration\s+([\d.]+)s`)
+	matches := re.FindStringSubmatch(line)
+	if len(matches) > 1 {
+		if duration, err := strconv.ParseFloat(matches[1], 64); err == nil {
+			result.Duration = duration
+		}
+	}
+}
+
+// countTestIndicators counts individual test pass/fail indicators in the output.
+// Used as a last resort when structured summary parsing fails.
+func countTestIndicators(output string) (passed, failed int) {
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// Count individual test result indicators
+		// Jest/Vitest: "✓ test name" or "✕ test name"
+		// Also: "✓" (checkmark) at start of line, "●" for failures
+		if strings.HasPrefix(line, "✓") || strings.HasPrefix(line, "√") {
+			passed++
+		} else if strings.HasPrefix(line, "✕") || strings.HasPrefix(line, "✗") || strings.HasPrefix(line, "×") {
+			failed++
+		}
+	}
+	return passed, failed
 }
 
 // extractNumber extracts the first number from a string.

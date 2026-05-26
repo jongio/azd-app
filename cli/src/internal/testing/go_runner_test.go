@@ -287,15 +287,13 @@ func TestGoTestRunner_parseTestOutput_BasicPass(t *testing.T) {
 	runner := NewGoTestRunner("/test/dir", &ServiceTestConfig{})
 	result := &TestResult{}
 
+	// Bare "PASS" without verbose test lines cannot determine count
 	output := `PASS`
 
 	runner.parseTestOutput(output, result)
 
-	if result.Total != 1 {
-		t.Errorf("Expected 1 total test for basic PASS, got %d", result.Total)
-	}
-	if result.Passed != 1 {
-		t.Errorf("Expected 1 passed test for basic PASS, got %d", result.Passed)
+	if result.Total != 0 {
+		t.Errorf("Expected 0 total tests for bare PASS (no countable indicators), got %d", result.Total)
 	}
 }
 
@@ -303,15 +301,34 @@ func TestGoTestRunner_parseTestOutput_BasicFail(t *testing.T) {
 	runner := NewGoTestRunner("/test/dir", &ServiceTestConfig{})
 	result := &TestResult{}
 
+	// Bare "FAIL" without verbose test lines cannot determine count
 	output := `FAIL`
 
 	runner.parseTestOutput(output, result)
 
-	if result.Total != 1 {
-		t.Errorf("Expected 1 total test for basic FAIL, got %d", result.Total)
+	if result.Total != 0 {
+		t.Errorf("Expected 0 total tests for bare FAIL (no countable indicators), got %d", result.Total)
 	}
-	if result.Failed != 1 {
-		t.Errorf("Expected 1 failed test for basic FAIL, got %d", result.Failed)
+}
+
+func TestGoTestRunner_parseTestOutput_RunLinesCountedAccurately(t *testing.T) {
+	runner := NewGoTestRunner("/test/dir", &ServiceTestConfig{})
+	result := &TestResult{}
+
+	// Output has RUN lines but no "--- PASS/FAIL" lines (unusual but possible with truncated output)
+	output := `=== RUN   TestOne
+=== RUN   TestTwo
+=== RUN   TestThree
+PASS
+ok  	example.com/pkg	0.001s`
+
+	runner.parseTestOutput(output, result)
+
+	if result.Total != 3 {
+		t.Errorf("Expected 3 total tests from RUN lines, got %d", result.Total)
+	}
+	if result.Passed != 3 {
+		t.Errorf("Expected 3 passed (overall PASS), got %d", result.Passed)
 	}
 }
 
