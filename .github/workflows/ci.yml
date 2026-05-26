@@ -124,7 +124,7 @@ jobs:
   test:
     name: Test
     runs-on: ${{ matrix.os }}
-    needs: [dashboard]
+    needs: [preflight, dashboard]
     timeout-minutes: 30
     permissions:
       contents: read
@@ -321,8 +321,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Python dependencies (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install Python dependencies (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           cd tests/projects/integration/health-test
           for dir in api worker; do
@@ -332,7 +333,7 @@ jobs:
           done
 
       - name: Install Python dependencies (Windows)
-        if: matrix.os == 'windows-latest'
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           cd tests/projects/integration/health-test
@@ -341,16 +342,6 @@ jobs:
             python -m pip install -r requirements.txt
             cd ..
           }
-
-      - name: Install Python dependencies (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          cd tests/projects/integration/health-test
-          for dir in api worker; do
-            cd $dir
-            python -m pip install -r requirements.txt
-            cd ..
-          done
 
       - name: Install Node.js dependencies
         run: |
