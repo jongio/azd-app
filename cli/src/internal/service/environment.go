@@ -270,7 +270,24 @@ func GenerateServiceURLs(processes map[string]*ServiceProcess) map[string]string
 	return urls
 }
 
+// SkippedEnvVar describes an environment variable that was skipped during .env parsing
+// due to an invalid variable name.
+type SkippedEnvVar struct {
+	Name   string
+	Line   int
+	Reason string
+}
+
+// DotEnvParseResult contains the results of parsing a .env file, including any variables
+// that were skipped due to invalid names.
+type DotEnvParseResult struct {
+	Vars    map[string]string
+	Skipped []SkippedEnvVar
+}
+
 // LoadDotEnv loads environment variables from a .env file.
+// Variables with invalid names (e.g., containing hyphens) are skipped with a warning,
+// and all valid variables are still loaded successfully.
 func LoadDotEnv(path string) (map[string]string, error) {
 	if err := security.ValidatePath(path); err != nil {
 		return nil, fmt.Errorf("invalid .env file path: %w", err)
@@ -283,10 +300,44 @@ func LoadDotEnv(path string) (map[string]string, error) {
 	}
 	defer func() { _ = file.Close() }()
 
+	result := parseDotEnv(file)
+
+	if err := result.err; err != nil {
+		return nil, fmt.Errorf("error reading .env file: %w", err)
+	}
+
+	// Emit warnings for skipped variables
+	if len(result.parsed.Skipped) > 0 {
+		names := make([]string, 0, len(result.parsed.Skipped))
+		for _, s := range result.parsed.Skipped {
+			names = append(names, s.Name)
+		}
+		fmt.Fprintf(os.Stderr, "Warning: %d variable(s) skipped in %s due to invalid names: %s\n",
+			len(result.parsed.Skipped), path, strings.Join(names, ", "))
+		for _, s := range result.parsed.Skipped {
+			fmt.Fprintf(os.Stderr, "  line %d: %q - %s\n", s.Line, s.Name, s.Reason)
+		}
+	}
+
+	return result.parsed.Vars, nil
+}
+
+// dotEnvParseOutput is the internal result from parseDotEnv including any scanner error.
+type dotEnvParseOutput struct {
+	parsed DotEnvParseResult
+	err    error
+}
+
+// parseDotEnv parses .env content from a reader, validating variable names and collecting
+// skipped entries. This is separated from LoadDotEnv for testability.
+func parseDotEnv(r *os.File) dotEnvParseOutput {
 	env := make(map[string]string)
-	scanner := bufio.NewScanner(file)
+	var skipped []SkippedEnvVar
+	scanner := bufio.NewScanner(r)
+	lineNum := 0
 
 	for scanner.Scan() {
+		lineNum++
 		line := strings.TrimSpace(scanner.Text())
 
 		// Skip empty lines and comments
@@ -306,14 +357,44 @@ func LoadDotEnv(path string) (map[string]string, error) {
 		// Remove quotes if present
 		value = strings.Trim(value, `"'`)
 
+		// Validate variable name - skip invalid but continue loading valid ones
+		if key == "" || !isValidEnvVarName(key) {
+			reason := describeInvalidVarName(key)
+			skipped = append(skipped, SkippedEnvVar{
+				Name:   key,
+				Line:   lineNum,
+				Reason: reason,
+			})
+			continue
+		}
+
 		env[key] = value
 	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading .env file: %w", err)
+	return dotEnvParseOutput{
+		parsed: DotEnvParseResult{
+			Vars:    env,
+			Skipped: skipped,
+		},
+		err: scanner.Err(),
 	}
+}
 
-	return env, nil
+// describeInvalidVarName returns a human-readable reason why a variable name is invalid.
+func describeInvalidVarName(name string) string {
+	if name == "" {
+		return "variable name is empty"
+	}
+	first := name[0]
+	if (first < 'A' || first > 'Z') && (first < 'a' || first > 'z') && first != '_' {
+		return "variable names must start with a letter or underscore"
+	}
+	for _, ch := range name {
+		if (ch < 'A' || ch > 'Z') && (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '_' {
+			return fmt.Sprintf("variable names cannot contain '%c' (only letters, digits, and underscores are allowed)", ch)
+		}
+	}
+	return "contains invalid characters"
 }
 
 // isValidEnvVarName checks if an environment variable name is valid.

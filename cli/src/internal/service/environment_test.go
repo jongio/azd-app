@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -668,6 +670,207 @@ func TestLoadDotEnvInvalidPath(t *testing.T) {
 	_, err := LoadDotEnv("/nonexistent/path/to/.env")
 	if err == nil {
 		t.Error("LoadDotEnv() with invalid path should return error")
+	}
+}
+
+func TestLoadDotEnvPartialLoadWithInvalidNames(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping file I/O test in short mode")
+	}
+
+	tests := []struct {
+		name        string
+		content     string
+		wantVars    map[string]string
+		wantSkipped int
+	}{
+		{
+			name:    "mixed valid and invalid var names",
+			content: "VALID_VAR=hello\nMY-INVALID-VAR=world\nANOTHER_VALID=yes\n",
+			wantVars: map[string]string{
+				"VALID_VAR":     "hello",
+				"ANOTHER_VALID": "yes",
+			},
+			wantSkipped: 1,
+		},
+		{
+			name:    "multiple invalid var names",
+			content: "GOOD=1\nbad-one=2\nalso.bad=3\nOK_TOO=4\n",
+			wantVars: map[string]string{
+				"GOOD":   "1",
+				"OK_TOO": "4",
+			},
+			wantSkipped: 2,
+		},
+		{
+			name:    "all valid",
+			content: "A=1\nB=2\nC_D=3\n",
+			wantVars: map[string]string{
+				"A":   "1",
+				"B":   "2",
+				"C_D": "3",
+			},
+			wantSkipped: 0,
+		},
+		{
+			name:    "var starting with digit",
+			content: "VALID=ok\n1INVALID=bad\n_ALSO_VALID=fine\n",
+			wantVars: map[string]string{
+				"VALID":       "ok",
+				"_ALSO_VALID": "fine",
+			},
+			wantSkipped: 1,
+		},
+		{
+			name:    "var with spaces in name",
+			content: "GOOD=1\nBAD NAME=2\nALSO_GOOD=3\n",
+			wantVars: map[string]string{
+				"GOOD":      "1",
+				"ALSO_GOOD": "3",
+			},
+			wantSkipped: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			envFile := filepath.Join(tmpDir, ".env")
+			err := os.WriteFile(envFile, []byte(tt.content), 0o644)
+			if err != nil {
+				t.Fatalf("failed to create test file: %v", err)
+			}
+
+			// Capture stderr to verify warnings are emitted
+			oldStderr := os.Stderr
+			r, w, _ := os.Pipe()
+			os.Stderr = w
+
+			got, err := LoadDotEnv(envFile)
+
+			w.Close()
+			os.Stderr = oldStderr
+
+			var stderrBuf [4096]byte
+			n, _ := r.Read(stderrBuf[:])
+			stderrOutput := string(stderrBuf[:n])
+			r.Close()
+
+			if err != nil {
+				t.Fatalf("LoadDotEnv() unexpected error: %v", err)
+			}
+
+			// Verify valid variables are loaded
+			if len(got) != len(tt.wantVars) {
+				t.Errorf("LoadDotEnv() returned %d vars, want %d. Got: %v", len(got), len(tt.wantVars), got)
+			}
+			for key, want := range tt.wantVars {
+				if got[key] != want {
+					t.Errorf("LoadDotEnv()[%q] = %q, want %q", key, got[key], want)
+				}
+			}
+
+			// Verify warnings are emitted for skipped vars
+			if tt.wantSkipped > 0 {
+				if stderrOutput == "" {
+					t.Error("expected warning on stderr for skipped variables, got nothing")
+				}
+				wantMsg := fmt.Sprintf("%d variable(s) skipped", tt.wantSkipped)
+				if !strings.Contains(stderrOutput, wantMsg) {
+					t.Errorf("stderr warning should contain %q, got: %s", wantMsg, stderrOutput)
+				}
+			} else {
+				if stderrOutput != "" {
+					t.Errorf("expected no stderr output when all vars valid, got: %s", stderrOutput)
+				}
+			}
+		})
+	}
+}
+
+func TestParseDotEnvSkippedVarDetails(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping file I/O test in short mode")
+	}
+
+	content := "VALID=hello\nMY-HYPHEN-VAR=world\n3STARTS_WITH_DIGIT=bad\nGOOD=yes\n"
+	tmpDir := t.TempDir()
+	envFile := filepath.Join(tmpDir, ".env")
+	err := os.WriteFile(envFile, []byte(content), 0o644)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	file, err := os.Open(envFile)
+	if err != nil {
+		t.Fatalf("failed to open test file: %v", err)
+	}
+	defer file.Close()
+
+	result := parseDotEnv(file)
+
+	if result.err != nil {
+		t.Fatalf("parseDotEnv() unexpected error: %v", result.err)
+	}
+
+	// Check valid vars
+	if len(result.parsed.Vars) != 2 {
+		t.Errorf("parseDotEnv() returned %d valid vars, want 2. Got: %v", len(result.parsed.Vars), result.parsed.Vars)
+	}
+	if result.parsed.Vars["VALID"] != "hello" {
+		t.Errorf("parseDotEnv().Vars[VALID] = %q, want %q", result.parsed.Vars["VALID"], "hello")
+	}
+	if result.parsed.Vars["GOOD"] != "yes" {
+		t.Errorf("parseDotEnv().Vars[GOOD] = %q, want %q", result.parsed.Vars["GOOD"], "yes")
+	}
+
+	// Check skipped vars
+	if len(result.parsed.Skipped) != 2 {
+		t.Fatalf("parseDotEnv() skipped %d vars, want 2. Got: %v", len(result.parsed.Skipped), result.parsed.Skipped)
+	}
+
+	// First skipped: MY-HYPHEN-VAR on line 2
+	if result.parsed.Skipped[0].Name != "MY-HYPHEN-VAR" {
+		t.Errorf("Skipped[0].Name = %q, want %q", result.parsed.Skipped[0].Name, "MY-HYPHEN-VAR")
+	}
+	if result.parsed.Skipped[0].Line != 2 {
+		t.Errorf("Skipped[0].Line = %d, want 2", result.parsed.Skipped[0].Line)
+	}
+	if !strings.Contains(result.parsed.Skipped[0].Reason, "'-'") {
+		t.Errorf("Skipped[0].Reason should mention '-', got: %s", result.parsed.Skipped[0].Reason)
+	}
+
+	// Second skipped: 3STARTS_WITH_DIGIT on line 3
+	if result.parsed.Skipped[1].Name != "3STARTS_WITH_DIGIT" {
+		t.Errorf("Skipped[1].Name = %q, want %q", result.parsed.Skipped[1].Name, "3STARTS_WITH_DIGIT")
+	}
+	if result.parsed.Skipped[1].Line != 3 {
+		t.Errorf("Skipped[1].Line = %d, want 3", result.parsed.Skipped[1].Line)
+	}
+	if !strings.Contains(result.parsed.Skipped[1].Reason, "start with") {
+		t.Errorf("Skipped[1].Reason should mention starting requirement, got: %s", result.parsed.Skipped[1].Reason)
+	}
+}
+
+func TestDescribeInvalidVarName(t *testing.T) {
+	tests := []struct {
+		name       string
+		varName    string
+		wantSubstr string
+	}{
+		{name: "empty", varName: "", wantSubstr: "empty"},
+		{name: "starts with digit", varName: "9VAR", wantSubstr: "start with"},
+		{name: "contains hyphen", varName: "MY-VAR", wantSubstr: "'-'"},
+		{name: "contains dot", varName: "MY.VAR", wantSubstr: "'.'"},
+		{name: "contains space", varName: "MY VAR", wantSubstr: "' '"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := describeInvalidVarName(tt.varName)
+			if !strings.Contains(got, tt.wantSubstr) {
+				t.Errorf("describeInvalidVarName(%q) = %q, want substring %q", tt.varName, got, tt.wantSubstr)
+			}
+		})
 	}
 }
 
