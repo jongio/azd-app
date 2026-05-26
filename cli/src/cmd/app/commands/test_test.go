@@ -1,6 +1,9 @@
 package commands
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	testrunner "github.com/jongio/azd-app/cli/src/internal/testing"
@@ -373,4 +376,106 @@ func TestDisplayTestResults_EmptyServices(t *testing.T) {
 
 	// Should not panic
 	displayTestResults(result)
+}
+
+// TestEnvFlagRegistered tests that --env flag is registered with -e shortcut.
+func TestEnvFlagRegistered(t *testing.T) {
+	cmd := NewTestCommand()
+
+	envFlag := cmd.Flags().Lookup("env")
+	if envFlag == nil {
+		t.Fatal("Expected --env flag to be registered")
+	}
+
+	if envFlag.DefValue != "" {
+		t.Errorf("Expected env default to be empty, got %q", envFlag.DefValue)
+	}
+
+	shortFlag := cmd.Flags().ShorthandLookup("e")
+	if shortFlag == nil || shortFlag.Name != "env" {
+		t.Error("Expected -e shortcut for --env flag")
+	}
+}
+
+// TestLoadAzdEnvironment tests loading azd environment variables from .azure/<env>/.env.
+func TestLoadAzdEnvironment(t *testing.T) {
+	t.Run("loads environment variables", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create azure.yaml
+		azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
+		if err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create .azure/staging/.env
+		envDir := filepath.Join(tmpDir, ".azure", "staging")
+		if err := os.MkdirAll(envDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		envContent := "API_URL=https://staging.example.com\nDB_HOST=staging-db.internal\n"
+		if err := os.WriteFile(filepath.Join(envDir, ".env"), []byte(envContent), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		// Clear env vars that might be set
+		os.Unsetenv("API_URL")
+		os.Unsetenv("DB_HOST")
+
+		err := loadAzdEnvironment(azureYamlPath, "staging")
+		if err != nil {
+			t.Fatalf("loadAzdEnvironment() error = %v", err)
+		}
+
+		// Verify env vars are set
+		if got := os.Getenv("API_URL"); got != "https://staging.example.com" {
+			t.Errorf("API_URL = %q, want %q", got, "https://staging.example.com")
+		}
+		if got := os.Getenv("DB_HOST"); got != "staging-db.internal" {
+			t.Errorf("DB_HOST = %q, want %q", got, "staging-db.internal")
+		}
+
+		// Cleanup
+		os.Unsetenv("API_URL")
+		os.Unsetenv("DB_HOST")
+	})
+
+	t.Run("returns error for nonexistent environment", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
+		if err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		err := loadAzdEnvironment(azureYamlPath, "nonexistent")
+		if err == nil {
+			t.Fatal("Expected error for nonexistent environment")
+		}
+
+		if !strings.Contains(err.Error(), "nonexistent") {
+			t.Errorf("Error should mention environment name, got: %v", err)
+		}
+	})
+
+	t.Run("handles empty env file", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
+		if err := os.WriteFile(azureYamlPath, []byte("name: test\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		envDir := filepath.Join(tmpDir, ".azure", "empty-env")
+		if err := os.MkdirAll(envDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(envDir, ".env"), []byte(""), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		err := loadAzdEnvironment(azureYamlPath, "empty-env")
+		if err != nil {
+			t.Fatalf("loadAzdEnvironment() error = %v", err)
+		}
+	})
 }

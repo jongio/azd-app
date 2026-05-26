@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/testing"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/spf13/cobra"
@@ -36,6 +38,7 @@ type TestOptions struct {
 	Timeout         time.Duration
 	Save            bool
 	NoSave          bool
+	Environment     string
 }
 
 // NewTestCommand creates the test command.
@@ -85,6 +88,7 @@ func NewTestCommand() *cobra.Command {
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", 10*time.Minute, "Per-service test timeout (e.g., 5m, 30s, 1h)")
 	cmd.Flags().BoolVar(&opts.Save, "save", false, "Save auto-detected test config to azure.yaml without prompting")
 	cmd.Flags().BoolVar(&opts.NoSave, "no-save", false, "Don't prompt to save auto-detected test config")
+	cmd.Flags().StringVarP(&opts.Environment, "env", "e", "", "Target azd environment name (loads vars from .azure/<env>/.env)")
 
 	return cmd
 }
@@ -139,6 +143,13 @@ func runTests(commandOrchestrator *orchestrator.Orchestrator, opts *TestOptions)
 
 	if azureYamlPath == "" {
 		return fmt.Errorf("azure.yaml not found - create one to define services for testing")
+	}
+
+	// Load azd environment variables if --env is specified
+	if opts.Environment != "" {
+		if err := loadAzdEnvironment(azureYamlPath, opts.Environment); err != nil {
+			return fmt.Errorf("failed to load environment %q: %w", opts.Environment, err)
+		}
 	}
 
 	// Create test configuration
@@ -250,6 +261,9 @@ func runTestDryRun(orchestrator *testing.TestOrchestrator, opts *TestOptions, se
 			cliout.Item("Output mode: progress bars (forced)")
 		} else {
 			cliout.Item("Output mode: auto")
+		}
+		if opts.Environment != "" {
+			cliout.Item("Environment: %s", opts.Environment)
 		}
 		cliout.Newline()
 	}
@@ -451,4 +465,30 @@ func displayTestResults(result *testing.AggregateResult) {
 	cliout.Item("Total: %d passed, %d failed, %d skipped, %d total",
 		result.Passed, result.Failed, result.Skipped, result.Total)
 	cliout.Item("Duration: %.2fs", result.Duration)
+}
+
+// loadAzdEnvironment loads environment variables from an azd environment's .env file
+// and sets them in the current process so child processes (test runners) inherit them.
+// The env file is located at .azure/<envName>/.env relative to the project root.
+func loadAzdEnvironment(azureYamlPath string, envName string) error {
+	projectDir := filepath.Dir(azureYamlPath)
+	envFilePath := filepath.Join(projectDir, ".azure", envName, ".env")
+
+	if _, err := os.Stat(envFilePath); os.IsNotExist(err) {
+		return fmt.Errorf("environment %q not found (expected file: %s)", envName, envFilePath)
+	}
+
+	envVars, err := service.LoadDotEnv(envFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read environment file: %w", err)
+	}
+
+	for key, value := range envVars {
+		if err := os.Setenv(key, value); err != nil {
+			return fmt.Errorf("failed to set environment variable %q: %w", key, err)
+		}
+	}
+
+	cliout.Info("Loaded %d environment variables from %q", len(envVars), envName)
+	return nil
 }

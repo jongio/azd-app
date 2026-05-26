@@ -57,6 +57,12 @@ azd app test --dry-run
 
 # Verbose output
 azd app test --verbose
+
+# Run e2e tests against a deployed environment
+azd app test --type e2e --env staging
+
+# Run all tests with environment variables from production
+azd app test --env production
 ```
 
 ## Flags
@@ -66,6 +72,7 @@ azd app test --verbose
 | `--type` | `-t` | string | `all` | Test type to run: `unit`, `integration`, `e2e`, or `all` |
 | `--coverage` | `-c` | bool | `false` | Generate code coverage reports |
 | `--service` | `-s` | string | `""` | Run tests for specific service(s) (comma-separated) |
+| `--env` | `-e` | string | `""` | Target azd environment name (loads vars from `.azure/<env>/.env`) |
 | `--watch` | `-w` | bool | `false` | Watch mode - re-run tests on file changes |
 | `--update-snapshots` | `-u` | bool | `false` | Update test snapshots (for snapshot testing) |
 | `--fail-fast` | | bool | `false` | Stop on first test failure |
