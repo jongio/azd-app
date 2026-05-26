@@ -92,27 +92,6 @@ test.describe('Console - Logs UX', () => {
   })
 
   test('local-only services do not use Azure logs even when global mode is Azure', async ({ page }) => {
-    let azureRequestedForWeb = false
-    let azureRequestedForApi = false
-
-    // Post-Connect-RPC the legacy `GET /api/azure/logs?service=...` is
-    // gone - the dashboard now POSTs to
-    // `/azdapp.v1.AzureService/GetAzureLogs` with a JSON body carrying
-    // the service name. Sniff the request body instead of the URL
-    // query string so the per-service assertion still works.
-    page.on('request', req => {
-      const url = req.url()
-      if (!url.includes('/azdapp.v1.AzureService/GetAzureLogs')) return
-      try {
-        const body = req.postData() ?? ''
-        const parsed = JSON.parse(body) as { service?: string }
-        if (parsed.service === 'web') azureRequestedForWeb = true
-        if (parsed.service === 'api') azureRequestedForApi = true
-      } catch {
-        // Ignore body parsing issues
-      }
-    })
-
     const scenario = {
       services: [
         createServiceFixture({ name: 'api', status: 'running', health: 'healthy', port: 3001 }),
@@ -134,13 +113,28 @@ test.describe('Console - Logs UX', () => {
     await waitForDashboardReady(page)
 
     // The page starts in local mode and then asynchronously reads /api/mode.
-    // Wait until the UI reflects Azure mode and the Azure-pane request has occurred.
+    // Wait until the UI reflects Azure mode.
     await expect(page.getByText('Viewing Azure Logs')).toBeVisible()
-    await expect.poll(() => azureRequestedForApi, { timeout: 15000 }).toBe(true)
+
+    // The in-page fetch interceptor (addInitScript) tracks which services
+    // triggered GetAzureLogs calls via window.__azureLogsCalledFor. This
+    // avoids the abort race between React state updates and the Connect
+    // transport's async setup that makes page.on('request') unreliable.
+    await expect.poll(async () => {
+      const calls = await page.evaluate(() =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).__azureLogsCalledFor as string[],
+      )
+      return calls.includes('api')
+    }, { timeout: 15000 }).toBe(true)
 
     // The local-only service should never request Azure logs.
-    await page.waitForTimeout(300)
-    expect(azureRequestedForWeb).toBeFalsy()
+    await page.waitForTimeout(500)
+    const azureCalls = await page.evaluate(() =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).__azureLogsCalledFor as string[],
+    )
+    expect(azureCalls).not.toContain('web')
 
     // UI should reflect mixed log sources.
     await expect(page.getByText('Viewing Local Logs')).toBeVisible()

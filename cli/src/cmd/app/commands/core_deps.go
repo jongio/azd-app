@@ -445,7 +445,102 @@ func detectProjectsFromAzureYaml(searchRoot string) ([]types.NodeProject, []type
 		}
 	}
 
+	// Link workspace children to their workspace roots.
+	// When services are defined in azure.yaml, the workspace root may not be
+	// listed as a service itself. Detect workspace roots by walking up from each
+	// project directory, and add implicit workspace root projects so that the
+	// workspace handler can correctly deduplicate installs.
+	nodeProjects = linkWorkspaceChildren(nodeProjects, absSearchRoot)
+
 	return nodeProjects, pythonProjects, dotnetProjects, nil
+}
+
+// linkWorkspaceChildren finds workspace roots for Node.js projects and links
+// children to their roots. If a workspace root is not already in the projects
+// list, it is added automatically. This ensures FilterNodeProjects can correctly
+// skip workspace children and install only at the root.
+func linkWorkspaceChildren(projects []types.NodeProject, searchRoot string) []types.NodeProject {
+	if len(projects) == 0 {
+		return projects
+	}
+
+	// Collect existing workspace roots, mapping absolute path to original Dir value.
+	// This ensures children's WorkspaceRoot matches the root's Dir in FilterNodeProjects.
+	workspaceRootDirs := make(map[string]string) // abs path → project.Dir
+	for _, p := range projects {
+		if p.IsWorkspaceRoot {
+			absDir, err := filepath.Abs(p.Dir)
+			if err != nil {
+				continue
+			}
+			workspaceRootDirs[absDir] = p.Dir
+		}
+	}
+
+	// For each non-root project, walk up to find its workspace root
+	discoveredRoots := make(map[string]bool)
+	for i := range projects {
+		if projects[i].IsWorkspaceRoot {
+			continue
+		}
+
+		absDir, err := filepath.Abs(projects[i].Dir)
+		if err != nil {
+			continue
+		}
+
+		// Walk up from project dir looking for a workspace root
+		root := findWorkspaceRootUpward(absDir, searchRoot)
+		if root == "" {
+			continue
+		}
+
+		if origDir, exists := workspaceRootDirs[root]; exists {
+			// Root already in project list; use its original Dir for path consistency
+			projects[i].WorkspaceRoot = origDir
+		} else {
+			// Root not in project list; use absolute path (will match added root's Dir)
+			projects[i].WorkspaceRoot = root
+			discoveredRoots[root] = true
+		}
+	}
+
+	// Add discovered workspace roots that aren't already in the list
+	for root := range discoveredRoots {
+		pm := detector.DetectNodePackageManager(root)
+		projects = append([]types.NodeProject{{
+			Dir:             root,
+			PackageManager:  pm,
+			IsWorkspaceRoot: true,
+		}}, projects...)
+	}
+
+	return projects
+}
+
+// findWorkspaceRootUpward walks up from startDir toward boundaryDir looking for
+// a directory that contains pnpm-workspace.yaml or a package.json with workspaces.
+// Returns the absolute path of the workspace root, or empty string if not found.
+func findWorkspaceRootUpward(startDir, boundaryDir string) string {
+	dir := startDir
+	for {
+		// Don't search above the boundary (project root)
+		rel, err := filepath.Rel(boundaryDir, dir)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			return ""
+		}
+
+		if detector.HasNpmWorkspaces(dir) {
+			return dir
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached filesystem root
+			return ""
+		}
+		dir = parent
+	}
 }
 
 // isSubdirectory checks if path is a subdirectory of any path in the set.

@@ -1041,11 +1041,34 @@ export async function mockConnectRoutes(page: Page, options: MockConnectOptions 
   // Everything else falls through to Playwright's normal routing.
   const healthFrameBytes = Array.from(encodeStreamEnvelopeNoEnd(streamReportFrame))
   await page.addInitScript(
-    ({ frameBytes, matchUrl }) => {
+    ({ frameBytes, healthMatchUrl, neverCloseStreams }) => {
       const origFetch = window.fetch.bind(window)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = window as any
+      w.__streamHealthIntercepted = false
+      w.__sessionTokenIntercepted = false
+      w.__neverCloseIntercepted = [] as string[]
+      // Track which services request Azure/local logs (set by in-page
+      // fetch intercept to avoid the abort race with React state updates)
+      w.__azureLogsCalledFor = [] as string[]
+      w.__localLogsCalledFor = [] as string[]
       window.fetch = (input, init) => {
         const url = typeof input === 'string' ? input : (input as Request).url
-        if (url.includes(matchUrl)) {
+        // Resolve the session token in-page so that the Connect
+        // interceptor never blocks waiting for a page.route round-trip.
+        if (url.endsWith('/api/session-token') || url.includes('/api/session-token')) {
+          w.__sessionTokenIntercepted = true
+          return Promise.resolve(
+            new Response('test-token', {
+              status: 200,
+              headers: { 'content-type': 'text/plain' },
+            }),
+          )
+        }
+        // StreamHealth: deliver one health report frame, then keep the
+        // stream open forever so `connected` stays true.
+        if (url.includes(healthMatchUrl)) {
+          w.__streamHealthIntercepted = true
           const stream = new ReadableStream<Uint8Array>({
             start(controller) {
               controller.enqueue(new Uint8Array(frameBytes))
@@ -1060,10 +1083,75 @@ export async function mockConnectRoutes(page: Page, options: MockConnectOptions 
             }),
           )
         }
+        // Intercept GetAzureLogs unary RPC in-page to avoid the abort
+        // race: React state updates in useLogsStream (setIsLoading etc.)
+        // trigger re-renders that abort the fetch before the Connect
+        // transport completes its async setup. By resolving here, the
+        // response reaches the hook before any abort can fire.
+        if (url.includes('AzureService/GetAzureLogs')) {
+          try {
+            // Connect serializes bodies as Uint8Array even in JSON mode
+            let bodyStr = ''
+            if (typeof init?.body === 'string') bodyStr = init.body
+            else if (init?.body instanceof Uint8Array) bodyStr = new TextDecoder().decode(init.body)
+            else if (init?.body instanceof ArrayBuffer) bodyStr = new TextDecoder().decode(new Uint8Array(init.body))
+            const parsed = JSON.parse(bodyStr || '{}') as { service?: string }
+            w.__azureLogsCalledFor.push(parsed.service ?? '')
+          } catch { /* ignore parse errors */ }
+          return Promise.resolve(
+            new Response(JSON.stringify({ entries: [] }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }),
+          )
+        }
+        // Intercept GetLogs (local mode) unary RPC similarly.
+        if (url.includes('LogsService/GetLogs')) {
+          try {
+            // Connect serializes bodies as Uint8Array even in JSON mode
+            let bodyStr = ''
+            if (typeof init?.body === 'string') bodyStr = init.body
+            else if (init?.body instanceof Uint8Array) bodyStr = new TextDecoder().decode(init.body)
+            else if (init?.body instanceof ArrayBuffer) bodyStr = new TextDecoder().decode(new Uint8Array(init.body))
+            const parsed = JSON.parse(bodyStr || '{}') as { serviceName?: string }
+            w.__localLogsCalledFor.push(parsed.serviceName ?? '')
+          } catch { /* ignore parse errors */ }
+          return Promise.resolve(
+            new Response(JSON.stringify({ entries: [], tailClamped: false }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }),
+          )
+        }
+        // Intercept server-streaming RPCs that would otherwise close
+        // immediately (end-trailer via page.route) and trigger
+        // reconnection floods. Return never-closing empty streams so
+        // hooks stay quiet and don't saturate the page.route IPC channel.
+        for (const pattern of neverCloseStreams) {
+          if (url.includes(pattern)) {
+            w.__neverCloseIntercepted.push(pattern.split('/').pop())
+            const emptyStream = new ReadableStream<Uint8Array>({ start() { /* no data, never closes */ } })
+            return Promise.resolve(
+              new Response(emptyStream, {
+                status: 200,
+                headers: { 'content-type': 'application/connect+json' },
+              }),
+            )
+          }
+        }
         return origFetch(input, init)
       }
     },
-    { frameBytes: healthFrameBytes, matchUrl: 'azdapp.v1.HealthService/StreamHealth' },
+    {
+      frameBytes: healthFrameBytes,
+      healthMatchUrl: 'azdapp.v1.HealthService/StreamHealth',
+      neverCloseStreams: [
+        'azdapp.v1.LifecycleService/StreamBroadcast',
+        'azdapp.v1.HealthService/StreamStateTransitions',
+        'azdapp.v1.LogsService/StreamLocalLogs',
+        'azdapp.v1.AzureService/StreamAzureLogs',
+      ],
+    },
   )
   await mockConnectServerStream(page, 'HealthService', 'StreamStateTransitions', () => [])
 
