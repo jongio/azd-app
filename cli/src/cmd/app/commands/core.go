@@ -100,7 +100,7 @@ func executeReqs() error {
 	// Load azure.yaml
 	azureYamlPath, azureYaml, err := loadAzureYaml()
 	if err != nil {
-		return err
+		return fmt.Errorf("load azure.yaml: %w", err)
 	}
 
 	// Build effective requirements list

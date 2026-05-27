@@ -93,7 +93,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	// Find azure.yaml
 	azureYamlPath, err := findAzureYamlForAdd()
 	if err != nil {
-		return err
+		return fmt.Errorf("find azure.yaml: %w", err)
 	}
 
 	// Check if service already exists

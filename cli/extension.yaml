@@ -3,7 +3,7 @@ namespace: app
 displayName: App Extension
 description: A collection of developer productivity commands for Azure Developer CLI
 usage: azd app <command> [options]
-# Keep this version aligned with the latest registry.json entry (currently 0.14.0).
+# Keep this version aligned with the latest registry.json entry.
 version: 0.15.1
 language: go
 capabilities:

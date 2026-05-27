@@ -146,8 +146,8 @@ type logsOptions struct {
 	since        string
 	timestamps   bool
 	noColor      bool
-	level        string
-	format       string
+	level  string
+	output string
 	file         string
 	exclude      string
 	noBuiltins   bool
@@ -256,10 +256,10 @@ Examples:
   azd app logs --file logs.txt
 
   # Output as JSON for processing
-  azd app logs --format json
+  azd app logs --output json
 
   # Output errors as JSON with context
-  azd app logs --level error --context 3 --format json
+  azd app logs --level error --context 3 --output json
 
   # View logs from Azure-deployed services
   azd app logs --source azure
@@ -282,7 +282,11 @@ Examples:
 	cmd.Flags().BoolVar(&opts.timestamps, "timestamps", true, "Show timestamps with each log entry")
 	cmd.Flags().BoolVar(&opts.noColor, "no-color", false, "Disable colored output")
 	cmd.Flags().StringVar(&opts.level, "level", "all", "Filter by log level (info, warn, error, debug, all)")
-	cmd.Flags().StringVar(&opts.format, "format", "text", "Output format (text, json)")
+	cmd.Flags().StringVarP(&opts.output, "output", "o", "text", "Output format (text, json)")
+
+	// Keep --format as hidden alias for backward compatibility
+	cmd.Flags().StringVar(&opts.output, "format", "text", "Output format (text, json)")
+	_ = cmd.Flags().MarkHidden("format")
 	cmd.Flags().StringVar(&opts.file, "file", "", "Write logs to file instead of stdout")
 	cmd.Flags().StringVar(&opts.exclude, "exclude", "", "Regex patterns to exclude (comma-separated)")
 	cmd.Flags().BoolVar(&opts.noBuiltins, "no-builtins", false, "Disable built-in filter patterns")
@@ -353,13 +357,13 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 
 	// Display logs
 	if collected.HasContext {
-		if e.opts.format == jsonOutputVal {
+		if e.opts.output == jsonOutputVal {
 			displayLogsWithContextJSON(collected.EntriesWithContext, outputWriter)
 		} else {
 			displayLogsWithContextText(collected.EntriesWithContext, outputWriter, e.opts.timestamps, e.opts.noColor)
 		}
 	} else {
-		if e.opts.format == jsonOutputVal {
+		if e.opts.output == jsonOutputVal {
 			displayLogsJSON(collected.Entries, outputWriter)
 		} else {
 			displayLogsText(collected.Entries, outputWriter, e.opts.timestamps, e.opts.noColor)

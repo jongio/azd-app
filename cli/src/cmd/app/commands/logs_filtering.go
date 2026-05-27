@@ -252,12 +252,12 @@ func validateLogsOptions(opts *logsOptions) error {
 		opts.tail = maxTailLines
 	}
 
-	// Validate format
-	switch opts.format {
+	// Validate output format
+	switch opts.output {
 	case "text", jsonOutputVal:
 		// Valid formats
 	default:
-		return fmt.Errorf("--format must be 'text' or 'json', got '%s'", opts.format)
+		return fmt.Errorf("--output must be 'text' or 'json', got '%s'", opts.output)
 	}
 
 	// Validate level

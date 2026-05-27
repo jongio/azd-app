@@ -30,7 +30,7 @@ func TestValidateLogsOptions(t *testing.T) {
 		{"valid source azure", 100, "text", "all", "", "azure", 0, false, ""},
 		{"valid source all", 100, "text", "all", "", "all", 0, false, ""},
 		{"negative tail", -1, "text", "all", "", "local", 0, true, "--tail must be a positive"},
-		{"invalid format", 100, "xml", "all", "", "local", 0, true, "--format must be"},
+		{"invalid format", 100, "xml", "all", "", "local", 0, true, "--output must be"},
 		{"invalid level", 100, "text", "trace", "", "local", 0, true, "--level must be one of"},
 		{"invalid since", 100, "text", "all", "5x", "local", 0, true, "--since must be a valid duration"},
 		{"invalid source", 100, "text", "all", "", "remote", 0, true, "--source must be"},
@@ -47,7 +47,7 @@ func TestValidateLogsOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			opts := &logsOptions{
 				tail:         tt.tail,
-				format:       tt.format,
+				output:       tt.format,
 				level:        tt.level,
 				since:        tt.since,
 				source:       tt.source,
@@ -73,7 +73,7 @@ func TestValidateLogsOptions(t *testing.T) {
 	t.Run("tail capped value", func(t *testing.T) {
 		opts := &logsOptions{
 			tail:   20000,
-			format: "text",
+			output:       "text",
 			level:  "all",
 			since:  "",
 			source: "local",
@@ -90,7 +90,7 @@ func TestValidateLogsOptions(t *testing.T) {
 	t.Run("zero tail is valid", func(t *testing.T) {
 		opts := &logsOptions{
 			tail:   0,
-			format: "text",
+			output:       "text",
 			level:  "all",
 			since:  "",
 			source: "local",
@@ -106,7 +106,7 @@ func TestValidateLogsOptions(t *testing.T) {
 		for _, level := range levels {
 			opts := &logsOptions{
 				tail:   100,
-				format: "text",
+				output:       "text",
 				level:  level,
 				since:  "",
 				source: "local",
@@ -123,7 +123,7 @@ func TestValidateLogsOptions(t *testing.T) {
 		for _, d := range durations {
 			opts := &logsOptions{
 				tail:   100,
-				format: "text",
+				output:       "text",
 				level:  "all",
 				since:  d,
 				source: "local",
@@ -138,7 +138,7 @@ func TestValidateLogsOptions(t *testing.T) {
 	t.Run("context negative clamped to zero", func(t *testing.T) {
 		opts := &logsOptions{
 			tail:         100,
-			format:       "text",
+			output:       "text",
 			level:        "error",
 			since:        "",
 			source:       "local",
@@ -156,7 +156,7 @@ func TestValidateLogsOptions(t *testing.T) {
 	t.Run("context above max clamped to 10", func(t *testing.T) {
 		opts := &logsOptions{
 			tail:         100,
-			format:       "text",
+			output:       "text",
 			level:        "error",
 			since:        "",
 			source:       "local",
@@ -239,7 +239,7 @@ func TestLogsCommandStructure(t *testing.T) {
 	t.Run("flags exist", func(t *testing.T) {
 		flags := []string{
 			"follow", "service", "tail", "since", "timestamps",
-			"no-color", "level", "format", "file", "exclude", "no-builtins", "context",
+			"no-color", "level", "output", "format", "file", "exclude", "no-builtins", "context",
 		}
 		for _, flag := range flags {
 			if cmd.Flags().Lookup(flag) == nil {
@@ -257,6 +257,9 @@ func TestLogsCommandStructure(t *testing.T) {
 		}
 		if cmd.Flags().ShorthandLookup("n") == nil {
 			t.Error("Shorthand -n should exist for --tail")
+		}
+		if cmd.Flags().ShorthandLookup("o") == nil {
+			t.Error("Shorthand -o should exist for --output")
 		}
 		// Note: --exclude no longer has a shorthand (-e) to avoid conflict with root --environment flag
 	})
@@ -277,9 +280,9 @@ func TestLogsCommandStructure(t *testing.T) {
 			t.Errorf("level default = %q, want %q", levelFlag.DefValue, "all")
 		}
 
-		formatFlag := cmd.Flags().Lookup("format")
+		formatFlag := cmd.Flags().Lookup("output")
 		if formatFlag.DefValue != "text" {
-			t.Errorf("format default = %q, want %q", formatFlag.DefValue, "text")
+			t.Errorf("output default = %q, want %q", formatFlag.DefValue, "text")
 		}
 
 		contextFlag := cmd.Flags().Lookup("context")
@@ -299,7 +302,7 @@ func TestLogsOptionsDocumentation(t *testing.T) {
 		timestamps:   true,
 		noColor:      false,
 		level:        "info",
-		format:       "text",
+		output:       "text",
 		file:         "output.log",
 		exclude:      "pattern",
 		noBuiltins:   false,
@@ -328,8 +331,8 @@ func TestLogsOptionsDocumentation(t *testing.T) {
 	if opts.level != "info" {
 		t.Error("level field")
 	}
-	if opts.format != "text" {
-		t.Error("format field")
+	if opts.output != "text" {
+		t.Error("output field")
 	}
 	if opts.file != "output.log" {
 		t.Error("file field")

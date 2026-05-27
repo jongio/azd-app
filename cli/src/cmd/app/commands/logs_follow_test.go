@@ -34,7 +34,7 @@ func (s *safeBuf) String() string {
 // newTestExecutor creates a logsExecutor for testing with the given options.
 func newTestExecutor(w io.Writer, sigChan chan os.Signal, opts *logsOptions) *logsExecutor {
 	if opts == nil {
-		opts = &logsOptions{format: "text"}
+		opts = &logsOptions{output: "text"}
 	}
 	return &logsExecutor{
 		outputWriter: w,
@@ -62,7 +62,7 @@ func waitForOutput(buf *safeBuf, contains string, timeout time.Duration) bool {
 func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 	t.Run("ping error", func(t *testing.T) {
 		var buf bytes.Buffer
-		executor := newTestExecutor(&buf, make(chan os.Signal, 1), &logsOptions{format: "text"})
+		executor := newTestExecutor(&buf, make(chan os.Signal, 1), &logsOptions{output: "text"})
 
 		mockClient := &mockDashboardClient{pingErr: context.DeadlineExceeded}
 
@@ -76,7 +76,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			format:     "text",
+			output: "text",
 			timestamps: true,
 			noColor:    true,
 		})
@@ -117,7 +117,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			format:     "text",
+			output: "text",
 			timestamps: true,
 			noColor:    true,
 		})
@@ -155,7 +155,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			format:     "text",
+			output: "text",
 			timestamps: true,
 			noColor:    true,
 		})
@@ -192,7 +192,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 	t.Run("signal interrupts streaming", func(t *testing.T) {
 		var buf bytes.Buffer
 		sigChan := make(chan os.Signal, 1)
-		executor := newTestExecutor(&buf, sigChan, &logsOptions{format: "text"})
+		executor := newTestExecutor(&buf, sigChan, &logsOptions{output: "text"})
 
 		mockClient := &mockDashboardClient{}
 
@@ -221,7 +221,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 	t.Run("signal interrupts streaming", func(t *testing.T) {
 		var buf bytes.Buffer
 		sigChan := make(chan os.Signal, 1)
-		executor := newTestExecutor(&buf, sigChan, &logsOptions{format: "text"})
+		executor := newTestExecutor(&buf, sigChan, &logsOptions{output: "text"})
 
 		subscriptions := make(map[string]chan service.LogEntry)
 		mockLM := newMockLogManager()
@@ -247,7 +247,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			format:     "text",
+			output: "text",
 			timestamps: true,
 			noColor:    true,
 		})
@@ -287,7 +287,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			format:  "text",
+			output: "text",
 			noColor: true,
 		})
 
@@ -324,7 +324,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 
 	t.Run("closes when all subscriptions close", func(t *testing.T) {
 		var buf bytes.Buffer
-		executor := newTestExecutor(&buf, make(chan os.Signal, 1), &logsOptions{format: "text"})
+		executor := newTestExecutor(&buf, make(chan os.Signal, 1), &logsOptions{output: "text"})
 
 		logChan := make(chan service.LogEntry, 10)
 		subscriptions := map[string]chan service.LogEntry{
@@ -355,7 +355,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 	t.Run("JSON format output", func(t *testing.T) {
 		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
-		executor := newTestExecutor(&buf, sigChan, &logsOptions{format: "json"})
+		executor := newTestExecutor(&buf, sigChan, &logsOptions{output: "json"})
 
 		logChan := make(chan service.LogEntry, 10)
 		subscriptions := map[string]chan service.LogEntry{
@@ -391,7 +391,7 @@ func TestLogsExecutor_FollowLogs(t *testing.T) {
 	t.Run("dashboard streaming completes without error", func(t *testing.T) {
 		var buf bytes.Buffer
 		sigChan := make(chan os.Signal, 1)
-		executor := newTestExecutor(&buf, sigChan, &logsOptions{format: "text"})
+		executor := newTestExecutor(&buf, sigChan, &logsOptions{output: "text"})
 
 		mockClient := &mockDashboardClient{}
 		done := make(chan error, 1)
@@ -413,7 +413,7 @@ func TestLogsExecutor_FollowLogs(t *testing.T) {
 	t.Run("in-memory streaming completes without error", func(t *testing.T) {
 		var buf bytes.Buffer
 		sigChan := make(chan os.Signal, 1)
-		executor := newTestExecutor(&buf, sigChan, &logsOptions{format: "text"})
+		executor := newTestExecutor(&buf, sigChan, &logsOptions{output: "text"})
 
 		logChan := make(chan service.LogEntry, 10)
 		subscriptions := map[string]chan service.LogEntry{
@@ -447,7 +447,7 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 		var buf bytes.Buffer
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			format:     "text",
+			output: "text",
 			timestamps: true,
 			noColor:    true,
 		})
@@ -479,7 +479,7 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 	t.Run("uses in-memory for specific service filter", func(t *testing.T) {
 		var buf bytes.Buffer
 		sigChan := make(chan os.Signal, 1)
-		executor := newTestExecutor(&buf, sigChan, &logsOptions{format: "text"})
+		executor := newTestExecutor(&buf, sigChan, &logsOptions{output: "text"})
 
 		mockLM := newMockLogManager()
 		logBuf, _ := service.NewLogBuffer("api", 100, false, "")
@@ -506,7 +506,7 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 	t.Run("falls back to dashboard when no buffers", func(t *testing.T) {
 		var buf bytes.Buffer
 		sigChan := make(chan os.Signal, 1)
-		executor := newTestExecutor(&buf, sigChan, &logsOptions{format: "text"})
+		executor := newTestExecutor(&buf, sigChan, &logsOptions{output: "text"})
 
 		mockLM := newMockLogManager()
 		mockClient := &mockDashboardClient{}
@@ -530,7 +530,7 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 	t.Run("falls back to dashboard for non-existent service", func(t *testing.T) {
 		var buf bytes.Buffer
 		sigChan := make(chan os.Signal, 1)
-		executor := newTestExecutor(&buf, sigChan, &logsOptions{format: "text"})
+		executor := newTestExecutor(&buf, sigChan, &logsOptions{output: "text"})
 
 		mockLM := newMockLogManager()
 		logBuf, _ := service.NewLogBuffer("other", 100, false, "")

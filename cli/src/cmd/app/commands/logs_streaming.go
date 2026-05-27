@@ -113,7 +113,7 @@ func (e *logsExecutor) followLogsViaDashboard(ctx context.Context, dashboardClie
 			}
 
 			// Display log entry
-			if e.opts.format == jsonOutputVal {
+			if e.opts.output == jsonOutputVal {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
 				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
@@ -204,7 +204,7 @@ func (e *logsExecutor) followLogsInMemory(subscriptions map[string]chan service.
 			}
 
 			// Display log entry
-			if e.opts.format == jsonOutputVal {
+			if e.opts.output == jsonOutputVal {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
 				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
@@ -296,7 +296,7 @@ func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboar
 			}
 
 			// Display log entry
-			if e.opts.format == jsonOutputVal {
+			if e.opts.output == jsonOutputVal {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
 				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
@@ -385,7 +385,7 @@ func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir
 				continue
 			}
 
-			if e.opts.format == jsonOutputVal {
+			if e.opts.output == jsonOutputVal {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
 				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
@@ -509,7 +509,7 @@ func (e *logsExecutor) followAllLogs(ctx context.Context, projectDir string, _ L
 			}
 
 			// Display log entry
-			if e.opts.format == jsonOutputVal {
+			if e.opts.output == jsonOutputVal {
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
 				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)

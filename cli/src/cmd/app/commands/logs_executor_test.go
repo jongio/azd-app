@@ -370,7 +370,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("dashboard not running shows info message", func(t *testing.T) {
 		var buf bytes.Buffer
-		opts := &logsOptions{tail: 100, level: "all", format: "text"}
+		opts := &logsOptions{tail: 100, level: "all", output: "text"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return nil, errors.New("dashboard not running")
@@ -391,7 +391,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("dashboard ping fails shows info message", func(t *testing.T) {
 		var buf bytes.Buffer
-		opts := &logsOptions{tail: 100, level: "all", format: "text"}
+		opts := &logsOptions{tail: 100, level: "all", output: "text"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{pingErr: errors.New("ping failed")}, nil
@@ -412,7 +412,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("no services shows info message", func(t *testing.T) {
 		var buf bytes.Buffer
-		opts := &logsOptions{tail: 100, level: "all", format: "text"}
+		opts := &logsOptions{tail: 100, level: "all", output: "text"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{services: []*serviceinfo.ServiceInfo{}}, nil
@@ -433,7 +433,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("displays logs from file", func(t *testing.T) {
 		var buf bytes.Buffer
-		opts := &logsOptions{tail: 100, level: "all", format: "text", timestamps: true, noColor: true}
+		opts := &logsOptions{tail: 100, level: "all", output: "text", timestamps: true, noColor: true}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -459,7 +459,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("JSON format output", func(t *testing.T) {
 		var buf bytes.Buffer
-		opts := &logsOptions{tail: 100, level: "all", format: "json"}
+		opts := &logsOptions{tail: 100, level: "all", output: "json"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -486,7 +486,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("service filter validation error", func(t *testing.T) {
 		var buf bytes.Buffer
-		opts := &logsOptions{tail: 100, level: "all", format: "text"}
+		opts := &logsOptions{tail: 100, level: "all", output: "text"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -509,7 +509,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 
 	t.Run("get services error", func(t *testing.T) {
 		var buf bytes.Buffer
-		opts := &logsOptions{tail: 100, level: "all", format: "text"}
+		opts := &logsOptions{tail: 100, level: "all", output: "text"}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -559,7 +559,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 		_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(levelContent), 0o644)
 
 		var buf bytes.Buffer
-		opts := &logsOptions{tail: 100, level: "error", format: "text", timestamps: true, noColor: true}
+		opts := &logsOptions{tail: 100, level: "error", output: "text", timestamps: true, noColor: true}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -595,7 +595,7 @@ func TestLogsExecutor_Execute(t *testing.T) {
 		_ = os.WriteFile(filepath.Join(logsDir, "api.log"), []byte(manyLogs.String()), 0o644)
 
 		var buf bytes.Buffer
-		opts := &logsOptions{tail: 5, level: "all", format: "text", noColor: true}
+		opts := &logsOptions{tail: 5, level: "all", output: "text", noColor: true}
 		executor := newLogsExecutorForTest(
 			func(ctx context.Context, projectDir string) (DashboardClient, error) {
 				return &mockDashboardClient{
@@ -642,7 +642,7 @@ func TestLogsExecutor_AzureStandaloneFallback(t *testing.T) {
 	defer func() { fetchAzureLogsStandalone = originalFetch }()
 
 	var buf bytes.Buffer
-	opts := &logsOptions{tail: 50, level: "all", format: "text", timestamps: true, noColor: true, source: "azure"}
+	opts := &logsOptions{tail: 50, level: "all", output: "text", timestamps: true, noColor: true, source: "azure"}
 
 	executor := newLogsExecutorForTest(
 		func(ctx context.Context, projectDir string) (DashboardClient, error) {

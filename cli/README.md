@@ -383,7 +383,25 @@ azd app test --environment staging      # Target a deployed environment
 
 ## Commands
 
-For complete command reference with all flags and options, see the [CLI Reference Documentation](docs/cli-reference.md).
+| Command | Description |
+|---------|-------------|
+| `azd app add` | Add a service to your azure.yaml |
+| `azd app deps` | Install dependencies for all services |
+| `azd app health` | Monitor service health with streaming updates |
+| `azd app info` | Display service URLs, status, and metadata |
+| `azd app listen` | Listen for service lifecycle events |
+| `azd app logs` | View and stream service logs |
+| `azd app mcp` | Start MCP server for AI tool integration |
+| `azd app notifications` | Manage service state notifications |
+| `azd app reqs` | Check and generate prerequisite requirements |
+| `azd app restart` | Restart running services |
+| `azd app run` | Start all services with dashboard |
+| `azd app start` | Start specific services |
+| `azd app stop` | Stop running services |
+| `azd app test` | Run tests across all services |
+| `azd app version` | Show extension version |
+
+For complete command reference with all flags and options, see the [CLI Reference Documentation](docs/cli-reference.md) or the individual [command docs](docs/commands/).
 
 ### AZD Context Access
 

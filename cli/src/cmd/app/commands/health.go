@@ -176,7 +176,7 @@ func runHealth(cmd *cobra.Command, args []string) error {
 	if healthProfile != "" && profiles != nil {
 		profile, profileErr := profiles.GetProfile(healthProfile)
 		if profileErr != nil {
-			return fmt.Errorf("%w", profileErr)
+			return fmt.Errorf("load health profile %q: %w", healthProfile, profileErr)
 		}
 
 		// Apply profile settings (CLI flags take precedence)
