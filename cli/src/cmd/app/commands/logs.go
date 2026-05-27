@@ -146,8 +146,8 @@ type logsOptions struct {
 	since        string
 	timestamps   bool
 	noColor      bool
-	level  string
-	output string
+	level        string
+	output       string
 	file         string
 	exclude      string
 	noBuiltins   bool

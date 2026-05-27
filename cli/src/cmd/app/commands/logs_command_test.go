@@ -73,7 +73,7 @@ func TestValidateLogsOptions(t *testing.T) {
 	t.Run("tail capped value", func(t *testing.T) {
 		opts := &logsOptions{
 			tail:   20000,
-			output:       "text",
+			output: "text",
 			level:  "all",
 			since:  "",
 			source: "local",
@@ -90,7 +90,7 @@ func TestValidateLogsOptions(t *testing.T) {
 	t.Run("zero tail is valid", func(t *testing.T) {
 		opts := &logsOptions{
 			tail:   0,
-			output:       "text",
+			output: "text",
 			level:  "all",
 			since:  "",
 			source: "local",
@@ -106,7 +106,7 @@ func TestValidateLogsOptions(t *testing.T) {
 		for _, level := range levels {
 			opts := &logsOptions{
 				tail:   100,
-				output:       "text",
+				output: "text",
 				level:  level,
 				since:  "",
 				source: "local",
@@ -123,7 +123,7 @@ func TestValidateLogsOptions(t *testing.T) {
 		for _, d := range durations {
 			opts := &logsOptions{
 				tail:   100,
-				output:       "text",
+				output: "text",
 				level:  "all",
 				since:  d,
 				source: "local",

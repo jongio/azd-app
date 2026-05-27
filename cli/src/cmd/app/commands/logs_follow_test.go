@@ -76,7 +76,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			output: "text",
+			output:     "text",
 			timestamps: true,
 			noColor:    true,
 		})
@@ -117,7 +117,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			output: "text",
+			output:     "text",
 			timestamps: true,
 			noColor:    true,
 		})
@@ -155,7 +155,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			output: "text",
+			output:     "text",
 			timestamps: true,
 			noColor:    true,
 		})
@@ -247,7 +247,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			output: "text",
+			output:     "text",
 			timestamps: true,
 			noColor:    true,
 		})
@@ -287,7 +287,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 		var buf safeBuf
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			output: "text",
+			output:  "text",
 			noColor: true,
 		})
 
@@ -447,7 +447,7 @@ func TestLogsExecutor_FollowLogsOrchestration(t *testing.T) {
 		var buf bytes.Buffer
 		sigChan := make(chan os.Signal, 1)
 		executor := newTestExecutor(&buf, sigChan, &logsOptions{
-			output: "text",
+			output:     "text",
 			timestamps: true,
 			noColor:    true,
 		})
