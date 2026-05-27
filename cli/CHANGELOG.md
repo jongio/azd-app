@@ -1,3 +1,9 @@
+## [0.15.2] - 2026-05-27
+
+- fix: resolve gofmt formatting and exclude metadata from web validation (64115389)
+- refactor: standardize output flag naming and improve error context (96eadb84)
+- chore: update registry for v0.15.1 (35741061)
+
 ## [0.15.1] - 2026-05-27
 
 - refactor: rename --env flag to --environment/-e for azd consistency (ff81a9f4)
