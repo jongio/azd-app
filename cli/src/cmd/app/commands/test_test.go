@@ -378,22 +378,22 @@ func TestDisplayTestResults_EmptyServices(t *testing.T) {
 	displayTestResults(result)
 }
 
-// TestEnvFlagRegistered tests that --env flag is registered with -e shortcut.
+// TestEnvFlagRegistered tests that --environment flag is registered with -e shortcut.
 func TestEnvFlagRegistered(t *testing.T) {
 	cmd := NewTestCommand()
 
-	envFlag := cmd.Flags().Lookup("env")
+	envFlag := cmd.Flags().Lookup("environment")
 	if envFlag == nil {
-		t.Fatal("Expected --env flag to be registered")
+		t.Fatal("Expected --environment flag to be registered")
 	}
 
 	if envFlag.DefValue != "" {
-		t.Errorf("Expected env default to be empty, got %q", envFlag.DefValue)
+		t.Errorf("Expected environment default to be empty, got %q", envFlag.DefValue)
 	}
 
 	shortFlag := cmd.Flags().ShorthandLookup("e")
-	if shortFlag == nil || shortFlag.Name != "env" {
-		t.Error("Expected -e shortcut for --env flag")
+	if shortFlag == nil || shortFlag.Name != "environment" {
+		t.Error("Expected -e shortcut for --environment flag")
 	}
 }
 

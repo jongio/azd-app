@@ -89,7 +89,7 @@ func NewTestCommand() *cobra.Command {
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", 10*time.Minute, "Per-service test timeout (e.g., 5m, 30s, 1h)")
 	cmd.Flags().BoolVar(&opts.Save, "save", false, "Save auto-detected test config to azure.yaml without prompting")
 	cmd.Flags().BoolVar(&opts.NoSave, "no-save", false, "Don't prompt to save auto-detected test config")
-	cmd.Flags().StringVarP(&opts.Environment, "env", "e", "", "Target azd environment name (loads vars from .azure/<env>/.env)")
+	cmd.Flags().StringVarP(&opts.Environment, "environment", "e", "", "Target azd environment name (loads vars from .azure/<env>/.env)")
 
 	return cmd
 }
@@ -146,7 +146,7 @@ func runTests(commandOrchestrator *orchestrator.Orchestrator, opts *TestOptions)
 		return errors.New("azure.yaml not found - create one to define services for testing")
 	}
 
-	// Load azd environment variables if --env is specified
+	// Load azd environment variables if --environment is specified
 	if opts.Environment != "" {
 		if err := loadAzdEnvironment(azureYamlPath, opts.Environment); err != nil {
 			return fmt.Errorf("failed to load environment %q: %w", opts.Environment, err)
