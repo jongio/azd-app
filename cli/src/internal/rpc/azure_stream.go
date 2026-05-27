@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -323,7 +324,14 @@ func sendWithBackpressure(
 	msg *v1.StreamAzureLogsResponse,
 ) error {
 	done := make(chan error, 1)
-	go func() { done <- stream.Send(msg) }()
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- fmt.Errorf("stream send panic: %v", r)
+			}
+		}()
+		done <- stream.Send(msg)
+	}()
 	select {
 	case err := <-done:
 		return err
