@@ -761,13 +761,13 @@ func TestLoadDotEnvPartialLoadWithInvalidNames(t *testing.T) {
 
 			got, err := LoadDotEnv(envFile)
 
-			w.Close()
+			_ = w.Close()
 			os.Stderr = oldStderr
 
 			var stderrBuf [4096]byte
 			n, _ := r.Read(stderrBuf[:])
 			stderrOutput := string(stderrBuf[:n])
-			r.Close()
+			_ = r.Close()
 
 			if err != nil {
 				t.Fatalf("LoadDotEnv() unexpected error: %v", err)
@@ -818,7 +818,7 @@ func TestParseDotEnvSkippedVarDetails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open test file: %v", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	result := parseDotEnv(file)
 

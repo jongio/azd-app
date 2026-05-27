@@ -419,8 +419,8 @@ func TestLoadAzdEnvironment(t *testing.T) {
 		}
 
 		// Clear env vars that might be set
-		os.Unsetenv("API_URL")
-		os.Unsetenv("DB_HOST")
+		_ = os.Unsetenv("API_URL")
+		_ = os.Unsetenv("DB_HOST")
 
 		err := loadAzdEnvironment(azureYamlPath, "staging")
 		if err != nil {
@@ -436,8 +436,8 @@ func TestLoadAzdEnvironment(t *testing.T) {
 		}
 
 		// Cleanup
-		os.Unsetenv("API_URL")
-		os.Unsetenv("DB_HOST")
+		_ = os.Unsetenv("API_URL")
+		_ = os.Unsetenv("DB_HOST")
 	})
 
 	t.Run("returns error for nonexistent environment", func(t *testing.T) {

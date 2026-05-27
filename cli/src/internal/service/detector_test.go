@@ -1485,8 +1485,8 @@ app.http('hello', { methods: ['GET'], handler: async (req, ctx) => ({ body: 'Hel
 		{
 			name: "staticwebapp with Python Functions (host.json + function_app.py)",
 			projectFiles: map[string]string{
-				"host.json":       `{"version": "2.0"}`,
-				"function_app.py": `import azure.functions as func\napp = func.FunctionApp()`,
+				"host.json":        `{"version": "2.0"}`,
+				"function_app.py":  `import azure.functions as func\napp = func.FunctionApp()`,
 				"requirements.txt": "azure-functions",
 			},
 			expectFunctions:  true,

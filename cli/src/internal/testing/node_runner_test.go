@@ -591,12 +591,12 @@ func TestNodeRunnerParseVitestSummary(t *testing.T) {
 	runner := NewNodeTestRunner(tmpDir, config)
 
 	tests := []struct {
-		name           string
-		output         string
-		expectedPassed int
-		expectedFailed int
+		name            string
+		output          string
+		expectedPassed  int
+		expectedFailed  int
 		expectedSkipped int
-		expectedTotal  int
+		expectedTotal   int
 	}{
 		{
 			name:           "Vitest v2 all passed",
@@ -613,11 +613,11 @@ func TestNodeRunnerParseVitestSummary(t *testing.T) {
 			expectedTotal:  8,
 		},
 		{
-			name:           "Vitest v2 with skipped",
-			output:         " Tests  2 skipped | 6 passed (8)",
-			expectedPassed: 6,
+			name:            "Vitest v2 with skipped",
+			output:          " Tests  2 skipped | 6 passed (8)",
+			expectedPassed:  6,
 			expectedSkipped: 2,
-			expectedTotal:  8,
+			expectedTotal:   8,
 		},
 		{
 			name:           "Vitest v2 full output with summary",

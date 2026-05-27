@@ -21,8 +21,8 @@ type GoTestRunner struct {
 
 // Package-level compiled regexes for Go test output parsing.
 var (
-	reGoTestDuration   = regexp.MustCompile(`\(([\d.]+)s\)`)
-	reGoPackageDur     = regexp.MustCompile(`([\d.]+)s$`)
+	reGoTestDuration    = regexp.MustCompile(`\(([\d.]+)s\)`)
+	reGoPackageDur      = regexp.MustCompile(`([\d.]+)s$`)
 	reGoCoveragePercent = regexp.MustCompile(`coverage:\s*([\d.]+)%`)
 )
 
