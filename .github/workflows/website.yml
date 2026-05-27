@@ -91,6 +91,9 @@ jobs:
     if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+    concurrency:
+      group: gh-pages-deploy
+      cancel-in-progress: false
     steps:
       - name: Checkout gh-pages
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -129,6 +132,9 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     needs: build
     runs-on: ubuntu-latest
+    concurrency:
+      group: gh-pages-deploy
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -208,6 +214,9 @@ jobs:
   cleanup-preview:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
+    concurrency:
+      group: gh-pages-deploy
+      cancel-in-progress: false
     steps:
       - name: Checkout gh-pages
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -226,7 +235,12 @@ jobs:
           if [ -d "pr/${{ env.PR_NUMBER }}" ]; then
             git rm -rf pr/${{ env.PR_NUMBER }}
             git commit -m "Cleanup PR #${{ env.PR_NUMBER }} preview"
-            git push origin gh-pages
+            # Retry push with rebase to handle concurrent gh-pages updates
+            for i in 1 2 3; do
+              git push origin gh-pages && break
+              echo "Push failed (attempt $i/3), rebasing and retrying..."
+              git pull --rebase origin gh-pages
+            done
             echo "Cleaned up preview for PR #${{ env.PR_NUMBER }}"
           else
             echo "No preview found for PR #${{ env.PR_NUMBER }}"
