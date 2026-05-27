@@ -1,3 +1,8 @@
+## [0.15.1] - 2026-05-27
+
+- refactor: rename --env flag to --environment/-e for azd consistency (ff81a9f4)
+- chore: update registry for v0.15.0 (f51502bc)
+
 ## [0.15.0] - 2026-05-27
 
 - fix: recover from connect v1.20.0 stream panic and add packages:read to release (60c3b279)
