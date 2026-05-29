@@ -63,6 +63,7 @@ azd app run --environment production
 
 | Command | Description | Detailed Spec |
 |---------|-------------|---------------|
+| `init` | Initialize azure.yaml for local development by scanning your project | [→ Full Spec](commands/init.md) |
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
 | `add` | Add a well-known container service to azure.yaml | [→ Full Spec](commands/add.md) |
@@ -78,6 +79,49 @@ azd app run --environment production
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
 | `listen` | Extension framework integration (hidden, used by azd internally) | [→ Full Spec](commands/listen.md) |
+
+---
+
+## `azd app init`
+
+Scans your project to detect services, languages, frameworks, and infrastructure dependencies, then generates or enriches `azure.yaml` with all the settings needed for `azd app run`.
+
+### Usage
+
+```bash
+azd app init [flags]
+```
+
+### Examples
+
+```bash
+# Initialize in current directory
+azd app init
+
+# Preview what would be generated (no file changes)
+azd app init --dry-run
+
+# Force overwrite of existing services section
+azd app init --force
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--dry-run` | | bool | `false` | Show what would be generated without writing files |
+| `--force` | | bool | `false` | Overwrite existing services section in azure.yaml |
+
+### Features
+
+- ✅ Detects Node.js/TypeScript, Python, .NET, Go, Azure Functions, Logic Apps
+- ✅ Identifies frameworks (Express, FastAPI, Next.js, Vite, etc.) and sets correct ports
+- ✅ Infers run commands based on package manager and framework
+- ✅ Detects infrastructure dependencies (postgres, redis, mongodb, etc.) → `uses` field
+- ✅ Generates `reqs` section from detected languages
+- ✅ Non-destructive enrichment of existing azure.yaml
+- ✅ Deduplicates services when multiple detectors match the same directory
+- ✅ JSON output for programmatic consumption
 
 ---
 
