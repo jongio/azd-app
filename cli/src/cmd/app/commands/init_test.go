@@ -241,3 +241,102 @@ func TestSanitizeName(t *testing.T) {
 		})
 	}
 }
+
+func TestDetectNodeFrameworkAndConfig_DevDependencies(t *testing.T) {
+	dir := t.TempDir()
+	// Real-world setup: vite in devDependencies, react in dependencies
+	pkg := `{
+		"scripts": { "dev": "vite" },
+		"dependencies": { "react": "^18.0.0", "react-dom": "^18.0.0" },
+		"devDependencies": { "vite": "^5.0.0", "@vitejs/plugin-react": "^4.0.0" }
+	}`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkg), 0o644))
+
+	framework, ports, cmd := detectNodeFrameworkAndConfig(dir, "npm")
+	assert.Equal(t, "Vite+React", framework)
+	assert.Contains(t, ports, "5173")
+	assert.Equal(t, "npm run dev", cmd)
+}
+
+func TestDetectNodeFrameworkAndConfig_DevDepsOnly(t *testing.T) {
+	dir := t.TempDir()
+	// SvelteKit puts everything in devDependencies
+	pkg := `{
+		"scripts": { "dev": "vite dev" },
+		"devDependencies": { "@sveltejs/kit": "^2.0.0", "svelte": "^4.0.0", "vite": "^5.0.0" }
+	}`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkg), 0o644))
+
+	framework, ports, _ := detectNodeFrameworkAndConfig(dir, "pnpm")
+	assert.Equal(t, "SvelteKit", framework)
+	assert.Contains(t, ports, "5173")
+}
+
+func TestEnrichAzureYaml_PreservesComments(t *testing.T) {
+	dir := t.TempDir()
+	yamlPath := filepath.Join(dir, "azure.yaml")
+
+	// Write azure.yaml with comments
+	original := `# My project config
+name: myapp # inline comment
+
+# Services section
+services:
+  api:
+    language: ts
+    project: ./api
+    # API runs on port 3000
+    ports:
+      - "3000"
+`
+	require.NoError(t, os.WriteFile(yamlPath, []byte(original), 0o644))
+
+	// Enrich with a new service
+	services := []DetectedService{
+		{
+			Name:     "web",
+			Language: "ts",
+			Project:  "web",
+			Ports:    []string{"5173"},
+			Command:  "pnpm run dev",
+		},
+	}
+
+	err := enrichAzureYaml(yamlPath, services)
+	require.NoError(t, err)
+
+	// Read back and verify comments are preserved
+	data, err := os.ReadFile(yamlPath)
+	require.NoError(t, err)
+	content := string(data)
+
+	assert.Contains(t, content, "# My project config")
+	assert.Contains(t, content, "# Services section")
+	assert.Contains(t, content, "# API runs on port 3000")
+	// Verify new service was added
+	assert.Contains(t, content, "web:")
+	assert.Contains(t, content, "5173")
+}
+
+func TestDetectServiceDependencies_NoFalsePositives(t *testing.T) {
+	dir := t.TempDir()
+	// package.json with "pg" appearing in description/URLs but NOT as a dependency
+	pkg := `{
+		"name": "my-upgrading-app",
+		"description": "Upgrading the homepage",
+		"homepage": "https://example.com/page",
+		"dependencies": {
+			"express": "^4.0.0"
+		}
+	}`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkg), 0o644))
+
+	svc := DetectedService{
+		Name:     "test",
+		Language: "js",
+		Project:  ".",
+	}
+
+	deps := detectServiceDependencies(svc, dir)
+	assert.NotContains(t, deps, "postgres", "should not false-positive detect postgres from 'upgrading' or 'homepage'")
+}
