@@ -398,8 +398,9 @@ func detectNodeFrameworkAndConfig(projectDir string, packageManager string) (fra
 	}
 
 	var pkg struct {
-		Scripts      map[string]string `json:"scripts"`
-		Dependencies map[string]string `json:"dependencies"`
+		Scripts         map[string]string `json:"scripts"`
+		Dependencies    map[string]string `json:"dependencies"`
+		DevDependencies map[string]string `json:"devDependencies"`
 	}
 	if err := json.Unmarshal(data, &pkg); err != nil {
 		return "", nil, ""
@@ -414,35 +415,47 @@ func detectNodeFrameworkAndConfig(projectDir string, packageManager string) (fra
 		}
 	}
 
-	// Detect framework from dependencies
-	if pkg.Dependencies != nil {
+	// Merge dependencies and devDependencies for framework detection.
+	// Build tools (vite, react-scripts) are typically in devDependencies.
+	allDeps := make(map[string]string, len(pkg.Dependencies)+len(pkg.DevDependencies))
+	for k, v := range pkg.Dependencies {
+		allDeps[k] = v
+	}
+	for k, v := range pkg.DevDependencies {
+		allDeps[k] = v
+	}
+
+	// Detect framework from dependencies.
+	// Order matters: more specific frameworks (SvelteKit, Vite+React) must come
+	// before generic ones (bare Vite) since they also include vite as a dep.
+	if len(allDeps) > 0 {
 		switch {
-		case pkg.Dependencies["next"] != "":
+		case allDeps["next"] != "":
 			return "Next.js", []string{"3000"}, runCmd
-		case pkg.Dependencies["nuxt"] != "":
+		case allDeps["nuxt"] != "":
 			return "Nuxt", []string{"3000"}, runCmd
-		case pkg.Dependencies["@angular/core"] != "":
+		case allDeps["@angular/core"] != "":
 			return "Angular", []string{"4200"}, runCmd
-		case pkg.Dependencies["react"] != "" && pkg.Dependencies["react-scripts"] != "":
+		case allDeps["react"] != "" && allDeps["react-scripts"] != "":
 			return "Create React App", []string{"3000"}, runCmd
-		case pkg.Dependencies["react"] != "" && pkg.Dependencies["vite"] != "":
+		case allDeps["react"] != "" && allDeps["vite"] != "":
 			return "Vite+React", []string{"5173"}, runCmd
-		case pkg.Dependencies["vite"] != "":
-			return "Vite", []string{"5173"}, runCmd
-		case pkg.Dependencies["express"] != "":
-			return "Express", []string{"3000"}, runCmd
-		case pkg.Dependencies["fastify"] != "":
-			return "Fastify", []string{"3000"}, runCmd
-		case pkg.Dependencies["hono"] != "":
-			return "Hono", []string{"3000"}, runCmd
-		case pkg.Dependencies["koa"] != "":
-			return "Koa", []string{"3000"}, runCmd
-		case pkg.Dependencies["@nestjs/core"] != "":
-			return "NestJS", []string{"3000"}, runCmd
-		case pkg.Dependencies["astro"] != "":
-			return "Astro", []string{"4321"}, runCmd
-		case pkg.Dependencies["svelte"] != "" || pkg.Dependencies["@sveltejs/kit"] != "":
+		case allDeps["svelte"] != "" || allDeps["@sveltejs/kit"] != "":
 			return "SvelteKit", []string{"5173"}, runCmd
+		case allDeps["astro"] != "":
+			return "Astro", []string{"4321"}, runCmd
+		case allDeps["vite"] != "":
+			return "Vite", []string{"5173"}, runCmd
+		case allDeps["express"] != "":
+			return "Express", []string{"3000"}, runCmd
+		case allDeps["fastify"] != "":
+			return "Fastify", []string{"3000"}, runCmd
+		case allDeps["hono"] != "":
+			return "Hono", []string{"3000"}, runCmd
+		case allDeps["koa"] != "":
+			return "Koa", []string{"3000"}, runCmd
+		case allDeps["@nestjs/core"] != "":
+			return "NestJS", []string{"3000"}, runCmd
 		}
 	}
 
@@ -578,38 +591,59 @@ func detectServiceDependencies(svc DetectedService, rootDir string) []string {
 	var deps []string
 	seen := make(map[string]bool)
 
-	// Read all relevant dependency files
-	var content string
 	lang := strings.ToLower(svc.Language)
 	switch lang {
 	case "js", "ts", "javascript", "typescript":
-		content = readFileContent(filepath.Join(projectDir, "package.json"))
+		deps = detectNodeDependencies(projectDir, seen)
 	case "python":
-		content = readFileContent(filepath.Join(projectDir, "requirements.txt"))
-		content += "\n" + readFileContent(filepath.Join(projectDir, "pyproject.toml"))
-		content += "\n" + readFileContent(filepath.Join(projectDir, "Pipfile"))
+		deps = detectPythonDependencies(projectDir, seen)
 	case "dotnet", "csharp", "c#", "fsharp":
-		content = readFilesWithExt(projectDir, ".csproj")
+		deps = detectDotnetDependencies(projectDir, seen)
 	case "go":
-		content = readFileContent(filepath.Join(projectDir, "go.mod"))
+		deps = detectGoDependencies(projectDir, seen)
 	default:
-		// For unknown languages (e.g., Functions with detected language), try all common files
-		content = readFileContent(filepath.Join(projectDir, "package.json"))
-		content += "\n" + readFileContent(filepath.Join(projectDir, "requirements.txt"))
-		content += "\n" + readFileContent(filepath.Join(projectDir, "pyproject.toml"))
-		content += "\n" + readFilesWithExt(projectDir, ".csproj")
-		content += "\n" + readFileContent(filepath.Join(projectDir, "go.mod"))
+		// For unknown languages, try all detection methods
+		deps = detectNodeDependencies(projectDir, seen)
+		deps = append(deps, detectPythonDependencies(projectDir, seen)...)
+		deps = append(deps, detectDotnetDependencies(projectDir, seen)...)
+		deps = append(deps, detectGoDependencies(projectDir, seen)...)
 	}
 
-	if content == "" {
+	return deps
+}
+
+// detectNodeDependencies parses package.json and checks dependency keys.
+func detectNodeDependencies(projectDir string, seen map[string]bool) []string {
+	var deps []string
+	path := filepath.Join(projectDir, "package.json")
+	if err := security.ValidatePath(path); err != nil {
+		return nil
+	}
+	// #nosec G304 -- Path validated
+	data, err := os.ReadFile(path)
+	if err != nil {
 		return nil
 	}
 
-	contentLower := strings.ToLower(content)
+	var pkg struct {
+		Dependencies    map[string]string `json:"dependencies"`
+		DevDependencies map[string]string `json:"devDependencies"`
+	}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return nil
+	}
 
+	// Check both dependencies and devDependencies keys
 	for _, dep := range knownDependencies {
-		for _, pkg := range dep.Packages {
-			if strings.Contains(contentLower, strings.ToLower(pkg)) {
+		for _, pkgName := range dep.Packages {
+			if _, ok := pkg.Dependencies[pkgName]; ok {
+				if !seen[dep.Dep] {
+					deps = append(deps, dep.Dep)
+					seen[dep.Dep] = true
+				}
+				break
+			}
+			if _, ok := pkg.DevDependencies[pkgName]; ok {
 				if !seen[dep.Dep] {
 					deps = append(deps, dep.Dep)
 					seen[dep.Dep] = true
@@ -618,7 +652,131 @@ func detectServiceDependencies(svc DetectedService, rootDir string) []string {
 			}
 		}
 	}
+	return deps
+}
 
+// detectPythonDependencies matches against line-delimited package names.
+func detectPythonDependencies(projectDir string, seen map[string]bool) []string {
+	var deps []string
+	reqFiles := []string{"requirements.txt", "pyproject.toml", "Pipfile"}
+
+	for _, reqFile := range reqFiles {
+		filePath := filepath.Join(projectDir, reqFile)
+		if err := security.ValidatePath(filePath); err != nil {
+			continue
+		}
+		// #nosec G304 -- Path validated
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			continue
+		}
+
+		lines := strings.Split(strings.ToLower(string(data)), "\n")
+		for _, dep := range knownDependencies {
+			if seen[dep.Dep] {
+				continue
+			}
+			for _, pkgName := range dep.Packages {
+				pkgLower := strings.ToLower(pkgName)
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					// Match package name at line start or after whitespace/quote
+					// Handles: "pg", pg==1.0, pg>=2, "pg" in TOML arrays
+					if matchesPythonPackage(line, pkgLower) {
+						deps = append(deps, dep.Dep)
+						seen[dep.Dep] = true
+						break
+					}
+				}
+				if seen[dep.Dep] {
+					break
+				}
+			}
+		}
+	}
+	return deps
+}
+
+// matchesPythonPackage checks if a line references a Python package name.
+func matchesPythonPackage(line string, pkg string) bool {
+	if line == "" || strings.HasPrefix(line, "#") {
+		return false
+	}
+	// Strip version specifiers for comparison
+	// requirements.txt: "package==1.0", "package>=2.0", "package[extra]"
+	// pyproject.toml: '"package>=1.0"', 'package = "^1.0"'
+	line = strings.Trim(line, `"' `)
+
+	// Check if the line starts with or contains the package name as a token
+	if strings.HasPrefix(line, pkg) {
+		// Verify it's followed by a version specifier, bracket, or end of string
+		rest := line[len(pkg):]
+		if rest == "" || rest[0] == '=' || rest[0] == '>' || rest[0] == '<' ||
+			rest[0] == '[' || rest[0] == ' ' || rest[0] == ';' || rest[0] == '!' {
+			return true
+		}
+	}
+	return false
+}
+
+// detectDotnetDependencies searches PackageReference includes in .csproj files.
+func detectDotnetDependencies(projectDir string, seen map[string]bool) []string {
+	var deps []string
+	content := readFilesWithExt(projectDir, ".csproj")
+	if content == "" {
+		return nil
+	}
+	contentLower := strings.ToLower(content)
+
+	for _, dep := range knownDependencies {
+		if seen[dep.Dep] {
+			continue
+		}
+		for _, pkgName := range dep.Packages {
+			// Match within PackageReference Include attributes
+			pattern := strings.ToLower(fmt.Sprintf(`include="%s`, pkgName))
+			if strings.Contains(contentLower, pattern) {
+				deps = append(deps, dep.Dep)
+				seen[dep.Dep] = true
+				break
+			}
+		}
+	}
+	return deps
+}
+
+// detectGoDependencies matches import paths in go.mod.
+func detectGoDependencies(projectDir string, seen map[string]bool) []string {
+	var deps []string
+	content := readFileContent(filepath.Join(projectDir, "go.mod"))
+	if content == "" {
+		return nil
+	}
+
+	lines := strings.Split(content, "\n")
+	for _, dep := range knownDependencies {
+		if seen[dep.Dep] {
+			continue
+		}
+		for _, pkgName := range dep.Packages {
+			// Go packages use import paths with slashes - match as path prefix
+			if !strings.Contains(pkgName, "/") {
+				continue // Skip non-Go package names (e.g., "pg" is for Node)
+			}
+			pkgLower := strings.ToLower(pkgName)
+			for _, line := range lines {
+				line = strings.TrimSpace(strings.ToLower(line))
+				if strings.Contains(line, pkgLower) {
+					deps = append(deps, dep.Dep)
+					seen[dep.Dep] = true
+					break
+				}
+			}
+			if seen[dep.Dep] {
+				break
+			}
+		}
+	}
 	return deps
 }
 
@@ -728,6 +886,7 @@ func generateAzureYamlContent(rootDir string, services []DetectedService) string
 }
 
 // enrichAzureYaml adds azd-app extensions to an existing azure.yaml.
+// Uses yaml.Node tree manipulation to preserve comments and key ordering.
 func enrichAzureYaml(azureYamlPath string, services []DetectedService) error {
 	if err := security.ValidatePath(azureYamlPath); err != nil {
 		return fmt.Errorf("invalid path: %w", err)
@@ -739,53 +898,63 @@ func enrichAzureYaml(azureYamlPath string, services []DetectedService) error {
 		return fmt.Errorf("failed to read azure.yaml: %w", err)
 	}
 
-	// Parse existing YAML
-	var existing map[string]any
-	if err := yaml.Unmarshal(data, &existing); err != nil {
+	// Parse into yaml.Node to preserve comments and ordering
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
-	// Get existing services
-	existingServices, _ := existing["services"].(map[string]any)
-	if existingServices == nil {
-		existingServices = make(map[string]any)
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
+		return fmt.Errorf("invalid azure.yaml structure")
 	}
 
-	// Enrich each detected service
+	root := doc.Content[0]
+	if root.Kind != yaml.MappingNode {
+		return fmt.Errorf("azure.yaml root must be a mapping")
+	}
+
+	// Find the services mapping node
+	servicesNode := findMappingValue(root, "services")
+	if servicesNode == nil {
+		// Add a services key to the root
+		servicesNode = &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+		root.Content = append(root.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "services", Tag: "!!str"},
+			servicesNode,
+		)
+	}
+
 	modified := false
 	for _, svc := range services {
-		existingSvc, exists := existingServices[svc.Name]
-		if !exists {
-			// Add new service
-			newSvc := buildServiceMap(svc)
-			existingServices[svc.Name] = newSvc
+		existingSvcNode := findMappingValue(servicesNode, svc.Name)
+		if existingSvcNode == nil {
+			// Add new service node
+			addServiceToNode(servicesNode, svc)
 			modified = true
 			cliout.Item("  + Added service: %s (%s)", svc.Name, svc.Language)
 			continue
 		}
 
 		// Enrich existing service with missing fields
-		svcMap, ok := existingSvc.(map[string]any)
-		if !ok {
+		if existingSvcNode.Kind != yaml.MappingNode {
 			continue
 		}
 
 		enriched := false
-		if _, hasCommand := svcMap["command"]; !hasCommand && svc.Command != "" {
-			svcMap["command"] = svc.Command
+		if findMappingValue(existingSvcNode, "command") == nil && svc.Command != "" {
+			appendScalarToMapping(existingSvcNode, "command", svc.Command)
 			enriched = true
 		}
-		if _, hasPorts := svcMap["ports"]; !hasPorts && len(svc.Ports) > 0 {
-			svcMap["ports"] = svc.Ports
+		if findMappingValue(existingSvcNode, "ports") == nil && len(svc.Ports) > 0 {
+			appendPortsToMapping(existingSvcNode, svc.Ports)
 			enriched = true
 		}
-		if _, hasLang := svcMap["language"]; !hasLang && svc.Language != "" {
-			svcMap["language"] = svc.Language
+		if findMappingValue(existingSvcNode, "language") == nil && svc.Language != "" {
+			appendScalarToMapping(existingSvcNode, "language", svc.Language)
 			enriched = true
 		}
 
 		if enriched {
-			existingServices[svc.Name] = svcMap
 			modified = true
 			cliout.Item("  ~ Enriched service: %s", svc.Name)
 		} else {
@@ -798,10 +967,7 @@ func enrichAzureYaml(azureYamlPath string, services []DetectedService) error {
 		return nil
 	}
 
-	existing["services"] = existingServices
-
-	// Write back
-	output, err := yaml.Marshal(existing)
+	output, err := yaml.Marshal(&doc)
 	if err != nil {
 		return fmt.Errorf("failed to marshal azure.yaml: %w", err)
 	}
@@ -814,31 +980,76 @@ func enrichAzureYaml(azureYamlPath string, services []DetectedService) error {
 	return nil
 }
 
-// buildServiceMap converts a DetectedService to a map for YAML serialization.
-func buildServiceMap(svc DetectedService) map[string]any {
-	m := make(map[string]any)
+// findMappingValue finds a value node by key in a YAML mapping node.
+func findMappingValue(mapping *yaml.Node, key string) *yaml.Node {
+	if mapping.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			return mapping.Content[i+1]
+		}
+	}
+	return nil
+}
+
+// appendScalarToMapping adds a key: value pair to a mapping node.
+func appendScalarToMapping(mapping *yaml.Node, key string, value string) {
+	mapping.Content = append(mapping.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Value: key, Tag: "!!str"},
+		&yaml.Node{Kind: yaml.ScalarNode, Value: value, Tag: "!!str"},
+	)
+}
+
+// appendPortsToMapping adds a ports sequence to a mapping node.
+func appendPortsToMapping(mapping *yaml.Node, ports []string) {
+	seq := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+	for _, port := range ports {
+		seq.Content = append(seq.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: port, Tag: "!!str"})
+	}
+	mapping.Content = append(mapping.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Value: "ports", Tag: "!!str"},
+		seq,
+	)
+}
+
+// addServiceToNode adds a complete service definition to the services mapping.
+func addServiceToNode(servicesNode *yaml.Node, svc DetectedService) {
+	svcMapping := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+
 	if svc.Language != "" {
-		m["language"] = svc.Language
+		appendScalarToMapping(svcMapping, "language", svc.Language)
 	}
 	if svc.Project != "" {
-		m["project"] = "./" + filepath.ToSlash(svc.Project)
+		appendScalarToMapping(svcMapping, "project", "./"+filepath.ToSlash(svc.Project))
 	}
 	if svc.Command != "" {
-		m["command"] = svc.Command
+		appendScalarToMapping(svcMapping, "command", svc.Command)
 	}
 	if len(svc.Ports) > 0 {
-		m["ports"] = svc.Ports
+		appendPortsToMapping(svcMapping, svc.Ports)
 	}
 	if svc.Type != "" && svc.Type != "http" {
-		m["type"] = svc.Type
+		appendScalarToMapping(svcMapping, "type", svc.Type)
 	}
 	if svc.Mode != "" {
-		m["mode"] = svc.Mode
+		appendScalarToMapping(svcMapping, "mode", svc.Mode)
 	}
 	if len(svc.Uses) > 0 {
-		m["uses"] = svc.Uses
+		usesSeq := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+		for _, use := range svc.Uses {
+			usesSeq.Content = append(usesSeq.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: use, Tag: "!!str"})
+		}
+		svcMapping.Content = append(svcMapping.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Value: "uses", Tag: "!!str"},
+			usesSeq,
+		)
 	}
-	return m
+
+	servicesNode.Content = append(servicesNode.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Value: svc.Name, Tag: "!!str"},
+		svcMapping,
+	)
 }
 
 // Helper functions
