@@ -361,15 +361,22 @@ services:
 #### `uses`
 **Type:** `array` of `string` (optional)
 
-Service dependencies - defines startup order.
+Service dependencies — defines startup order and infrastructure connections.
+
+**Two use cases:**
+1. **Service dependencies** — reference other services by name for startup ordering
+2. **Infrastructure dependencies** — reference infrastructure services (databases, caches, queues) for connection string injection
 
 ```yaml
 services:
   web:
     uses: ["api"]  # Web waits for API
   api:
-    uses: ["database"]  # API waits for database
+    uses: ["postgres", "redis"]  # API depends on postgres and redis
+    # Automatically gets: POSTGRES_CONNECTION_STRING, REDIS_CONNECTION_STRING
 ```
+
+**Auto-detection:** `azd app init` automatically detects infrastructure dependencies by scanning package files (package.json, requirements.txt, go.mod, *.csproj) for known database/cache/queue client libraries.
 
 #### `healthcheck` ⭐ NEW
 **Type:** `object` or `boolean` (optional)

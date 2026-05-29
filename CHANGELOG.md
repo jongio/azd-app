@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`azd app init` Command** — Project initialization and azure.yaml generation
+  - Scans project structure to detect services (Node.js, Python, .NET, Go, Azure Functions)
+  - Detects frameworks (Express, FastAPI, Vite, Next.js, Gin, Django, Flask, etc.)
+  - Auto-detects infrastructure dependencies (`uses` field) by scanning package files for database/cache/queue client libraries
+  - Generates complete azure.yaml with ports, commands, and startup ordering
+  - Supports `--dry-run` mode to preview without writing files
+  - Supports `--force` to overwrite existing services section
+  - Service deduplication (Functions wins over language-based detection for same directory)
+  - Detected dependencies: PostgreSQL, MySQL, MongoDB, Cosmos DB, Redis, RabbitMQ, Kafka, Azure Service Bus, Azure Storage
+
 - **Custom URL Configuration** (`url` property in azure.yaml)
   - Configure custom access URLs for services (custom domains, reverse proxies, CDN, tunnels, API gateways)
   - Dashboard displays custom URLs with purple visual indicator and "Custom URL" badge

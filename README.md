@@ -132,10 +132,18 @@ azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extens
 azd extension install jongio.azd.app
 ```
 
-### 3. Run Your App
+### 3. Initialize Your Project
 
 ```bash
-cd your-azd-project
+cd your-project
+azd app init
+```
+
+This scans your project, detects services/frameworks/dependencies, and generates `azure.yaml`.
+
+### 4. Run Your App
+
+```bash
 azd app run
 ```
 

@@ -82,6 +82,7 @@ func main() {
 
 	// Register all commands
 	rootCmd.AddCommand(
+		commands.NewInitCommand(),
 		commands.NewReqsCommand(),
 		commands.NewRunCommand(),
 		commands.NewDepsCommand(),
