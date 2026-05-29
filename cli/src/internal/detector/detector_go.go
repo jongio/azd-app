@@ -6,14 +6,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	types "github.com/jongio/azd-core/projecttype"
 )
+
+// GoProject represents a detected Go project (directory with go.mod).
+type GoProject struct {
+	Dir    string
+	Module string
+}
 
 // FindGoProjects searches for Go projects (go.mod files).
 // Only searches within rootDir and does not traverse outside it.
-func FindGoProjects(rootDir string) ([]types.GoProject, error) {
-	var goProjects []types.GoProject
+func FindGoProjects(rootDir string) ([]GoProject, error) {
+	var goProjects []GoProject
 	seen := make(map[string]bool)
 
 	// Clean the root directory path
@@ -53,7 +57,7 @@ func FindGoProjects(rootDir string) ([]types.GoProject, error) {
 			}
 
 			module := extractGoModule(path)
-			goProjects = append(goProjects, types.GoProject{
+			goProjects = append(goProjects, GoProject{
 				Dir:    dir,
 				Module: module,
 			})

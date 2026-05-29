@@ -311,12 +311,12 @@ func buildDotnetService(dp types.DotnetProject, rootDir string) *DetectedService
 	name := inferServiceName(relPath, projectDir)
 
 	svc := &DetectedService{
-		Name:    name,
+		Name:     name,
 		Language: "dotnet",
-		Project: relPath,
-		Ports:   []string{"5000"},
-		Command: "dotnet watch run",
-		Type:    "http",
+		Project:  relPath,
+		Ports:    []string{"5000"},
+		Command:  "dotnet watch run",
+		Type:     "http",
 	}
 
 	return svc
@@ -331,25 +331,25 @@ func buildFunctionService(fa types.FunctionAppProject, rootDir string) *Detected
 	}
 
 	svc := &DetectedService{
-		Name:    name,
+		Name:     name,
 		Language: fa.Language,
-		Project: relPath,
-		Ports:   []string{"7071"},
-		Type:    "http",
+		Project:  relPath,
+		Ports:    []string{"7071"},
+		Type:     "http",
 	}
 
 	return svc
 }
 
 // buildGoService creates a DetectedService from a Go project.
-func buildGoService(gp types.GoProject, rootDir string) *DetectedService {
+func buildGoService(gp detector.GoProject, rootDir string) *DetectedService {
 	relPath := getRelativePath(gp.Dir, rootDir)
 	name := inferServiceName(relPath, gp.Dir)
 
 	svc := &DetectedService{
-		Name:    name,
+		Name:     name,
 		Language: "go",
-		Project: relPath,
+		Project:  relPath,
 	}
 
 	// Check if it has a main.go (likely a server)
