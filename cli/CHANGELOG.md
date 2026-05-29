@@ -1,3 +1,10 @@
+## [0.16.0] - 2026-05-29
+
+- fix(init): improve framework detection, YAML preservation, and dependency parsing (#307) (fadbef9a)
+- feat: add azd app init command for project scaffolding (#306) (647a1e70)
+- docs: update website logs references from --format to --output (385e8617)
+- chore: update registry for v0.15.2 (46ab5ae6)
+
 ## [0.15.2] - 2026-05-27
 
 - fix: resolve gofmt formatting and exclude metadata from web validation (64115389)
