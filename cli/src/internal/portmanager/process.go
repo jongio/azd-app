@@ -56,25 +56,15 @@ func buildGetProcessNameCommand(pid int) (cmd string, args []string) {
 }
 
 // buildKillProcessCommand returns the command and args to kill a process and its children by PID.
-// On Windows, uses Get-CimInstance Win32_Process to find child processes by ParentProcessId.
+// On Windows, uses taskkill /F /T which is a native command that handles process trees
+// without PowerShell startup overhead (which can exceed the kill timeout).
 // On Unix, uses kill -9 directly which is reliable in Codespaces/containers.
 // In both cases, children are killed first (recursively), then the parent.
 func buildKillProcessCommand(pid int) (cmd string, args []string) {
 	if runtime.GOOS == osWindows {
-		// PowerShell script that recursively kills child processes first, then the parent.
-		// Uses Get-CimInstance Win32_Process to find children by ParentProcessId.
-		psScript := fmt.Sprintf(`
-			function Kill-ProcessTree {
-				param([int]$ParentId)
-				$children = Get-CimInstance Win32_Process -Filter "ParentProcessId = $ParentId" -ErrorAction SilentlyContinue
-				foreach ($child in $children) {
-					Kill-ProcessTree -ParentId $child.ProcessId
-				}
-				Stop-Process -Id $ParentId -Force -ErrorAction SilentlyContinue
-			}
-			Kill-ProcessTree -ParentId %d
-		`, pid)
-		return "powershell", []string{"-Command", psScript}
+		// Use taskkill: /F = force, /T = kill child processes (tree), /PID = target process.
+		// This is much faster than PowerShell+WMI which can timeout on cold starts.
+		return "taskkill", []string{"/F", "/T", "/PID", strconv.Itoa(pid)}
 	}
 	// Unix: Use kill -9 directly - proven to work reliably in Codespaces
 	// First try to kill children, then force kill the parent
@@ -195,7 +185,7 @@ func (pm *PortManager) KillProcessOnPort(port int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), killProcessTimeout)
 	defer cancel()
 
-	// #nosec G204 -- Command injection safe: cmd is hard-coded ("powershell" or "sh"),
+	// #nosec G204 -- Command injection safe: cmd is hard-coded ("taskkill", "sh"),
 	// and PID is validated integer from strconv.Atoi in getProcessOnPort (no user input)
 	execCmd := exec.CommandContext(ctx, cmd, args...)
 	execCmd.Stdin = nil // Don't inherit stdin - prevents blocking
