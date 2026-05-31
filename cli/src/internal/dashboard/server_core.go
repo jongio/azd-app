@@ -30,11 +30,11 @@ type Server struct {
 	server       *http.Server
 	projectDir   string
 	stopChan     chan struct{}
-	stopOnce     sync.Once  // Ensure stopChan is only closed once
+	stopOnce     sync.Once     // Ensure stopChan is only closed once
 	shutdownChan chan struct{} // Signals the run process to initiate graceful shutdown
-	shutdownOnce sync.Once    // Ensure shutdownChan is only closed once
-	started      bool       // Track if server was successfully started
-	startedMu    sync.Mutex // Protect started flag
+	shutdownOnce sync.Once     // Ensure shutdownChan is only closed once
+	started      bool          // Track if server was successfully started
+	startedMu    sync.Mutex    // Protect started flag
 	configClient azdconfig.ConfigClient
 	currentMode  service.LogMode // Current log source mode (local or azure)
 	modeMu       sync.RWMutex    // Protect currentMode
