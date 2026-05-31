@@ -214,6 +214,16 @@
           "title": "post run hook",
           "description": "Runs after the `run` command (azd app extension)",
           "$ref": "#/definitions/hooks"
+        },
+        "prestop": {
+          "title": "pre stop hook",
+          "description": "Runs before the `stop` command stops services (azd app extension). Use for draining connections, flushing caches, or notifying dependents.",
+          "$ref": "#/definitions/hooks"
+        },
+        "poststop": {
+          "title": "post stop hook",
+          "description": "Runs after the `stop` command has stopped all services (azd app extension). Use for cleanup, removing temp files, or tearing down tunnels.",
+          "$ref": "#/definitions/hooks"
         }
       }
     },
@@ -2338,6 +2348,15 @@
         "postrun": {
           "run": "echo 'All services are ready!'",
           "shell": "sh"
+        },
+        "prestop": {
+          "run": "echo 'Draining connections...'",
+          "shell": "sh",
+          "continueOnError": true
+        },
+        "poststop": {
+          "run": "./scripts/cleanup.sh",
+          "shell": "bash"
         }
       }
     },

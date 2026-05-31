@@ -1,6 +1,6 @@
 # azd app stop
 
-Stop running services.
+Stop running services and tear down the app.
 
 ## Synopsis
 
@@ -10,21 +10,36 @@ azd app stop [flags]
 
 ## Description
 
-Stop one or more running services gracefully.
+Stop running services, kill all associated ports, and tear down the app.
 
-This command stops services that are currently running. Use `--service` to stop a specific service, or `--all` to stop all running services.
+By default (no flags), stops ALL running services and releases their ports. Use `--service` to stop only specific services.
 
 Services are stopped gracefully with a timeout. If a service doesn't respond to graceful shutdown, it will be forcefully terminated.
+
+### Lifecycle Hooks
+
+The stop command supports `prestop` and `poststop` hooks defined in `azure.yaml`:
+
+- **`prestop`** — Runs before services are stopped (e.g., drain connections, flush caches)
+- **`poststop`** — Runs after all services are stopped (e.g., cleanup temp files, remove tunnels)
+
+Hook failures are non-fatal: services will still be stopped even if a hook fails.
 
 ## Flags
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Service name(s) to stop (comma-separated) |
-| `--all` | | bool | `false` | Stop all running services |
-| `--yes` | `-y` | bool | `false` | Skip confirmation prompt for `--all` |
+| `--all` | | bool | `false` | Stop all running services (same as default) |
+| `--yes` | `-y` | bool | `false` | Skip confirmation prompt |
 
 ## Examples
+
+### Stop all services (default)
+
+```bash
+azd app stop
+```
 
 ### Stop a specific service
 
@@ -38,16 +53,10 @@ azd app stop --service api
 azd app stop --service "api,web,worker"
 ```
 
-### Stop all running services
-
-```bash
-azd app stop --all
-```
-
 ### Stop all without confirmation
 
 ```bash
-azd app stop --all --yes
+azd app stop --yes
 ```
 
 ### JSON output
@@ -68,13 +77,29 @@ Output:
 }
 ```
 
+### With lifecycle hooks
+
+```yaml
+# azure.yaml
+hooks:
+  prestop:
+    run: echo "Draining connections..."
+    continueOnError: true
+  poststop:
+    run: ./scripts/cleanup.sh
+    shell: bash
+```
+
 ## Graceful Shutdown
 
 The stop command uses a graceful shutdown process:
 
-1. Send SIGTERM signal to the service process
-2. Wait up to 30 seconds for the service to exit cleanly
-3. If the service doesn't exit, send SIGKILL to force termination
+1. Execute `prestop` hook (if configured)
+2. Send SIGTERM signal to each service process
+3. Wait up to 30 seconds for services to exit cleanly
+4. If a service doesn't exit, send SIGKILL to force termination
+5. Release all port assignments
+6. Execute `poststop` hook (if configured)
 
 This allows services to complete in-flight requests and clean up resources before stopping.
 

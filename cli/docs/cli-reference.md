@@ -599,7 +599,7 @@ Start one or more stopped services that were previously running. This command op
 
 ## `azd app stop`
 
-Stop running services.
+Stop running services, release ports, and tear down the app.
 
 ### Usage
 
@@ -610,14 +610,14 @@ azd app stop [flags]
 ### Examples
 
 ```bash
+# Stop all services (default behavior)
+azd app stop
+
 # Stop a specific service
 azd app stop --service api
 
 # Stop multiple services
 azd app stop --service "api,web,worker"
-
-# Stop all running services
-azd app stop --all
 ```
 
 ### Flags
@@ -625,12 +625,12 @@ azd app stop --all
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Service name(s) to stop (comma-separated) |
-| `--all` | | bool | `false` | Stop all running services |
-| `--yes` | `-y` | bool | `false` | Skip confirmation prompt for `--all` |
+| `--all` | | bool | `false` | Stop all running services (same as default) |
+| `--yes` | `-y` | bool | `false` | Skip confirmation prompt |
 
 ### Description
 
-Stop one or more running services gracefully. Services are stopped with a graceful shutdown timeout. If a service doesn't respond to graceful shutdown, it will be forcefully terminated.
+Stop running services gracefully, release all port assignments, and execute lifecycle hooks. By default (no flags), stops ALL services. Supports `prestop` and `poststop` hooks in `azure.yaml`.
 
 **→ [See full stop command specification](commands/stop.md)** for complete documentation.
 

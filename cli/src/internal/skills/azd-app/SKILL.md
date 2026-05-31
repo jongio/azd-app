@@ -104,11 +104,11 @@ Start a previously stopped service.
 | `--service, -s` | Service to start |
 
 ### `azd app stop`
-Stop a running service.
+Stop running services and tear down the app. By default stops all services, releases ports, and executes lifecycle hooks.
 
 | Flag | Description |
 |------|-------------|
-| `--service, -s` | Service to stop |
+| `--service, -s` | Service to stop (if omitted, stops all) |
 
 ### `azd app restart`
 Restart a running service.
@@ -140,10 +140,12 @@ Environment variables are resolved at service startup and injected into each ser
 
 azd-app supports lifecycle hooks defined in `azure.yaml`:
 
-- **prerun** — runs before the service starts
-- **postrun** — runs after the service stops
+- **prerun** — runs before services start
+- **postrun** — runs after services are ready
+- **prestop** — runs before services are stopped (e.g., drain connections, flush caches)
+- **poststop** — runs after all services are stopped (e.g., cleanup temp files, remove tunnels)
 
-Hooks can be defined per-service or at the project level.
+Hooks can be defined at the project level. Hook failures in `prestop`/`poststop` are non-fatal — services will still be stopped.
 
 ## Supported Languages
 

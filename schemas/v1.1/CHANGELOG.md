@@ -47,8 +47,9 @@ All v1.0 azure.yaml files are **fully compatible** with v1.1, and all v1.0 prope
    - Coverage thresholds
    - Custom test commands
 
-9. **Additional Hooks** (`hooks.prerun`, `hooks.postrun`)
+9. **Additional Hooks** (`hooks.prerun`, `hooks.postrun`, `hooks.prestop`, `hooks.poststop`)
    - Run hooks for `azd app run` command
+   - Stop hooks for `azd app stop` command (drain connections, cleanup)
 
 ## Compatibility
 

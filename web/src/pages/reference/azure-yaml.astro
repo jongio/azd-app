@@ -255,12 +255,17 @@ const hooksExample = `hooks:
     run: echo "🚀 All services are running!"
     shell: sh
     continueOnError: true  # Don't fail if hook fails
-    
-  # Interactive hook (binds to stdin/stdout)
-  prerun:
-    run: ./scripts/setup.sh
+
+  # Pre-stop hook (drain connections before shutdown)
+  prestop:
+    run: echo "Draining connections..."
+    shell: sh
+    continueOnError: true
+
+  # Post-stop cleanup
+  poststop:
+    run: ./scripts/cleanup.sh
     shell: bash
-    interactive: true
     
   # Platform-specific hooks
   prerun:
@@ -401,6 +406,13 @@ hooks:
   postrun:
     run: echo "✨ Ready to code!"
     shell: sh
+  prestop:
+    run: echo "⏹️ Shutting down..."
+    shell: sh
+    continueOnError: true
+  poststop:
+    run: echo "🧹 Cleanup complete!"
+    shell: sh
 
 # 📊 Global logging
 logs:
@@ -539,7 +551,7 @@ const quickReference = `# Property Quick Reference
 ### Development (azd app)
 - services - Service definitions
 - reqs - Prerequisites
-- hooks - Lifecycle hooks (prerun, postrun)
+- hooks - Lifecycle hooks (prerun, postrun, prestop, poststop)
 - logs - Logging configuration
 - test - Testing configuration
 
@@ -2027,6 +2039,8 @@ const resourceTypesExample = `resources:
           <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">prerun</code> - Runs before <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd app run</code></li>
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">postrun</code> - Runs after <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd app run</code></li>
+            <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">prestop</code> - Runs before <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd app stop</code></li>
+            <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">poststop</code> - Runs after <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd app stop</code></li>
           </ul>
           
           <h3 class="text-lg font-bold mb-2 mt-4">Hook Properties</h3>
@@ -2112,6 +2126,16 @@ const resourceTypesExample = `resources:
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">postrun</code></td>
                 <td class="py-3 px-4">azd app</td>
                 <td class="py-3 px-4">After <code>azd app run</code></td>
+              </tr>
+              <tr class="border-t border-neutral-200 dark:border-neutral-700">
+                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">prestop</code></td>
+                <td class="py-3 px-4">azd app</td>
+                <td class="py-3 px-4">Before <code>azd app stop</code></td>
+              </tr>
+              <tr class="border-t border-neutral-200 dark:border-neutral-700">
+                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">poststop</code></td>
+                <td class="py-3 px-4">azd app</td>
+                <td class="py-3 px-4">After <code>azd app stop</code></td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">predeploy</code></td>

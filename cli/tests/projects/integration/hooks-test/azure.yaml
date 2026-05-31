@@ -4,12 +4,15 @@ name: hooks-test-project
 
 hooks:
   prerun:
-    run: echo "🔧 Running prerun hook - preparing environment..."
-    shell: sh
+    run: echo "Running prerun hook - preparing environment..."
     continueOnError: false
   postrun:
-    run: echo "✅ Running postrun hook - all services are ready!"
-    shell: sh
+    run: echo "Running postrun hook - all services are ready!"
+  prestop:
+    run: echo "Running prestop hook - saving state before shutdown..."
+    continueOnError: true
+  poststop:
+    run: echo "Running poststop hook - cleanup complete!"
 
 services:
   web:
@@ -20,6 +23,11 @@ services:
     environment:
       NODE_ENV: development
       API_URL: http://localhost:8100
+    hooks:
+      prestop:
+        run: echo "[web] prestop - flushing connections..."
+      poststop:
+        run: echo "[web] poststop - web service fully stopped"
 
 reqs:
   - name: node

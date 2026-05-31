@@ -511,3 +511,204 @@ services:
 		t.Errorf("Expected POSIX Shell='zsh', got: %s", prerun.Posix.Shell)
 	}
 }
+
+func TestParseAzureYaml_WithStopHooks(t *testing.T) {
+	yamlContent := `name: test-app
+
+hooks:
+  prestop:
+    run: echo "draining connections"
+    shell: sh
+    continueOnError: true
+  poststop:
+    run: echo "cleanup complete"
+    shell: bash
+
+services:
+  web:
+    language: TypeScript
+    project: ./frontend
+    ports:
+      - "3000"
+`
+
+	tmpDir := t.TempDir()
+	yamlPath := filepath.Join(tmpDir, "azure.yaml")
+
+	err := os.WriteFile(yamlPath, []byte(yamlContent), 0o644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	azureYaml, err := ParseAzureYaml(yamlPath)
+	if err != nil {
+		t.Fatalf("Failed to parse azure.yaml: %v", err)
+	}
+
+	if azureYaml.Hooks == nil {
+		t.Fatal("Expected hooks to be non-nil")
+	}
+
+	// Verify prestop hook
+	if azureYaml.Hooks.Prestop == nil {
+		t.Fatal("Expected prestop hook to be non-nil")
+	}
+	if azureYaml.Hooks.Prestop.Run != "echo \"draining connections\"" {
+		t.Errorf("Expected prestop run='echo \"draining connections\"', got: %s", azureYaml.Hooks.Prestop.Run)
+	}
+	if azureYaml.Hooks.Prestop.Shell != "sh" {
+		t.Errorf("Expected prestop shell='sh', got: %s", azureYaml.Hooks.Prestop.Shell)
+	}
+	if !azureYaml.Hooks.Prestop.ContinueOnError {
+		t.Error("Expected prestop continueOnError=true")
+	}
+
+	// Verify poststop hook
+	if azureYaml.Hooks.Poststop == nil {
+		t.Fatal("Expected poststop hook to be non-nil")
+	}
+	if azureYaml.Hooks.Poststop.Run != "echo \"cleanup complete\"" {
+		t.Errorf("Expected poststop run='echo \"cleanup complete\"', got: %s", azureYaml.Hooks.Poststop.Run)
+	}
+	if azureYaml.Hooks.Poststop.Shell != "bash" {
+		t.Errorf("Expected poststop shell='bash', got: %s", azureYaml.Hooks.Poststop.Shell)
+	}
+}
+
+func TestHooks_GetPrestop(t *testing.T) {
+	tests := []struct {
+		name    string
+		hooks   *Hooks
+		wantNil bool
+	}{
+		{
+			name:    "nil hooks",
+			hooks:   nil,
+			wantNil: true,
+		},
+		{
+			name:    "hooks with nil prestop",
+			hooks:   &Hooks{Prestop: nil},
+			wantNil: true,
+		},
+		{
+			name: "hooks with prestop",
+			hooks: &Hooks{
+				Prestop: &Hook{Run: "echo drain"},
+			},
+			wantNil: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.hooks.GetPrestop()
+
+			if tt.wantNil {
+				if result != nil {
+					t.Error("Expected nil prestop hook")
+				}
+			} else {
+				if result == nil {
+					t.Error("Expected non-nil prestop hook")
+				}
+			}
+		})
+	}
+}
+
+func TestHooks_GetPoststop(t *testing.T) {
+	tests := []struct {
+		name    string
+		hooks   *Hooks
+		wantNil bool
+	}{
+		{
+			name:    "nil hooks",
+			hooks:   nil,
+			wantNil: true,
+		},
+		{
+			name:    "hooks with nil poststop",
+			hooks:   &Hooks{Poststop: nil},
+			wantNil: true,
+		},
+		{
+			name: "hooks with poststop",
+			hooks: &Hooks{
+				Poststop: &Hook{Run: "echo cleanup"},
+			},
+			wantNil: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.hooks.GetPoststop()
+
+			if tt.wantNil {
+				if result != nil {
+					t.Error("Expected nil poststop hook")
+				}
+			} else {
+				if result == nil {
+					t.Error("Expected non-nil poststop hook")
+				}
+			}
+		})
+	}
+}
+
+func TestParseAzureYaml_WithAllHooks(t *testing.T) {
+	yamlContent := `name: test-app
+
+hooks:
+  prerun:
+    run: echo "prerun"
+    shell: sh
+  postrun:
+    run: echo "postrun"
+    shell: sh
+  prestop:
+    run: echo "prestop"
+    shell: sh
+  poststop:
+    run: echo "poststop"
+    shell: sh
+
+services:
+  web:
+    language: TypeScript
+    project: .
+`
+
+	tmpDir := t.TempDir()
+	yamlPath := filepath.Join(tmpDir, "azure.yaml")
+
+	err := os.WriteFile(yamlPath, []byte(yamlContent), 0o644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	azureYaml, err := ParseAzureYaml(yamlPath)
+	if err != nil {
+		t.Fatalf("Failed to parse azure.yaml: %v", err)
+	}
+
+	if azureYaml.Hooks == nil {
+		t.Fatal("Expected hooks to be non-nil")
+	}
+
+	if azureYaml.Hooks.GetPrerun() == nil {
+		t.Error("Expected prerun hook to be non-nil")
+	}
+	if azureYaml.Hooks.GetPostrun() == nil {
+		t.Error("Expected postrun hook to be non-nil")
+	}
+	if azureYaml.Hooks.GetPrestop() == nil {
+		t.Error("Expected prestop hook to be non-nil")
+	}
+	if azureYaml.Hooks.GetPoststop() == nil {
+		t.Error("Expected poststop hook to be non-nil")
+	}
+}

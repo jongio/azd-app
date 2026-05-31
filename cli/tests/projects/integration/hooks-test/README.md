@@ -4,18 +4,19 @@ Test projects demonstrating hook functionality in azd app.
 
 ## hooks-test
 
-Basic example with simple prerun and postrun hooks that echo messages.
+Basic example with simple prerun, postrun, prestop, and poststop hooks that echo messages.
 
 **Features:**
 - Simple echo-based hooks
 - Single service (Node.js)
-- Demonstrates basic hook execution
+- Demonstrates basic hook execution for run and stop lifecycle
 
 **To test:**
 ```bash
 cd hooks-test
 azd app run --dry-run  # Preview without running
 # azd app run  # Note: Would start a service that runs for 5 minutes
+# azd app stop  # Stops all services, executes prestop/poststop hooks
 ```
 
 ## Platform-Specific Hooks (Removed)
@@ -53,11 +54,17 @@ To test actual hook execution in unit tests, see:
 
 ## Expected Behavior
 
-### Successful Execution
+### Successful Execution (run)
 1. Prerun hook executes before services start
 2. Services start and become ready
 3. Postrun hook executes after all services are ready
 4. Dashboard shows running services
+
+### Successful Execution (stop)
+1. Prestop hook executes before services are stopped
+2. Services are stopped gracefully (SIGTERM → timeout → SIGKILL)
+3. All port assignments are released
+4. Poststop hook executes after all services are stopped
 
 ### Hook Failure (continueOnError: false)
 1. Prerun hook fails
@@ -69,3 +76,7 @@ To test actual hook execution in unit tests, see:
 2. Warning displayed but execution continues
 3. Services start normally
 4. Postrun hook still executes
+
+### Stop Hook Failure
+1. Prestop hook fails → warning displayed, services still stop
+2. Poststop hook fails → warning displayed, stop is complete

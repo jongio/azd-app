@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Test project for hook functionality",
   "scripts": {
-    "dev": "echo 'Mock dev server started on port 3000' && sleep 300",
-    "start": "echo 'Mock production server started' && sleep 300"
+    "dev": "node -e \"const http=require('http');const s=http.createServer((q,r)=>{r.end('ok')});s.listen(3000,()=>console.log('Mock dev server started on port 3000'))\"",
+    "start": "node -e \"const http=require('http');const s=http.createServer((q,r)=>{r.end('ok')});s.listen(3000,()=>console.log('Mock production server started on port 3000'))\""
   },
   "dependencies": {},
   "devDependencies": {}
