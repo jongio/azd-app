@@ -1388,6 +1388,9 @@ func TestE2E_StreamAzureLogs_InitialStatusFrame(t *testing.T) {
 }
 
 func TestE2E_StreamAzureLogs_PollingDeliversEntries(t *testing.T) {
+	if raceEnabled {
+		t.Skip("skipping under -race: inherent race between connect-rpc handler Close and httptest transport teardown on client cancel")
+	}
 	t0 := time.Now().Add(-1 * time.Second)
 	calls := atomic.Int32{}
 	funcs := fullStubAzureFuncs()
