@@ -397,7 +397,7 @@ azd app test --environment staging      # Target a deployed environment
 | `azd app restart` | Restart running services |
 | `azd app run` | Start all services with dashboard |
 | `azd app start` | Start specific services |
-| `azd app stop` | Stop running services |
+| `azd app stop` | Stop running services (cross-process, with lifecycle hooks) |
 | `azd app test` | Run tests across all services |
 | `azd app version` | Show extension version |
 

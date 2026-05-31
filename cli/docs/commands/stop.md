@@ -5,16 +5,21 @@ Stop running services and tear down the app.
 ## Synopsis
 
 ```
-azd app stop [flags]
+azd app stop
 ```
 
 ## Description
 
-Stop running services, kill all associated ports, and tear down the app.
+Sends a shutdown signal to the running `azd app run` process. This triggers graceful shutdown including prestop/poststop hooks, port release, and process cleanup — identical to pressing Ctrl+C in the run terminal.
 
-By default (no flags), stops ALL running services and releases their ports. Use `--service` to stop only specific services.
+Run this from **any terminal** in the project directory while `azd app run` is active in another terminal.
 
-Services are stopped gracefully with a timeout. If a service doesn't respond to graceful shutdown, it will be forcefully terminated.
+### How It Works
+
+1. Discovers the running dashboard port (stored in a per-project temp file)
+2. Authenticates with the dashboard using a per-session token
+3. Sends an authenticated shutdown request
+4. The run process executes the full graceful shutdown path
 
 ### Lifecycle Hooks
 
@@ -25,59 +30,15 @@ The stop command supports `prestop` and `poststop` hooks defined in `azure.yaml`
 
 Hook failures are non-fatal: services will still be stopped even if a hook fails.
 
-## Flags
-
-| Flag | Short | Type | Default | Description |
-|------|-------|------|---------|-------------|
-| `--service` | `-s` | string | | Service name(s) to stop (comma-separated) |
-| `--all` | | bool | `false` | Stop all running services (same as default) |
-| `--yes` | `-y` | bool | `false` | Skip confirmation prompt |
-
 ## Examples
 
-### Stop all services (default)
+### Stop the running app
 
 ```bash
 azd app stop
 ```
 
-### Stop a specific service
-
-```bash
-azd app stop --service api
-```
-
-### Stop multiple services
-
-```bash
-azd app stop --service "api,web,worker"
-```
-
-### Stop all without confirmation
-
-```bash
-azd app stop --yes
-```
-
-### JSON output
-
-```bash
-azd app stop --service api --output json
-```
-
-Output:
-
-```json
-{
-  "serviceName": "api",
-  "success": true,
-  "message": "Service 'api' stopped",
-  "status": "stopped",
-  "duration": "0.856s"
-}
-```
-
-### With lifecycle hooks
+### With lifecycle hooks in azure.yaml
 
 ```yaml
 # azure.yaml
@@ -86,33 +47,26 @@ hooks:
     run: echo "Draining connections..."
     continueOnError: true
   poststop:
-    run: ./scripts/cleanup.sh
-    shell: bash
+    run: echo "Cleanup complete"
 ```
 
-## Graceful Shutdown
-
-The stop command uses a graceful shutdown process:
+## Graceful Shutdown Sequence
 
 1. Execute `prestop` hook (if configured)
-2. Send SIGTERM signal to each service process
-3. Wait up to 30 seconds for services to exit cleanly
-4. If a service doesn't exit, send SIGKILL to force termination
-5. Release all port assignments
-6. Execute `poststop` hook (if configured)
-
-This allows services to complete in-flight requests and clean up resources before stopping.
+2. Stop all service processes gracefully (10s timeout)
+3. Stop the dashboard server
+4. Release all port assignments
+5. Execute `poststop` hook (if configured)
+6. Clean up port discovery file
 
 ## Exit Codes
 
 | Code | Description |
 |------|-------------|
-| `0` | All services stopped successfully |
-| `1` | One or more services failed to stop |
+| `0` | Shutdown signal sent successfully |
+| `1` | No running app found or communication failed |
 
 ## Related Commands
 
-- [azd app start](start.md) - Start stopped services
-- [azd app restart](restart.md) - Restart services
 - [azd app run](run.md) - Run the development environment
 - [azd app health](health.md) - Monitor service health
