@@ -869,10 +869,12 @@ func (s *Service) GetPrimaryPort() (int, int, bool) {
 	return mappings[0].HostPort, mappings[0].ContainerPort, isExplicit
 }
 
-// Hooks represents lifecycle hooks for run command.
+// Hooks represents lifecycle hooks for run and stop commands.
 type Hooks struct {
-	Prerun  *Hook `yaml:"prerun,omitempty"`
-	Postrun *Hook `yaml:"postrun,omitempty"`
+	Prerun   *Hook `yaml:"prerun,omitempty"`
+	Postrun  *Hook `yaml:"postrun,omitempty"`
+	Prestop  *Hook `yaml:"prestop,omitempty"`
+	Poststop *Hook `yaml:"poststop,omitempty"`
 }
 
 // GetPrerun safely retrieves the prerun hook, returning nil if not configured.
@@ -889,6 +891,22 @@ func (h *Hooks) GetPostrun() *Hook {
 		return nil
 	}
 	return h.Postrun
+}
+
+// GetPrestop safely retrieves the prestop hook, returning nil if not configured.
+func (h *Hooks) GetPrestop() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Prestop
+}
+
+// GetPoststop safely retrieves the poststop hook, returning nil if not configured.
+func (h *Hooks) GetPoststop() *Hook {
+	if h == nil {
+		return nil
+	}
+	return h.Poststop
 }
 
 // Hook represents a lifecycle hook configuration.

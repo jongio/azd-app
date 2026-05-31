@@ -73,14 +73,13 @@ func killAppProcesses() error {
 	return nil
 }
 
-// getVersion reads the current version from extension.yaml.
-func getVersion() (string, error) {
+// getBaseVersion reads the base version from extension.yaml.
+func getBaseVersion() (string, error) {
 	data, err := os.ReadFile(extensionFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read extension.yaml: %w", err)
 	}
 
-	// Simple regex to extract version: line
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "version:") {
@@ -89,6 +88,65 @@ func getVersion() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("version not found in extension.yaml")
+}
+
+// getVersion returns the build version. For release builds (RELEASE_BUILD=true),
+// returns the base version from extension.yaml. For dev builds, appends SemVer
+// build metadata with the git short SHA and dirty state (e.g., 0.16.0+dev.g19e040f8.dirty).
+func getVersion() (string, error) {
+	base, err := getBaseVersion()
+	if err != nil {
+		return "", err
+	}
+
+	// Release builds use the clean version from extension.yaml.
+	if os.Getenv("RELEASE_BUILD") == "true" {
+		return base, nil
+	}
+
+	// For dev builds, append git metadata.
+	sha, err := sh.Output("git", "rev-parse", "--short", "HEAD")
+	if err != nil {
+		// No git available — fall back to base version with +dev suffix.
+		return base + "+dev", nil
+	}
+
+	suffix := "+dev.g" + strings.TrimSpace(sha)
+
+	// Check if the working tree is dirty.
+	dirty, _ := sh.Output("git", "status", "--porcelain")
+	if strings.TrimSpace(dirty) != "" {
+		suffix += ".dirty"
+	}
+
+	return base + suffix, nil
+}
+
+// patchExtensionVersion temporarily writes version into extension.yaml and returns
+// a restore function that reverts the file to its original content.
+func patchExtensionVersion(version string) (func(), error) {
+	original, err := os.ReadFile(extensionFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read extension.yaml: %w", err)
+	}
+
+	lines := strings.Split(string(original), "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, "version:") {
+			lines[i] = "version: " + version
+			break
+		}
+	}
+
+	patched := strings.Join(lines, "\n")
+	if err := os.WriteFile(extensionFile, []byte(patched), 0644); err != nil {
+		return nil, fmt.Errorf("failed to patch extension.yaml: %w", err)
+	}
+
+	restore := func() {
+		_ = os.WriteFile(extensionFile, original, 0644)
+	}
+	return restore, nil
 }
 
 // All runs lint, test, and build in dependency order.
@@ -122,6 +180,14 @@ func Build() error {
 	if err != nil {
 		return err
 	}
+
+	// Temporarily write the dev version into extension.yaml so azd x build
+	// picks it up for ldflags injection. Restore the original afterward.
+	restore, err := patchExtensionVersion(version)
+	if err != nil {
+		return err
+	}
+	defer restore()
 
 	fmt.Println("Building and installing extension...")
 
@@ -165,6 +231,12 @@ func buildAllPlatforms() error {
 	if err != nil {
 		return err
 	}
+
+	restore, err := patchExtensionVersion(version)
+	if err != nil {
+		return err
+	}
+	defer restore()
 
 	// When EXTENSION_PLATFORM is not set, the script builds for all platforms
 	env := map[string]string{
@@ -1490,6 +1562,11 @@ func buildGoOnly() error {
 	if err != nil {
 		return err
 	}
+	restore, err := patchExtensionVersion(version)
+	if err != nil {
+		return err
+	}
+	defer restore()
 	return runQuietEnvRetry(map[string]string{
 		"EXTENSION_ID":      extensionID,
 		"EXTENSION_VERSION": version,

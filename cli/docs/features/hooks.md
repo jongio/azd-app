@@ -2,7 +2,7 @@
 
 ## Overview
 
-Hooks are lifecycle scripts that execute automatically before and after the `azd app run` command, similar to azd's `preprovision` and `postprovision` hooks. They allow you to automate setup tasks, validation, notifications, and cleanup operations.
+Hooks are lifecycle scripts that execute automatically before and after the `azd app run` and `azd app stop` commands, similar to azd's `preprovision` and `postprovision` hooks. They allow you to automate setup tasks, validation, notifications, and cleanup operations.
 
 ## Available Hooks
 
@@ -21,6 +21,22 @@ Executes **after** all services are ready. Use for:
 - Running integration tests
 - Logging startup information
 - Registering services with discovery systems
+
+### `prestop`
+Executes **before** services are stopped. Use for:
+- Draining active connections
+- Flushing caches or buffers
+- Notifying dependent services
+- Saving application state
+- Deregistering from service discovery
+
+### `poststop`
+Executes **after** all services are stopped and ports released. Use for:
+- Cleaning up temporary files
+- Removing tunnels or proxies
+- Sending shutdown notifications
+- Archiving logs
+- Tearing down test data
 
 ## Configuration
 
@@ -226,6 +242,55 @@ hooks:
 services:
   web:
     project: .
+```
+
+### Stop Lifecycle Hooks
+
+```yaml
+name: app-with-stop-hooks
+
+hooks:
+  prestop:
+    run: |
+      echo "Draining connections..."
+      curl -X POST http://localhost:8080/admin/drain
+    shell: bash
+    continueOnError: true  # Don't prevent stop if drain fails
+  poststop:
+    run: |
+      echo "Cleaning up..."
+      rm -rf ./tmp/cache
+      rm -f ./pid/*.pid
+    shell: bash
+
+services:
+  api:
+    project: ./backend
+    ports: ["8080"]
+```
+
+### Full Lifecycle (Run + Stop)
+
+```yaml
+name: full-lifecycle-app
+
+hooks:
+  prerun:
+    run: npm run db:migrate
+    shell: bash
+  postrun:
+    run: echo "App is ready at http://localhost:3000"
+  prestop:
+    run: echo "Shutting down gracefully..."
+    continueOnError: true
+  poststop:
+    run: ./scripts/cleanup.sh
+    shell: bash
+
+services:
+  web:
+    project: .
+    ports: ["3000"]
 ```
 
 ### Conditional Execution

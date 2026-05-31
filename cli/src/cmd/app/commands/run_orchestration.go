@@ -67,7 +67,7 @@ func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceR
 	}
 
 	// Start dashboard and wait for shutdown
-	return monitorServicesUntilShutdown(result, cwd)
+	return monitorServicesUntilShutdown(result, cwd, azureYaml, azureYamlDir)
 }
 
 // monitorServicesUntilShutdown monitors all services with full process isolation.
@@ -86,7 +86,7 @@ func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceR
 //
 // This uses sync.WaitGroup (not errgroup) because we want all goroutines to complete
 // independently rather than failing fast on first error.
-func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd string) error {
+func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd string, azureYaml *service.AzureYaml, azureYamlDir string) error {
 	// Create context that cancels on SIGINT/SIGTERM only
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -103,7 +103,6 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	} else {
 		notifMgr.Start()
 		defer func() { _ = notifMgr.Stop() }()
-		// Notifications enabled silently - no need to announce
 	}
 
 	// Start dashboard monitoring (passes notifMgr to set URL after dashboard starts)
@@ -112,11 +111,20 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	// Start service process monitors
 	startServiceMonitors(ctx, &wg, result.Processes, cwd)
 
+	// Also cancel on remote shutdown request (from `azd app stop` in another terminal)
+	go func() {
+		select {
+		case <-dashboardServer.ShutdownChan():
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
 	// Wait for signal (context cancellation) or all services to complete
 	wg.Wait()
 
-	// Perform cleanup shutdown
-	return performGracefulShutdown(dashboardServer, result.Processes)
+	// Perform cleanup shutdown with hooks
+	return performGracefulShutdown(dashboardServer, result.Processes, azureYaml, azureYamlDir)
 }
 
 // startDashboardMonitor starts the dashboard server in a separate goroutine with panic recovery.
@@ -172,14 +180,22 @@ func startServiceMonitors(ctx context.Context, wg *sync.WaitGroup, processes map
 }
 
 // performGracefulShutdown stops all services and dashboard with a timeout.
+// Runs prestop/poststop hooks around service shutdown.
 // Returns nil due to process isolation design - individual failures are logged but don't fail the command.
-func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[string]*service.ServiceProcess) error {
+func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[string]*service.ServiceProcess, azureYaml *service.AzureYaml, azureYamlDir string) error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
 	cliout.Newline()
 	cliout.Newline()
 	cliout.Plain("Shutting down...")
+
+	// Execute prestop hook
+	if azureYaml != nil {
+		if hookErr := executePrestopHook(shutdownCtx, azureYaml, azureYamlDir); hookErr != nil {
+			cliout.Warning("Prestop hook failed: %v", hookErr)
+		}
+	}
 
 	// Stop dashboard
 	if stopErr := dashboardServer.Stop(); stopErr != nil {
@@ -192,6 +208,14 @@ func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[st
 	}
 
 	cliout.Success("All services stopped")
+
+	// Execute poststop hook
+	if azureYaml != nil {
+		if hookErr := executePoststopHook(shutdownCtx, azureYaml, azureYamlDir); hookErr != nil {
+			cliout.Warning("Poststop hook failed: %v", hookErr)
+		}
+	}
+
 	cliout.Newline()
 
 	// Clean up port assignments on clean shutdown
@@ -203,6 +227,16 @@ func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[st
 	// Individual service crashes are logged but don't cause the run command to fail.
 	// Only return errors for infrastructure issues (dashboard, shutdown timeout, etc.)
 	return nil
+}
+
+// executePrestopHook executes the prestop hook if configured.
+func executePrestopHook(ctx context.Context, azureYaml *service.AzureYaml, workingDir string) error {
+	return executeHook(ctx, azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPrestop(), "prestop", workingDir)
+}
+
+// executePoststopHook executes the poststop hook if configured.
+func executePoststopHook(ctx context.Context, azureYaml *service.AzureYaml, workingDir string) error {
+	return executeHook(ctx, azureYaml, azureYaml.Hooks, azureYaml.Hooks.GetPoststop(), "poststop", workingDir)
 }
 
 // monitorServiceProcess monitors a single service process for exit or cancellation.

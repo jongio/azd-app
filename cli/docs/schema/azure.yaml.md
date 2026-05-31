@@ -157,7 +157,7 @@ reqs:
 Free-form metadata (standard `azd` field).
 
 ### `hooks` ⭐ NEW
-Lifecycle hooks that execute before and after the `run` command.
+Lifecycle hooks that execute before/after `run` and `stop` commands.
 
 ```yaml
 hooks:
@@ -168,6 +168,13 @@ hooks:
   postrun:
     run: "echo 'Services are ready!'"
     shell: sh
+  prestop:
+    run: "echo 'Draining connections...'"
+    shell: sh
+    continueOnError: true
+  poststop:
+    run: "./scripts/cleanup.sh"
+    shell: bash
 ```
 
 See [Hook Object](#hook-object) for full configuration options.

@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,6 +45,9 @@ func (s *Server) registerPortInConfig(port int) {
 	} else {
 		slog.Debug("registered dashboard port in config", "port", port, "projectHash", projectHash)
 	}
+
+	// Also write port file for cross-process discovery (doesn't depend on gRPC host)
+	writePortFile(s.projectDir, port)
 }
 
 // clearPortFromConfig removes the dashboard port from azdconfig.
@@ -55,6 +60,47 @@ func (s *Server) clearPortFromConfig() {
 	} else {
 		slog.Debug("cleared dashboard port from config", "projectHash", projectHash)
 	}
+
+	// Also remove port file
+	removePortFile(s.projectDir)
+}
+
+// portFilePath returns the path to the dashboard port file for a project.
+// Uses OS temp dir keyed by project hash to avoid polluting the project directory.
+func portFilePath(projectDir string) string {
+	hash := azdconfig.ProjectHash(projectDir)
+	return filepath.Join(os.TempDir(), fmt.Sprintf(".azd-app-dashboard-%s.port", hash))
+}
+
+// writePortFile writes the dashboard port to a file for cross-process discovery.
+func writePortFile(projectDir string, port int) {
+	path := portFilePath(projectDir)
+	if err := os.WriteFile(path, []byte(strconv.Itoa(port)), 0600); err != nil {
+		slog.Debug("failed to write dashboard port file", "path", path, "error", err)
+	}
+}
+
+// removePortFile removes the dashboard port file.
+func removePortFile(projectDir string) {
+	path := portFilePath(projectDir)
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		slog.Debug("failed to remove dashboard port file", "path", path, "error", err)
+	}
+}
+
+// ReadPortFile reads the dashboard port from the port file for a project directory.
+// Returns 0 if the file doesn't exist or can't be read.
+func ReadPortFile(projectDir string) int {
+	path := portFilePath(projectDir)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	port, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0
+	}
+	return port
 }
 
 // generatePreferredPort returns a preferred port for the dashboard server.

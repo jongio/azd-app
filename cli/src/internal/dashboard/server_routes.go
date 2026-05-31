@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"crypto/subtle"
 	"embed"
 	"io/fs"
 	"log/slog"
@@ -88,6 +89,19 @@ func (s *Server) setupRoutes() {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write([]byte(s.sessionToken))
+	})
+
+	// Shutdown endpoint: signals the run process to initiate graceful teardown.
+	// Used by `azd app stop` from a separate terminal.
+	s.mux.HandleFunc("POST /api/shutdown", func(w http.ResponseWriter, r *http.Request) {
+		token := r.Header.Get("X-Session-Token")
+		if subtle.ConstantTimeCompare([]byte(token), []byte(s.sessionToken)) != 1 {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		s.RequestShutdown()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"shutting_down"}`))
 	})
 
 	// Pre-read index.html once for SPA client-side routing fallback

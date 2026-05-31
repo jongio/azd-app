@@ -30,9 +30,11 @@ type Server struct {
 	server       *http.Server
 	projectDir   string
 	stopChan     chan struct{}
-	stopOnce     sync.Once  // Ensure stopChan is only closed once
-	started      bool       // Track if server was successfully started
-	startedMu    sync.Mutex // Protect started flag
+	stopOnce     sync.Once     // Ensure stopChan is only closed once
+	shutdownChan chan struct{} // Signals the run process to initiate graceful shutdown
+	shutdownOnce sync.Once     // Ensure shutdownChan is only closed once
+	started      bool          // Track if server was successfully started
+	startedMu    sync.Mutex    // Protect started flag
 	configClient azdconfig.ConfigClient
 	currentMode  service.LogMode // Current log source mode (local or azure)
 	modeMu       sync.RWMutex    // Protect currentMode
@@ -64,6 +66,7 @@ func GetServer(projectDir string) *Server {
 		mux:          http.NewServeMux(),
 		projectDir:   absPath,
 		stopChan:     make(chan struct{}),
+		shutdownChan: make(chan struct{}),
 		currentMode:  service.LogModeLocal, // Default to local mode
 		broadcast:    broadcast.New(),
 		sessionToken: rpc.GenerateSessionToken(),
@@ -82,6 +85,20 @@ func (s *Server) GetURL() string {
 		return ""
 	}
 	return fmt.Sprintf("http://localhost:%d", s.port)
+}
+
+// ShutdownChan returns a channel that is closed when a remote shutdown is requested.
+// The run orchestrator selects on this to initiate graceful shutdown.
+func (s *Server) ShutdownChan() <-chan struct{} {
+	return s.shutdownChan
+}
+
+// RequestShutdown signals the run process to initiate graceful shutdown.
+// Safe to call multiple times.
+func (s *Server) RequestShutdown() {
+	s.shutdownOnce.Do(func() {
+		close(s.shutdownChan)
+	})
 }
 
 // getCurrentMode is a thread-safe accessor for currentMode. Exported via

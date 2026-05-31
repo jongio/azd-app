@@ -261,7 +261,7 @@ func TestMonitorServicesUntilShutdown_StartupTimeout(t *testing.T) {
 	// Run monitoring in goroutine with timeout
 	done := make(chan error, 1)
 	go func() {
-		done <- monitorServicesUntilShutdown(result, tmpDir)
+		done <- monitorServicesUntilShutdown(result, tmpDir, nil, "")
 	}()
 
 	// Ensure cleanup if test exits early
@@ -345,7 +345,7 @@ func TestMonitorServicesUntilShutdown_SignalHandling(t *testing.T) {
 	}()
 
 	startTime := time.Now()
-	_ = monitorServicesUntilShutdown(result, tmpDir)
+	_ = monitorServicesUntilShutdown(result, tmpDir, nil, "")
 	elapsed := time.Since(startTime)
 
 	// Should complete reasonably quickly after signal
@@ -600,7 +600,7 @@ func TestMonitorServices_RunsIndefinitely(t *testing.T) {
 	}()
 
 	startTime := time.Now()
-	_ = monitorServicesUntilShutdown(result, tmpDir)
+	_ = monitorServicesUntilShutdown(result, tmpDir, nil, "")
 	elapsed := time.Since(startTime)
 
 	// Should have run for approximately 5 seconds (not stop at 30 seconds or earlier)
@@ -840,7 +840,7 @@ func TestProcessExit_DoesNotStopOtherServices(t *testing.T) {
 	// Run monitoring in a goroutine since it waits indefinitely for signals
 	done := make(chan error, 1)
 	go func() {
-		done <- monitorServicesUntilShutdown(result, tmpDir)
+		done <- monitorServicesUntilShutdown(result, tmpDir, nil, "")
 	}()
 
 	// Ensure cleanup if test exits
