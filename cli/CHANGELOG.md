@@ -1,3 +1,10 @@
+## [0.17.0] - 2026-06-01
+
+- fix(rpc): skip PollingDeliversEntries under -race detector (#311) (0ed4f69f)
+- fix(portmanager): use taskkill instead of PowerShell for Windows port kill (#310) (b6113adc)
+- feat: implement cross-process azd app stop with lifecycle hooks (#309) (10b0026f)
+- chore: update registry for v0.16.0 (19e040f8)
+
 ## [0.16.0] - 2026-05-29
 
 - fix(init): improve framework detection, YAML preservation, and dependency parsing (#307) (fadbef9a)
