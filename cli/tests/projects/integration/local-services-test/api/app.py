@@ -3,9 +3,12 @@
 import http.server
 import socketserver
 import json
+import os
 from datetime import datetime
 
-PORT = 8000
+PORT = int(os.environ.get("PORT", "8080"))
+
+socketserver.TCPServer.allow_reuse_address = True
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
