@@ -8,9 +8,10 @@
 // GetAzureLogs, GetAzureStatus, StreamAzureLogs - is intentionally preserved
 // so logs.go / info.go / MCP handlers did not need rewriting.
 //
-// Auth posture: no interceptor is attached. The dashboard binds to localhost
-// only, matching the trust boundary of the previous REST surface. Stage 5+
-// may add authentication; scope-limited here on purpose.
+// Auth posture: the client fetches the session token from /api/session-token
+// (served without auth) and attaches it via a Connect interceptor on every
+// RPC call. This matches the server-side NewAuthInterceptor that validates
+// X-Session-Token on all inbound requests.
 //
 // GetAzureStatus is synthesised on top of the AzureService.GetAzureServices
 // RPC and mirrors the shape of the historical service.AzureStatus struct
@@ -86,11 +87,21 @@ func NewClient(ctx context.Context, projectDir string) (*Client, error) {
 		return nil, errors.New("dashboard not running for project")
 	}
 
-	return newClientForPort(port), nil
+	return newClientForPort(ctx, port)
 }
 
-func newClientForPort(port int) *Client {
+func newClientForPort(ctx context.Context, port int) (*Client, error) {
 	baseURL := fmt.Sprintf("http://localhost:%d", port)
+
+	// Fetch the session token from the dashboard's unauthenticated endpoint.
+	token, err := fetchSessionToken(ctx, baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch session token from dashboard: %w", err)
+	}
+
+	authInterceptor := &clientAuthInterceptor{token: token}
+	opts := connect.WithInterceptors(authInterceptor)
+
 	unary := &http.Client{Timeout: constants.DashboardAPITimeout}
 	stream := &http.Client{}
 
@@ -98,14 +109,62 @@ func newClientForPort(port int) *Client {
 		baseURL:    baseURL,
 		unaryHTTP:  unary,
 		streamHTTP: stream,
-		lifecycle:  azdappv1connect.NewLifecycleServiceClient(unary, baseURL),
-		services:   azdappv1connect.NewServicesServiceClient(unary, baseURL),
+		lifecycle:  azdappv1connect.NewLifecycleServiceClient(unary, baseURL, opts),
+		services:   azdappv1connect.NewServicesServiceClient(unary, baseURL, opts),
 		// Logs + Azure expose streaming RPCs so they need a no-timeout
 		// transport; unary RPCs on these services re-apply a deadline via
 		// context.WithTimeout inside each wrapper.
-		logs:  azdappv1connect.NewLogsServiceClient(stream, baseURL),
-		azure: azdappv1connect.NewAzureServiceClient(stream, baseURL),
+		logs:  azdappv1connect.NewLogsServiceClient(stream, baseURL, opts),
+		azure: azdappv1connect.NewAzureServiceClient(stream, baseURL, opts),
+	}, nil
+}
+
+// fetchSessionToken retrieves the session token from the dashboard's
+// /api/session-token endpoint (served without auth).
+func fetchSessionToken(ctx context.Context, baseURL string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/session-token", nil)
+	if err != nil {
+		return "", err
 	}
+	client := &http.Client{Timeout: constants.DashboardAPITimeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+}
+
+// clientAuthInterceptor attaches the X-Session-Token header to all outgoing
+// Connect RPC calls.
+type clientAuthInterceptor struct {
+	token string
+}
+
+func (a *clientAuthInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		req.Header().Set("X-Session-Token", a.token)
+		return next(ctx, req)
+	}
+}
+
+func (a *clientAuthInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return func(ctx context.Context, spec connect.Spec) connect.StreamingClientConn {
+		conn := next(ctx, spec)
+		conn.RequestHeader().Set("X-Session-Token", a.token)
+		return conn
+	}
+}
+
+func (a *clientAuthInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return next // Server-side only; no-op for client interceptor.
 }
 
 // Ping checks that the dashboard is reachable.
