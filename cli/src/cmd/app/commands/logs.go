@@ -322,8 +322,10 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 		return err
 	}
 
-	// CLI-specific: emit informational messages based on collected status
-	if e.opts.source == string(LogSourceLocal) {
+	// CLI-specific: emit informational messages based on collected status.
+	// In follow mode, skip this gate — follow mode creates its own dashboard
+	// connection and can wait for services to produce logs.
+	if e.opts.source == string(LogSourceLocal) && !e.opts.follow {
 		if !collected.DashboardAvailable || collected.ServiceCount == 0 {
 			cliout.Info("No services are currently running")
 			cliout.Item("Run 'azd app run' to start services")
