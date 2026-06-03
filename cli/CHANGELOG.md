@@ -1,3 +1,11 @@
+## [0.18.0] - 2026-06-03
+
+- fix: address release preflight failures (cb5e9431)
+- chore(test): update local-services-test project for azd-app schema (d236434c)
+- fix(dashboard): add session token authentication to CLI client (bcd19601)
+- fix(logs): allow follow mode when no services are currently running (ad8945d3)
+- chore: update registry for v0.17.0 (b2035276)
+
 ## [0.17.0] - 2026-06-01
 
 - fix(rpc): skip PollingDeliversEntries under -race detector (#311) (0ed4f69f)
