@@ -1,8 +1,13 @@
 package dashboard
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/jongio/azd-app/cli/src/internal/azdconfig"
 	"github.com/jongio/azd-app/cli/src/internal/constants"
 	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 )
@@ -230,4 +235,126 @@ func TestPersistentDashboardPort_PortConflictFallback(t *testing.T) {
 
 	// Clean up first server
 	_ = srv1.Stop()
+}
+
+// ── Nonce tests ───────────────────────────────────────────────────────────────
+
+// TestPortFileNonce_PathNotPredictableFromDir verifies that the port file path
+// cannot be derived from the project directory alone — it must contain a nonce
+// beyond the deterministic project hash (CWE-340).
+func TestPortFileNonce_PathNotPredictableFromDir(t *testing.T) {
+	nonceDirBase = t.TempDir()
+	t.Cleanup(func() { nonceDirBase = "" })
+
+	projectDir := t.TempDir()
+	hash := azdconfig.ProjectHash(projectDir)
+
+	// "predictable" path — the old, deterministic format with no nonce.
+	predictedPath := filepath.Join(os.TempDir(), fmt.Sprintf(".azd-app-dashboard-%s.port", hash))
+
+	path, err := portFilePath(projectDir)
+	if err != nil {
+		t.Fatalf("portFilePath() error: %v", err)
+	}
+	if path == predictedPath {
+		t.Errorf("port file path %q equals the predictable legacy path; must include a random nonce", path)
+	}
+}
+
+// TestPortFileNonce_SameProjectSamePath verifies that the nonce is persisted, so
+// successive calls for the same project always return the same port file path.
+func TestPortFileNonce_SameProjectSamePath(t *testing.T) {
+	nonceDirBase = t.TempDir()
+	t.Cleanup(func() { nonceDirBase = "" })
+
+	projectDir := t.TempDir()
+
+	path1, err := portFilePath(projectDir)
+	if err != nil {
+		t.Fatalf("first portFilePath() error: %v", err)
+	}
+	path2, err := portFilePath(projectDir)
+	if err != nil {
+		t.Fatalf("second portFilePath() error: %v", err)
+	}
+	if path1 != path2 {
+		t.Errorf("expected identical paths for same project across calls, got %q and %q", path1, path2)
+	}
+}
+
+// TestPortFileNonce_DifferentProjectsDifferentPaths verifies that distinct projects
+// receive independent nonces and therefore distinct port file paths.
+func TestPortFileNonce_DifferentProjectsDifferentPaths(t *testing.T) {
+	nonceDirBase = t.TempDir()
+	t.Cleanup(func() { nonceDirBase = "" })
+
+	dir1 := t.TempDir()
+	dir2 := t.TempDir()
+
+	path1, err := portFilePath(dir1)
+	if err != nil {
+		t.Fatalf("portFilePath(dir1) error: %v", err)
+	}
+	path2, err := portFilePath(dir2)
+	if err != nil {
+		t.Fatalf("portFilePath(dir2) error: %v", err)
+	}
+	if path1 == path2 {
+		t.Errorf("expected different paths for different projects, both returned %q", path1)
+	}
+}
+
+// TestPortFileNonce_NonceIs128Bits verifies the nonce embedded in the port file
+// name is exactly 32 hex characters (128 bits of crypto/rand entropy).
+func TestPortFileNonce_NonceIs128Bits(t *testing.T) {
+	nonceDirBase = t.TempDir()
+	t.Cleanup(func() { nonceDirBase = "" })
+
+	projectDir := t.TempDir()
+	hash := azdconfig.ProjectHash(projectDir)
+
+	path, err := portFilePath(projectDir)
+	if err != nil {
+		t.Fatalf("portFilePath() error: %v", err)
+	}
+
+	// Expected filename: .azd-app-dashboard-{hash}-{nonce}.port
+	base := filepath.Base(path)
+	prefix := ".azd-app-dashboard-" + hash + "-"
+	if !strings.HasPrefix(base, prefix) {
+		t.Fatalf("unexpected port file name format: %q (want prefix %q)", base, prefix)
+	}
+	nonce := strings.TrimSuffix(strings.TrimPrefix(base, prefix), ".port")
+
+	if len(nonce) != 32 {
+		t.Errorf("expected 32-char nonce (128 bits), got %d chars: %q", len(nonce), nonce)
+	}
+	for _, ch := range nonce {
+		if !((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f')) {
+			t.Errorf("nonce contains non-hex character %q in %q", string(ch), nonce)
+		}
+	}
+}
+
+// TestPortFileNonce_LegacyFileCleanedUp verifies that writePortFile removes the
+// old predictable port file (no nonce) written by earlier versions of the code.
+func TestPortFileNonce_LegacyFileCleanedUp(t *testing.T) {
+	nonceDirBase = t.TempDir()
+	t.Cleanup(func() { nonceDirBase = "" })
+
+	projectDir := t.TempDir()
+	hash := azdconfig.ProjectHash(projectDir)
+
+	// Plant a legacy port file with the old, nonce-free naming scheme.
+	legacyPath := filepath.Join(os.TempDir(), fmt.Sprintf(".azd-app-dashboard-%s.port", hash))
+	if err := os.WriteFile(legacyPath, []byte("9999"), 0o600); err != nil {
+		t.Fatalf("failed to create legacy port file: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(legacyPath) })
+
+	writePortFile(projectDir, 12345)
+
+	if _, statErr := os.Stat(legacyPath); !os.IsNotExist(statErr) {
+		t.Errorf("legacy port file still present at %q after writePortFile; expected removal", legacyPath)
+	}
 }

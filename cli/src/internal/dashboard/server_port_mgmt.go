@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -65,33 +66,115 @@ func (s *Server) clearPortFromConfig() {
 	removePortFile(s.projectDir)
 }
 
+// nonceDirBase is the base directory for per-project nonce state files.
+// Defaults to ~/.azd/azd-app. Override in tests to avoid touching the real home directory.
+var nonceDirBase string
+
+// nonceStateDir returns the directory that holds the nonce file for a project.
+func nonceStateDir(projectHash string) (string, error) {
+	base := nonceDirBase
+	if base == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("get home directory: %w", err)
+		}
+		base = filepath.Join(homeDir, ".azd", "azd-app")
+	}
+	return filepath.Join(base, projectHash), nil
+}
+
+// loadOrCreateNonce loads the 128-bit random nonce for a project from
+// ~/.azd/azd-app/{hash}/nonce, generating and persisting a new one if absent.
+// The nonce is a 32-character hex string (16 bytes / 128 bits of crypto/rand entropy).
+func loadOrCreateNonce(projectHash string) (string, error) {
+	dir, err := nonceStateDir(projectHash)
+	if err != nil {
+		return "", err
+	}
+	nonceFile := filepath.Join(dir, "nonce")
+
+	// Read an existing nonce.
+	if data, err := os.ReadFile(nonceFile); err == nil {
+		if nonce := strings.TrimSpace(string(data)); len(nonce) == 32 {
+			return nonce, nil
+		}
+		// Corrupt or truncated — fall through to regenerate.
+	}
+
+	// Generate 128 bits of randomness.
+	var raw [16]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", fmt.Errorf("generate nonce: %w", err)
+	}
+	nonce := hex.EncodeToString(raw[:])
+
+	// Persist the nonce: directory 0o700, file 0o600.
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("create nonce state directory: %w", err)
+	}
+	if err := os.WriteFile(nonceFile, []byte(nonce), 0o600); err != nil {
+		return "", fmt.Errorf("write nonce state file: %w", err)
+	}
+
+	return nonce, nil
+}
+
 // portFilePath returns the path to the dashboard port file for a project.
-// Uses OS temp dir keyed by project hash to avoid polluting the project directory.
-func portFilePath(projectDir string) string {
+// The file name combines the project hash with a per-project random nonce so that
+// the path is unpredictable even when the project directory is known (CWE-340).
+// The nonce is persisted in ~/.azd/azd-app/{hash}/nonce so that azd app stop
+// can rediscover the correct port file across process restarts.
+func portFilePath(projectDir string) (string, error) {
 	hash := azdconfig.ProjectHash(projectDir)
-	return filepath.Join(os.TempDir(), fmt.Sprintf(".azd-app-dashboard-%s.port", hash))
+	nonce, err := loadOrCreateNonce(hash)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(os.TempDir(), fmt.Sprintf(".azd-app-dashboard-%s-%s.port", hash, nonce)), nil
+}
+
+// cleanupLegacyPortFile removes the old predictable port file
+// (.azd-app-dashboard-{hash}.port) written before the nonce was introduced.
+// Called opportunistically on every write/remove to eliminate stale files.
+func cleanupLegacyPortFile(projectDir string) {
+	hash := azdconfig.ProjectHash(projectDir)
+	legacy := filepath.Join(os.TempDir(), fmt.Sprintf(".azd-app-dashboard-%s.port", hash))
+	_ = os.Remove(legacy)
 }
 
 // writePortFile writes the dashboard port to a file for cross-process discovery.
 func writePortFile(projectDir string, port int) {
-	path := portFilePath(projectDir)
-	if err := os.WriteFile(path, []byte(strconv.Itoa(port)), 0600); err != nil {
+	path, err := portFilePath(projectDir)
+	if err != nil {
+		slog.Debug("failed to resolve dashboard port file path", "error", err)
+		return
+	}
+	if err := os.WriteFile(path, []byte(strconv.Itoa(port)), 0o600); err != nil {
 		slog.Debug("failed to write dashboard port file", "path", path, "error", err)
 	}
+	cleanupLegacyPortFile(projectDir)
 }
 
 // removePortFile removes the dashboard port file.
 func removePortFile(projectDir string) {
-	path := portFilePath(projectDir)
+	path, err := portFilePath(projectDir)
+	if err != nil {
+		slog.Debug("failed to resolve dashboard port file path for removal", "error", err)
+		return
+	}
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		slog.Debug("failed to remove dashboard port file", "path", path, "error", err)
 	}
+	cleanupLegacyPortFile(projectDir)
 }
 
 // ReadPortFile reads the dashboard port from the port file for a project directory.
 // Returns 0 if the file doesn't exist or can't be read.
 func ReadPortFile(projectDir string) int {
-	path := portFilePath(projectDir)
+	path, err := portFilePath(projectDir)
+	if err != nil {
+		return 0
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return 0
