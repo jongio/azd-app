@@ -43,6 +43,7 @@ Thumbs.db
 # Build artifacts
 dist/
 !cli/src/internal/dashboard/dist/.gitkeep
+!cli/src/internal/dashboard/dist/placeholder
 *.tar.gz
 *.zip
 

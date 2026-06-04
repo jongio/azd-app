@@ -291,8 +291,9 @@ func toProtoAzureLogEntry(e azure.LogEntry) *v1.LogEntry {
 
 func (h *AzureHandler) EnableAzureLogging(
 	ctx context.Context,
-	_ *connect.Request[v1.EnableAzureLoggingRequest],
+	req *connect.Request[v1.EnableAzureLoggingRequest],
 ) (*connect.Response[v1.EnableAzureLoggingResponse], error) {
+	auditMutation(ctx, "EnableAzureLogging", req.Peer().Addr)
 	already, err := h.store.EnableGlobalAnalytics()
 	if err != nil {
 		return nil, mapAzureError(ctx, err)
@@ -586,6 +587,21 @@ func (h *AzureHandler) SaveAzureLogConfig(
 			errors.New("query required when mode is custom"))
 	}
 
+	// Validate caller-supplied content before it reaches azure.yaml (CWE-915/94).
+	if mode == "tables" {
+		if err := validateTables(req.Msg.Tables); err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+	}
+	if mode == "custom" {
+		if err := validateQuery(req.Msg.Query); err != nil {
+			return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		}
+	}
+
+	auditMutation(ctx, "SaveAzureLogConfig", req.Peer().Addr,
+		"service", req.Msg.Service, "mode", mode)
+
 	var tables []string
 	var query string
 	if mode == "tables" {
@@ -691,6 +707,12 @@ func (h *AzureHandler) SaveServiceQuery(
 		return nil, connect.NewError(connect.CodeInvalidArgument,
 			errors.New("query is required"))
 	}
+	// Validate the query before persisting to azure.yaml (CWE-915/94).
+	if err := validateQuery(req.Msg.Query); err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	auditMutation(ctx, "SaveServiceQuery", req.Peer().Addr,
+		"service", req.Msg.Service)
 	if err := h.store.SaveServiceCustomQuery(req.Msg.Service, req.Msg.Query); err != nil {
 		return nil, mapAzureError(ctx, err)
 	}
