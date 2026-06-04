@@ -3,6 +3,7 @@ package cache
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -38,7 +39,7 @@ func TestNewCacheManagerExistingAzureDir(t *testing.T) {
 	// Create a temporary directory with .azure
 	tempDir := t.TempDir()
 	azureDir := filepath.Join(tempDir, ".azure")
-	if err := os.MkdirAll(azureDir, 0o750); err != nil {
+	if err := os.MkdirAll(azureDir, 0o700); err != nil {
 		t.Fatalf("failed to create .azure directory: %v", err)
 	}
 
@@ -74,7 +75,7 @@ func TestFindAzureDir(t *testing.T) {
 	// Create a temporary directory structure
 	tempDir := t.TempDir()
 	azureDir := filepath.Join(tempDir, ".azure")
-	if err := os.MkdirAll(azureDir, 0o750); err != nil {
+	if err := os.MkdirAll(azureDir, 0o700); err != nil {
 		t.Fatalf("failed to create .azure directory: %v", err)
 	}
 
@@ -750,5 +751,39 @@ func TestAtomicWrite(t *testing.T) {
 	cacheFile := filepath.Join(tempDir, "reqs_cache.json")
 	if _, err := os.Stat(cacheFile); os.IsNotExist(err) {
 		t.Error("Cache file was not created")
+	}
+}
+
+// TestCacheDirPermissions verifies that cache directories are created with
+// owner-only (0o700) permissions so user-private cache data is not world-readable.
+// Skipped on Windows where Unix permissions are not enforced.
+func TestCacheDirPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions not applicable on Windows")
+	}
+
+	tempDir := t.TempDir()
+	cacheDir := filepath.Join(tempDir, ".azure", "cache")
+
+	cm, err := NewCacheManagerWithOptions(CacheOptions{
+		Enabled:  true,
+		TTL:      DefaultCacheTTL,
+		CacheDir: cacheDir,
+	})
+	if err != nil {
+		t.Fatalf("NewCacheManagerWithOptions() failed: %v", err)
+	}
+	if cm == nil {
+		t.Fatal("NewCacheManagerWithOptions() returned nil")
+	}
+
+	info, err := os.Stat(cacheDir)
+	if err != nil {
+		t.Fatalf("os.Stat(cacheDir) error = %v", err)
+	}
+
+	perm := info.Mode().Perm()
+	if perm != 0o700 {
+		t.Errorf("cacheDir permissions = %04o, want 0700 (CWE-732: world-readable private data)", perm)
 	}
 }
