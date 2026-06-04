@@ -1126,6 +1126,111 @@ func TestSetEnvironmentVariableToolValidation(t *testing.T) {
 	}
 }
 
+// TestSetEnvironmentVariableRedactsSecrets verifies that
+// handleSetEnvironmentVariable (CWE-684 / SEC-015) never echoes sensitive
+// values — keys matching TOKEN, SECRET, KEY, PASSWORD, CREDENTIAL, or
+// CONNECTION_STRING patterns — back in the MCP tool response.
+//
+// Acceptance criteria:
+//
+//	AC1: secret-pattern key → raw value absent from every field of the response
+//	AC2: non-secret key    → raw value present (non-destructive path)
+//	AC3: CREDENTIAL pattern is recognised (added in this fix)
+//	AC4: API_KEY=sk_live_xyz → sk_live_xyz absent from response
+func TestSetEnvironmentVariableRedactsSecrets(t *testing.T) {
+	ctx := context.Background()
+
+	// resultText extracts the JSON text payload from an MCP tool result.
+	resultText := func(t *testing.T, result *mcp.CallToolResult) string {
+		t.Helper()
+		for _, c := range result.Content {
+			if text, ok := c.(mcp.TextContent); ok {
+				return text.Text
+			}
+		}
+		return ""
+	}
+
+	t.Run("secret key values are redacted", func(t *testing.T) {
+		cases := []struct {
+			keyName   string
+			rawValue  string
+			wantAbsent string // the raw value must not appear in the response
+		}{
+			// AC4: the explicit acceptance-criteria example
+			{"API_KEY", "sk_live_xyz", "sk_live_xyz"},
+			// TOKEN pattern
+			{"GITHUB_TOKEN", "ghp_AABBCCDDEEFF00112233", "ghp_AABBCCDDEEFF00112233"},
+			// PASSWORD pattern
+			{"DB_PASSWORD", "supersecret123", "supersecret123"},
+			// SECRET pattern
+			{"CLIENT_SECRET", "my-very-secret-value", "my-very-secret-value"},
+			// CREDENTIAL pattern — AC3: newly added pattern
+			{"APP_CREDENTIAL", "cred_value_abc", "cred_value_abc"},
+			// CONNECTION_STRING pattern
+			{"DB_CONNECTION_STRING", "Server=host;Password=pw;", "Server=host;Password=pw;"},
+		}
+
+		for _, tc := range cases {
+			tc := tc
+			t.Run(tc.keyName, func(t *testing.T) {
+				args := testToolArgs(map[string]any{"name": tc.keyName, "value": tc.rawValue})
+				result, err := handleSetEnvironmentVariable(ctx, args)
+				if err != nil {
+					t.Fatalf("handler returned Go error: %v", err)
+				}
+				if result == nil {
+					t.Fatal("handler returned nil result")
+				}
+				if result.IsError {
+					t.Fatalf("unexpected error result: %v", result.Content)
+				}
+
+				text := resultText(t, result)
+				if strings.Contains(text, tc.wantAbsent) {
+					t.Errorf("raw secret value %q must not appear in response for key %q\nfull response: %s",
+						tc.wantAbsent, tc.keyName, text)
+				}
+			})
+		}
+	})
+
+	t.Run("non-secret key values pass through unchanged", func(t *testing.T) {
+		cases := []struct {
+			keyName  string
+			rawValue string
+		}{
+			{"PORT", "8080"},
+			{"APP_VERSION", "1.2.3"},
+			{"LOG_LEVEL", "debug"},
+			{"REGION", "eastus"},
+		}
+
+		for _, tc := range cases {
+			tc := tc
+			t.Run(tc.keyName, func(t *testing.T) {
+				args := testToolArgs(map[string]any{"name": tc.keyName, "value": tc.rawValue})
+				result, err := handleSetEnvironmentVariable(ctx, args)
+				if err != nil {
+					t.Fatalf("handler returned Go error: %v", err)
+				}
+				if result == nil {
+					t.Fatal("handler returned nil result")
+				}
+				if result.IsError {
+					t.Fatalf("unexpected error result: %v", result.Content)
+				}
+
+				text := resultText(t, result)
+				if !strings.Contains(text, tc.rawValue) {
+					t.Errorf("non-secret value %q must be preserved in response for key %q\nfull response: %s",
+						tc.rawValue, tc.keyName, text)
+				}
+			})
+		}
+	})
+}
+
 // TestGetEnvironmentVariablesToolValidation tests validation for get_environment_variables tool
 func TestGetEnvironmentVariablesToolValidation(t *testing.T) {
 	ctx := context.Background()

@@ -551,7 +551,7 @@ func handleNoProjectsCase(searchRoot string, serviceFilter []string) error {
 // Values with 4 or fewer characters are fully masked.
 func redactSecretValue(key, value string) string {
 	upper := strings.ToUpper(key)
-	sensitivePatterns := []string{"PASSWORD", "SECRET", "TOKEN", "KEY", "CONNECTION_STRING", "CONNECTIONSTRING"}
+	sensitivePatterns := []string{"PASSWORD", "SECRET", "TOKEN", "KEY", "CREDENTIAL", "CONNECTION_STRING", "CONNECTIONSTRING"}
 	for _, pattern := range sensitivePatterns {
 		if strings.Contains(upper, pattern) {
 			if len(value) <= 4 {
