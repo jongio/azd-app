@@ -13,6 +13,7 @@
 package rpc
 
 import (
+	"errors"
 	"net/http"
 
 	"connectrpc.com/connect"
@@ -26,7 +27,18 @@ import (
 //
 // All handlers share the same []connect.HandlerOption set so observability
 // and policy interceptors apply uniformly.
-func Mount(mux *http.ServeMux, deps Dependencies) {
+//
+// Mount returns an error if deps.SessionToken is empty and
+// deps.AllowUnauthenticated is false. This fail-closed behaviour prevents
+// accidental unauthenticated deployments: any wiring mistake that omits
+// SessionToken is caught at startup rather than silently serving every
+// request unauthenticated (CWE-1188). Set AllowUnauthenticated only in
+// tests that intentionally exercise an unauthed server.
+func Mount(mux *http.ServeMux, deps Dependencies) error {
+	if deps.SessionToken == "" && !deps.AllowUnauthenticated {
+		return errors.New("SessionToken is required; set AllowUnauthenticated to bypass for testing")
+	}
+
 	interceptors := []connect.Interceptor{NewObservabilityInterceptor()}
 	if deps.SessionToken != "" {
 		interceptors = append([]connect.Interceptor{NewAuthInterceptor(deps.SessionToken)}, interceptors...)
@@ -128,6 +140,8 @@ func Mount(mux *http.ServeMux, deps Dependencies) {
 		)
 		mux.Handle(path, handler)
 	}
+
+	return nil
 }
 
 // Dependencies bundles the dashboard internals every service handler may
@@ -208,6 +222,13 @@ type Dependencies struct {
 
 	// SessionToken is the per-session auth token validated by the auth
 	// interceptor. Generated at server startup and injected into the
-	// embedded dashboard HTML. If empty, auth is disabled (for tests).
+	// embedded dashboard HTML. Must be non-empty in production; Mount
+	// returns an error when it is empty unless AllowUnauthenticated is set.
 	SessionToken string
+
+	// AllowUnauthenticated disables the SessionToken requirement so unit
+	// tests can mount the server without a real auth token. Must never be
+	// set to true outside of test code; production callers always supply
+	// a non-empty SessionToken.
+	AllowUnauthenticated bool
 }

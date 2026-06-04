@@ -32,7 +32,7 @@ func (s *Server) setupRoutes() {
 	// Connect-RPC handlers own the entire API surface post-PR4.
 	// All legacy /api/* REST handlers and /api/ws WebSocket have been
 	// removed; dashboard clients use the azdapp.v1.* Connect services.
-	rpc.Mount(s.mux, rpc.Dependencies{
+	if err := rpc.Mount(s.mux, rpc.Dependencies{
 		Broadcast:    s.broadcast,
 		Version:      version.Version,
 		SessionToken: s.sessionToken,
@@ -81,7 +81,12 @@ func (s *Server) setupRoutes() {
 		// rpc_azure_adapter.go. Closures over s.azureYamlMu serialise
 		// azure.yaml writes with the parallel REST handlers.
 		Azure: newAzureStoreFuncs(s),
-	})
+	}); err != nil {
+		// An empty SessionToken is a programming error — the server always
+		// generates one at startup. Panicking here surfaces the misconfiguration
+		// immediately rather than serving every request unauthenticated.
+		panic("rpc.Mount: " + err.Error())
+	}
 
 	// Serve session token for dashboard authentication.
 	// The React app fetches this on startup and includes it in all RPC calls.

@@ -89,12 +89,15 @@ func newServicesTestServer(
 	mgr := broadcast.New()
 
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{
-		Broadcast:         mgr,
-		ProjectDir:        projectDir,
-		ServicesLister:    lister,
-		ServicesLifecycle: lifecycle,
-	})
+	if err := Mount(mux, Dependencies{
+		Broadcast:            mgr,
+		ProjectDir:           projectDir,
+		ServicesLister:       lister,
+		ServicesLifecycle:    lifecycle,
+		AllowUnauthenticated: true,
+	}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 
 	srv := httptest.NewServer(mux)
 	client := azdappv1connect.NewServicesServiceClient(srv.Client(), srv.URL)
@@ -149,11 +152,14 @@ func TestServicesNotMountedWhenDepsMissing(t *testing.T) {
 	defer mgr.StopAll()
 
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{
-		Broadcast:  mgr,
-		ProjectDir: "/p",
+	if err := Mount(mux, Dependencies{
+		Broadcast:            mgr,
+		ProjectDir:           "/p",
+		AllowUnauthenticated: true,
 		// ServicesLister + ServicesLifecycle deliberately unset.
-	})
+	}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
