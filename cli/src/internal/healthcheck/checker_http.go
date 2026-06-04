@@ -8,11 +8,16 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
 	"log/slog"
 )
+
+// ansiEscapeRegex matches ANSI/VT100 escape sequences used for terminal formatting
+// (e.g., colour codes, cursor movement).  Stripped to prevent log injection (CWE-117).
+var ansiEscapeRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
 // isLocalhostURL checks if a URL targets localhost/loopback addresses only.
 // Health check URLs from azure.yaml are restricted to local services to prevent SSRF.
@@ -281,6 +286,34 @@ func (c *HealthChecker) parseHealthResponseBody(body []byte, result *httpHealthC
 			}
 		}
 	}
+}
+
+// sanitizeResponseBody cleans HTTP response body content before it appears in error
+// messages or structured logs, preventing log injection (CWE-117).
+//
+// It performs three transformations in order:
+//  1. Strips ANSI escape sequences (colour codes, cursor movement, etc.)
+//  2. Removes C0 control characters (0x00-0x1F, preserving \t, \n, \r) and
+//     C1 control characters (0x80-0x9F)
+//  3. Truncates to maxLen runes, appending "... (truncated)" when truncation occurs
+func sanitizeResponseBody(body string, maxLen int) string {
+	// 1. Strip ANSI escape sequences
+	body = ansiEscapeRegex.ReplaceAllString(body, "")
+
+	// 2. Strip C0 (except tab/newline/CR) and C1 control characters
+	body = strings.Map(func(r rune) rune {
+		if (r < 0x20 && r != '\t' && r != '\n' && r != '\r') || (r >= 0x80 && r <= 0x9F) {
+			return -1 // drop character
+		}
+		return r
+	}, body)
+
+	// 3. Truncate to maxLen runes (rune-safe, avoids splitting multi-byte sequences)
+	runes := []rune(body)
+	if len(runes) > maxLen {
+		return string(runes[:maxLen]) + "... (truncated)"
+	}
+	return body
 }
 
 // performProcessHealthCheck handles health checks for process-type services.
