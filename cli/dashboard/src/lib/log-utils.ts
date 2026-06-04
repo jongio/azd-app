@@ -38,7 +38,12 @@ const ansiConverterDark = new AnsiConverter({
   fg: '#e2e8f0', // Light text for dark mode
   bg: '#111827',
   newline: false,
-  escapeXML: true, // CRITICAL: Must be true to prevent XSS
+  // SECURITY BOUNDARY (CWE-79): escapeXML:true causes the library to call
+  // entities.encodeXML() on every text token, converting all user-supplied
+  // < > & " to &lt; &gt; &amp; &quot; before any HTML is assembled.
+  // This is the sole XSS defence. No post-processing step is needed or used.
+  // Do NOT set to false — doing so would expose raw user content as HTML.
+  escapeXML: true,
   stream: false,
 })
 
@@ -46,7 +51,9 @@ const ansiConverterLight = new AnsiConverter({
   fg: '#1e293b', // Dark text for light mode
   bg: '#ffffff',
   newline: false,
-  escapeXML: true, // CRITICAL: Must be true to prevent XSS
+  // SECURITY BOUNDARY (CWE-79): same guarantee as ansiConverterDark above.
+  // escapeXML:true must remain true; see ansiConverterDark comment for rationale.
+  escapeXML: true,
   stream: false,
 })
 
@@ -65,12 +72,20 @@ function stripAnsi(text: string): string {
 
 /**
  * Converts ANSI escape codes to HTML for display.
- * Includes XSS sanitization for security and URL linkification.
  * Automatically detects light/dark theme for appropriate text colors.
- * 
+ *
+ * Security (CWE-79): XSS prevention relies entirely on the `escapeXML: true` option
+ * passed to the AnsiConverter instances above. That option causes the library to call
+ * entities.encodeXML() on every text token, so all user-supplied `< > & "` characters
+ * are HTML-entity-encoded before any span tags are assembled. No further sanitization
+ * pass is applied or needed — one correct defence beats two flawed ones.
+ *
+ * URL linkification only wraps `http://` / `https://` URLs (see URL_PATTERN), so
+ * `javascript:` schemes cannot be injected into href attributes.
+ *
  * URL detection is done on the stripped text first to handle cases where
  * ANSI codes might be embedded within URLs (e.g., colored port numbers).
- * 
+ *
  * @param text - The text with ANSI codes to convert
  * @param codespaceConfig - Optional Codespace config to transform localhost URLs
  */
@@ -84,13 +99,13 @@ export function convertAnsiToHtml(text: string, codespaceConfig?: CodespaceConfi
     const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
     const converter = isDark ? ansiConverterDark : ansiConverterLight
     
-    // Convert ANSI to HTML
+    // Convert ANSI to HTML.
+    // All user text is entity-encoded by escapeXML:true inside converter.toHtml().
     const html = converter.toHtml(text)
-    const sanitized = sanitizeHtml(html)
     
     // Linkify URLs, handling potential HTML tags within URLs
     // Pass codespace config for localhost URL transformation
-    return linkifyUrlsWithHtmlAware(sanitized, urls, codespaceConfig)
+    return linkifyUrlsWithHtmlAware(html, urls, codespaceConfig)
   } catch {
     // If conversion fails, escape the text for safe display
     return escapeHtml(text)
@@ -164,18 +179,6 @@ function linkifyUrlsWithHtmlAware(
   }
   
   return result
-}
-
-/**
- * Sanitizes HTML to prevent XSS attacks.
- * Removes dangerous tags, javascript: URLs, and inline event handlers.
- */
-function sanitizeHtml(html: string): string {
-  return html
-    .replaceAll(/<(script|iframe|object|embed|base|link)\b[^<]*(?:(?!<\/\1>)<[^<]*)*<\/\1>/gi, '')
-    .replaceAll(/<(iframe|object|embed|base|link)\b[^>]*\/?>/gi, '')
-    .replaceAll(/javascript:/gi, '')
-    .replaceAll(/on\w+=/gi, '')
 }
 
 /**

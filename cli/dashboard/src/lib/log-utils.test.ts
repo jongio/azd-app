@@ -29,6 +29,56 @@ describe('log-utils', () => {
       expect(result).toContain('&lt;script&gt;')
     })
 
+    // -----------------------------------------------------------------------
+    // SEC-016: XSS bypass vectors — verify the upstream security boundary
+    //
+    // The previous sanitizeHtml() regex blocklist was bypassable (CWE-184).
+    // Security now relies solely on ansi-to-html's escapeXML:true option,
+    // which calls entities.encodeXML() on every text token before any HTML
+    // is assembled.  These four tests confirm that each classic bypass vector
+    // is neutralised by the upstream encoding and cannot produce injectable HTML.
+    // -----------------------------------------------------------------------
+
+    it('SEC-016 bypass: whitespace-in-handler (on\\tmouseover=) is not injected as an HTML attribute', () => {
+      // The old regex `on\w+=` would not match on<TAB>mouseover= because \t is not \w.
+      // With escapeXML:true there are no < > to form new tags, so the text stays
+      // as inert text content inside a span — event handlers in text content never fire.
+      const result = convertAnsiToHtml('click on\tmouseover=alert(1)')
+      // Must not appear as an attribute inside any HTML element
+      expect(result).not.toMatch(/<[^>]+on[\s\t]+mouseover\s*=/i)
+      // The text itself appears as content — that is safe
+      expect(result).toContain('on\tmouseover=alert(1)')
+    })
+
+    it('SEC-016 bypass: tag-blocklist-miss (<svg onload=>) is entity-encoded by escapeXML:true', () => {
+      // The old blocklist had no entry for <svg>. escapeXML:true converts the
+      // user-supplied < to &lt; so no real SVG element is ever emitted.
+      const result = convertAnsiToHtml('<svg onload=alert(document.cookie)>')
+      expect(result).not.toContain('<svg')
+      expect(result).toContain('&lt;svg')
+    })
+
+    it('SEC-016 bypass: javascript: scheme is not injected into any href attribute', () => {
+      // URL_PATTERN only matches http:// and https://, so javascript: URIs are never
+      // wrapped in an anchor tag.  The text appears as safe content, not a link.
+      const result = convertAnsiToHtml('try: javascript:alert(document.cookie)')
+      expect(result).not.toContain('href="javascript:')
+      expect(result).not.toContain("href='javascript:")
+      // Confirm no anchor element was created for it
+      expect(result).not.toMatch(/<a\b[^>]*javascript:/i)
+    })
+
+    it('SEC-016 bypass: nested-tag pattern (<<script>script>) is entity-encoded, not parsed as HTML', () => {
+      // Nested-tag tricks rely on a parser consuming one copy of the tag while a regex
+      // misses the outer shell.  escapeXML:true converts both < characters to &lt; so
+      // neither the outer nor inner angle bracket reaches the browser as HTML.
+      const result = convertAnsiToHtml('<<script>script>alert(1)</script>')
+      expect(result).not.toContain('<script>')
+      expect(result).toContain('&lt;script&gt;')
+      // The double-open bracket must also be encoded
+      expect(result).not.toMatch(/<[^>]*script/i)
+    })
+
     it('should linkify http URLs', () => {
       const result = convertAnsiToHtml('Server running at http://localhost:5173/')
       expect(result).toContain('<a href="http://localhost:5173/"')
