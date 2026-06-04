@@ -561,3 +561,79 @@ func containsHelper(s, substr string) bool {
 	}
 	return false
 }
+
+// TestRunPython_LeadingDashEntrypoint verifies that an entrypoint value starting with '-'
+// (CWE-88 argv injection) is rejected before any subprocess is spawned.
+// An attacker who controls azure.yaml could supply entrypoint: "-c" which the Python
+// interpreter would parse as the -c flag, enabling arbitrary code execution.
+func TestRunPython_LeadingDashEntrypoint(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name       string
+		entrypoint string
+	}{
+		{"single dash c flag", "-c"},
+		{"double dash flag", "--flag"},
+		{"bare single dash", "-"},
+		{"double dash end-of-opts marker", "--"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			project := types.PythonProject{
+				Dir:            tmpDir,
+				PackageManager: "pip",
+				Entrypoint:     tt.entrypoint,
+			}
+
+			err := RunPython(context.Background(), project)
+			if err == nil {
+				t.Errorf("RunPython() with entrypoint %q: expected error for argv injection attempt, got nil", tt.entrypoint)
+			}
+		})
+	}
+}
+
+// TestRunPython_ValidEntrypoints verifies that normal entry point paths pass validation.
+func TestRunPython_ValidEntrypoints(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	validEntrypoints := []string{
+		"main.py",
+		"src/main.py",
+		"./src/main.py",
+		"src/agent/agent.py",
+		"__main__.py",
+	}
+
+	for _, ep := range validEntrypoints {
+		t.Run(ep, func(t *testing.T) {
+			// Create the entry point file so validation passes and failure is exec-related
+			fullPath := filepath.Join(tmpDir, ep)
+			if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
+				t.Fatalf("failed to create dir: %v", err)
+			}
+			if err := os.WriteFile(fullPath, []byte("print('hi')"), 0o600); err != nil {
+				t.Fatalf("failed to create entry point: %v", err)
+			}
+
+			project := types.PythonProject{
+				Dir:            tmpDir,
+				PackageManager: "pip",
+				Entrypoint:     ep,
+			}
+
+			// The call may fail because python/venv is absent in CI, but it must NOT fail
+			// with an argv injection error.
+			err := RunPython(context.Background(), project)
+			if err != nil {
+				// An error is acceptable here (missing python binary, missing venv, etc.)
+				// but it must not be the argv injection guard.
+				if containsHelper(err.Error(), "CWE-88") || containsHelper(err.Error(), "invalid entrypoint") {
+					t.Errorf("RunPython() with valid entrypoint %q failed validation unexpectedly: %v", ep, err)
+				}
+			}
+		})
+	}
+}

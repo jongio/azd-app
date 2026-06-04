@@ -159,6 +159,11 @@ func RunPython(ctx context.Context, project types.PythonProject) error {
 	var entryPoint string
 	var err error
 	if project.Entrypoint != "" {
+		// Guard against leading-dash argv injection (CWE-88): an entrypoint like "-c" would
+		// be parsed as a CLI flag by the Python interpreter rather than as a file path.
+		if err := executor.RejectLeadingDash(project.Entrypoint); err != nil {
+			return fmt.Errorf("invalid entrypoint: %w", err)
+		}
 		entryPoint = project.Entrypoint
 		cliout.Info("Starting Python project with %s", project.PackageManager)
 		cliout.Item("Directory: %s", project.Dir)

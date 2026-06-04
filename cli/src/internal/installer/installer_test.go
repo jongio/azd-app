@@ -784,3 +784,70 @@ func TestInstallNodeDependencies_Workspace(t *testing.T) {
 func containsIgnoreCase(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
+
+// TestRestoreDotnetProject_LeadingDashPath verifies that a project path starting with '-'
+// (CWE-88 argv injection) is rejected before dotnet is invoked.
+// Without the guard, a path like "-c" would be passed as a dotnet CLI flag.
+func TestRestoreDotnetProject_LeadingDashPath(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"single dash c", "-c"},
+		{"double dash flag", "--flag"},
+		{"bare single dash", "-"},
+		{"dash verbosity", "--verbosity:q"},
+		{"double dash end-of-opts", "--"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			project := types.DotnetProject{
+				Path: tt.path,
+			}
+
+			err := RestoreDotnetProject(project)
+			if err == nil {
+				t.Errorf("RestoreDotnetProject() with path %q: expected error for argv injection attempt, got nil", tt.path)
+			}
+		})
+	}
+}
+
+// TestRestoreDotnetProject_ValidPaths verifies that normal project paths pass validation.
+func TestRestoreDotnetProject_ValidPaths(t *testing.T) {
+	validPaths := []string{
+		"MyProject.csproj",
+		"src/MyProject.csproj",
+		"./src/MyProject.csproj",
+		"MyApp.sln",
+		"src/app/Service.csproj",
+	}
+
+	for _, p := range validPaths {
+		t.Run(p, func(t *testing.T) {
+			// Create the project file so ValidatePath doesn't fail on traversal check.
+			// The call will fail on execution (dotnet not found or file doesn't exist
+			// at the OS level), but must NOT fail with an argv injection error.
+			tmpDir := t.TempDir()
+			fullPath := filepath.Join(tmpDir, p)
+			if err := os.MkdirAll(filepath.Dir(fullPath), 0o750); err != nil {
+				t.Fatalf("failed to create dir: %v", err)
+			}
+			if err := os.WriteFile(fullPath, []byte("<Project/>"), 0o600); err != nil {
+				t.Fatalf("failed to create project file: %v", err)
+			}
+
+			project := types.DotnetProject{
+				Path: fullPath, // Use the absolute path so ValidatePath resolves cleanly
+			}
+
+			err := RestoreDotnetProject(project)
+			// An error is acceptable here (dotnet absent in CI), but must not be the
+			// argv injection guard.
+			if err != nil && (containsIgnoreCase(err.Error(), "CWE-88") || containsIgnoreCase(err.Error(), "invalid project path: argument")) {
+				t.Errorf("RestoreDotnetProject() with valid path %q failed argv guard unexpectedly: %v", p, err)
+			}
+		})
+	}
+}
