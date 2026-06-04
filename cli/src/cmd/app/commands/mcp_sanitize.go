@@ -100,6 +100,62 @@ func sanitizeAny(v any) any {
 	}
 }
 
+// redacted is the placeholder emitted in place of a sensitive env var value
+// in MCP tool responses. Full redaction (vs. the partial masking used in CLI
+// display) is required because LLM context windows must not receive any portion
+// of a secret.
+const redacted = "***REDACTED***"
+
+// sensitiveSuffixes are case-folded key suffixes that indicate a secret value.
+var sensitiveSuffixes = []string{
+	"_TOKEN", "_SECRET", "_KEY", "_PASSWORD", "_CREDENTIAL", "_APIKEY",
+}
+
+// sensitivePrefixes are case-folded key prefixes that indicate a secret value.
+var sensitivePrefixes = []string{
+	"SECRET_", "TOKEN_",
+}
+
+// redactEnvVarForMCP returns redacted if key matches a known secret-naming
+// pattern; otherwise it returns value unchanged.
+//
+// This function is used exclusively in MCP tool responses where the result
+// reaches an LLM context window. Full redaction is intentional — even a
+// partial leak (e.g. first/last two chars) is unacceptable for LLM output.
+//
+// For CLI display, see redactSecretValue in core_helpers.go which applies
+// partial masking with a different UX intent.
+//
+// Matching is case-insensitive so both API_KEY and api_key are caught.
+// Patterns checked:
+//   - Suffixes: _TOKEN, _SECRET, _KEY, _PASSWORD, _CREDENTIAL, _APIKEY
+//   - Prefixes: SECRET_, TOKEN_
+//   - Exact:    PASSWORD, SECRET
+func redactEnvVarForMCP(key, value string) string {
+	upper := strings.ToUpper(key)
+
+	// Exact matches first — cheap O(1) check.
+	if upper == "PASSWORD" || upper == "SECRET" {
+		return redacted
+	}
+
+	// Suffix matches.
+	for _, suffix := range sensitiveSuffixes {
+		if strings.HasSuffix(upper, suffix) {
+			return redacted
+		}
+	}
+
+	// Prefix matches.
+	for _, prefix := range sensitivePrefixes {
+		if strings.HasPrefix(upper, prefix) {
+			return redacted
+		}
+	}
+
+	return value
+}
+
 // mcpErrorResult formats an error message, sanitizes it for LLM safety, and
 // returns an MCP error result with IsError=true.
 //
