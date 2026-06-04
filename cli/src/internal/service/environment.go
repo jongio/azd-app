@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,95 @@ import (
 	"github.com/jongio/azd-core/keyvault"
 	"github.com/jongio/azd-core/security"
 )
+
+// sensitiveDenylistSuffixes lists env var name suffixes that indicate a sensitive credential.
+// Variables whose names end with any of these suffixes are filtered from the child-process
+// environment by default (CWE-200: Information Exposure, CWE-526: Cleartext Sensitive Data
+// in Environment Variable).
+var sensitiveDenylistSuffixes = []string{
+	"_TOKEN",
+	"_SECRET",
+	"_KEY",
+	"_PASSWORD",
+}
+
+// sensitiveDenylistPrefixes lists env var name prefixes whose variables are filtered from
+// the child-process environment by default. allowlisted names within these prefix groups
+// are still passed through.
+var sensitiveDenylistPrefixes = []string{
+	"AWS_",   // All AWS credential/config vars (access key, secret, session token, etc.)
+	"AZURE_", // Azure credential vars (non-sensitive config vars are explicitly allowlisted)
+}
+
+// sensitiveAllowlist contains exact env var names that are permitted even when they match a
+// denylist pattern. These are either non-sensitive configuration identifiers or azd framework
+// variables required for extension operation (short-lived, framework-generated).
+// Keys are uppercased for case-insensitive comparison.
+var sensitiveAllowlist = map[string]bool{
+	// azd extension framework — short-lived session token required for gRPC communication.
+	"AZD_ACCESS_TOKEN": true,
+	// Non-sensitive Azure configuration identifiers — these are resource locators, not credentials.
+	"AZURE_SUBSCRIPTION_ID": true,
+	"AZURE_TENANT_ID":       true,
+	"AZURE_LOCATION":        true,
+	"AZURE_RESOURCE_GROUP":  true,
+	"AZURE_ENVIRONMENT":     true,
+}
+
+// isSensitiveEnvVar reports whether the named environment variable should be filtered from
+// the child-process environment. Returns true when the uppercased key matches any denylist
+// pattern AND is NOT in the allowlist. Matching is case-insensitive.
+func isSensitiveEnvVar(key string) bool {
+	upper := strings.ToUpper(key)
+
+	// Allowlist takes priority — always permit explicitly safe variables.
+	if sensitiveAllowlist[upper] {
+		return false
+	}
+
+	// Suffix denylist: *_TOKEN, *_SECRET, *_KEY, *_PASSWORD
+	for _, suffix := range sensitiveDenylistSuffixes {
+		if strings.HasSuffix(upper, suffix) {
+			return true
+		}
+	}
+
+	// Prefix denylist: AWS_*, AZURE_*
+	for _, prefix := range sensitiveDenylistPrefixes {
+		if strings.HasPrefix(upper, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// FilterSensitiveEnvVars returns a new map containing only the non-sensitive entries from env.
+// It removes variables whose names match the default denylist patterns (*_TOKEN, *_SECRET,
+// *_KEY, *_PASSWORD, AWS_*, AZURE_*) while preserving explicitly allowlisted variables such
+// as AZURE_SUBSCRIPTION_ID and AZD_ACCESS_TOKEN.
+//
+// This function is the primary defense against leaking parent-process credentials to child
+// service processes (CWE-200, CWE-526). The input map is never modified.
+func FilterSensitiveEnvVars(env map[string]string) map[string]string {
+	filtered := make(map[string]string, len(env))
+	filteredCount := 0
+
+	for key, value := range env {
+		if isSensitiveEnvVar(key) {
+			filteredCount++
+			continue
+		}
+		filtered[key] = value
+	}
+
+	if filteredCount > 0 {
+		slog.Debug("filtered sensitive environment variables from child-process baseline",
+			slog.Int("count", filteredCount))
+	}
+
+	return filtered
+}
 
 // ResolveEnvironment merges environment variables from multiple sources and resolves Azure Key Vault references.
 // Priority (highest to lowest): service-specific env > .env file > azure environment > OS environment.
@@ -22,16 +112,21 @@ import (
 func ResolveEnvironment(ctx context.Context, service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string) (map[string]string, error) {
 	env := make(map[string]string)
 
-	// Start with OS environment - this includes azd context variables when running as an azd extension:
-	// - AZD_SERVER: gRPC server address for azd communication
-	// - AZD_ACCESS_TOKEN: Authentication token for azd API
-	// - AZURE_*: All Azure environment variables from azd env
+	// Start with OS environment then immediately filter sensitive credentials (CWE-200/526).
+	// The azd context variables needed by services (AZD_SERVER, AZD_ACCESS_TOKEN, and the
+	// non-sensitive AZURE_* config vars) are preserved via the sensitiveAllowlist.
+	// Any sensitive variable that a service legitimately needs must be declared explicitly
+	// in its 'environment:' section in azure.yaml — or provided via a .env file.
 	for _, e := range os.Environ() {
 		pair := strings.SplitN(e, "=", 2)
 		if len(pair) == 2 {
 			env[pair[0]] = pair[1]
 		}
 	}
+	// Strip sensitive credentials from the OS baseline before merging other sources.
+	// Higher-priority sources (azureEnv, .env file, service-specific env) are applied
+	// below and may intentionally re-introduce variables that were filtered here.
+	env = FilterSensitiveEnvVars(env)
 
 	// Merge Azure environment variables (from azd context) - these override OS env
 	for k, v := range azureEnv {
