@@ -159,7 +159,7 @@ function linkifyUrlsWithHtmlAware(
     result = result.replace(pattern, (match) => {
       // Don't double-wrap if already linkified
       if (match.includes('<a ')) return match
-      return `<a href="${hrefUrl}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:text-cyan-300 hover:underline">${match}</a>`
+      return `<a href="${sanitizeHref(hrefUrl)}" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:text-cyan-300 hover:underline">${match}</a>`
     })
   }
   
@@ -186,6 +186,22 @@ function escapeHtml(text: string): string {
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
+}
+
+/**
+ * Encodes a URL for safe use as an HTML href attribute value (CWE-79).
+ *
+ * encodeURI preserves valid URI structure (`:`, `/`, `?`, `&`, `=`, `#`, etc.)
+ * while percent-encoding characters that could break out of an HTML attribute
+ * context. The explicit `.replace(/"/g, '%22')` is belt-and-suspenders: encodeURI
+ * already encodes `"` as `%22`, but the extra pass ensures correctness even if the
+ * input has been pre-processed in a way that leaves a literal quote.
+ *
+ * @param url - The raw URL to encode for href use
+ * @returns The URL safe for interpolation into `href="..."`
+ */
+export function sanitizeHref(url: string): string {
+  return encodeURI(url).replace(/"/g, '%22')
 }
 
 // ============================================================================
