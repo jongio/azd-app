@@ -216,9 +216,14 @@ func (s *Server) Start() (string, error) {
 
 // buildHandler returns the composed HTTP handler for the dashboard server.
 // All server construction paths (primary start and port retry) must call this
-// to ensure security middleware is applied uniformly (CWE-693).
+// to ensure security middleware is applied uniformly.
+//
+// Middleware order (outermost → innermost):
+//   - hostAllow:       rejects non-loopback Host headers (CWE-346 DNS rebinding)
+//   - securityHeaders: sets defensive response headers (CWE-693)
+//   - s.mux:           routes to registered handlers
 func (s *Server) buildHandler() http.Handler {
-	return securityHeaders(s.mux)
+	return hostAllow(securityHeaders(s.mux))
 }
 
 // Stop stops the dashboard server and releases its port assignment.

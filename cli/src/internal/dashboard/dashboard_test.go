@@ -44,6 +44,9 @@ func TestSecurityHeaders_RetryPath(t *testing.T) {
 	// start path (server_core.go) and the retry-port path (server_port_mgmt.go).
 	// This test verifies that it applies securityHeaders so both paths return
 	// X-Frame-Options: DENY, guarding against CWE-693.
+	//
+	// The Host header must be a valid loopback value so that the outermost
+	// hostAllow middleware (CWE-346) allows the request to reach securityHeaders.
 	s := &Server{mux: http.NewServeMux()}
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -51,6 +54,7 @@ func TestSecurityHeaders_RetryPath(t *testing.T) {
 
 	handler := s.buildHandler()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Host = "localhost:8080"
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
@@ -167,6 +171,129 @@ services:
 		_, err := loadAzureYaml(dir)
 		if err == nil {
 			t.Error("expected error for invalid yaml")
+		}
+	})
+}
+
+func TestHostAllow(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := hostAllow(inner)
+
+	tests := []struct {
+		name       string
+		host       string
+		wantStatus int
+	}{
+		// Allowed: loopback hosts with explicit port.
+		{"localhost with port", "localhost:8080", http.StatusOK},
+		{"127.0.0.1 with port", "127.0.0.1:8080", http.StatusOK},
+		{"[::1] with port", "[::1]:8080", http.StatusOK},
+		// Allowed: loopback hosts without port (SplitHostPort fails → raw Host used).
+		{"localhost without port", "localhost", http.StatusOK},
+		{"127.0.0.1 without port", "127.0.0.1", http.StatusOK},
+		{"[::1] without port", "[::1]", http.StatusOK},
+		// Rejected: attacker-controlled or unexpected hosts.
+		{"external domain with port", "attacker.com:8080", http.StatusForbidden},
+		{"external domain without port", "attacker.com", http.StatusForbidden},
+		{"loopback look-alike", "127.0.0.2:8080", http.StatusForbidden},
+		{"empty host", "", http.StatusForbidden},
+		{"subdomain of localhost", "evil.localhost:8080", http.StatusForbidden},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.Host = tt.host
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			if rec.Code != tt.wantStatus {
+				t.Errorf("Host %q: status = %d, want %d", tt.host, rec.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
+// TestHostAllow_PassesThrough verifies that an allowed host reaches the inner handler
+// and that the inner handler's status code is preserved.
+func TestHostAllow_PassesThrough(t *testing.T) {
+	called := false
+	handler := hostAllow(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Host = "127.0.0.1:9000"
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if !called {
+		t.Error("inner handler should be called for an allowed host")
+	}
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+}
+
+// TestHostAllow_ViaBuiltHandler verifies that buildHandler() composes hostAllow
+// outermost so that DNS rebinding protection (CWE-346) is enforced on both
+// the primary-start path and the retry-port path.
+func TestHostAllow_ViaBuiltHandler(t *testing.T) {
+	s := &Server{mux: http.NewServeMux()}
+	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := s.buildHandler()
+
+	t.Run("attacker.com:8080 returns 403", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Host = "attacker.com:8080"
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Errorf("attacker host: status = %d, want %d", rec.Code, http.StatusForbidden)
+		}
+	})
+
+	t.Run("localhost:8080 succeeds", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Host = "localhost:8080"
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("localhost host: status = %d, want %d", rec.Code, http.StatusOK)
+		}
+	})
+
+	t.Run("127.0.0.1:8080 succeeds", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Host = "127.0.0.1:8080"
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("127.0.0.1 host: status = %d, want %d", rec.Code, http.StatusOK)
+		}
+	})
+
+	t.Run("[::1]:8080 succeeds", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Host = "[::1]:8080"
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("[::1] host: status = %d, want %d", rec.Code, http.StatusOK)
+		}
+	})
+
+	t.Run("no port in Host header works correctly", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Host = "localhost" // no port — SplitHostPort fails, raw host used
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Errorf("localhost (no port): status = %d, want %d", rec.Code, http.StatusOK)
 		}
 	})
 }
