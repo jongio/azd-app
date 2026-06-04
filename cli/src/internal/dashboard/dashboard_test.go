@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,6 +96,56 @@ func TestSecurityHeaders_PassesThrough(t *testing.T) {
 	}
 	if rec.Code != http.StatusCreated {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusCreated)
+	}
+}
+
+// TestSecurityHeaders_CSPTokens validates the exact Content-Security-Policy
+// directive set required by SEC-022 (CWE-693):
+//   - script-src is 'self' with no 'unsafe-eval' or 'unsafe-inline'
+//   - legacy WebSocket origins (ws://localhost:*, wss://localhost:*) removed
+//   - defence-in-depth directives: object-src 'none', base-uri 'none', form-action 'none'
+func TestSecurityHeaders_CSPTokens(t *testing.T) {
+	handler := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	csp := rec.Header().Get("Content-Security-Policy")
+	if csp == "" {
+		t.Fatal("Content-Security-Policy header must be set")
+	}
+
+	// script-src must be 'self' only — no eval, no inline scripts.
+	if !strings.Contains(csp, "script-src 'self'") {
+		t.Errorf("CSP must contain \"script-src 'self'\"; got: %s", csp)
+	}
+	if strings.Contains(csp, "'unsafe-eval'") {
+		t.Errorf("CSP script-src must not contain 'unsafe-eval'; got: %s", csp)
+	}
+
+	// Legacy WebSocket origins were removed when the WS endpoint was dropped.
+	// connect-src must be 'self' only; ws:// and wss:// must be absent.
+	if strings.Contains(csp, "ws://localhost") {
+		t.Errorf("CSP connect-src must not contain dead ws://localhost:* origin; got: %s", csp)
+	}
+	if strings.Contains(csp, "wss://localhost") {
+		t.Errorf("CSP connect-src must not contain dead wss://localhost:* origin; got: %s", csp)
+	}
+
+	// Defence-in-depth directives added by SEC-022.
+	for _, want := range []string{
+		"connect-src 'self'",
+		"object-src 'none'",
+		"base-uri 'none'",
+		"form-action 'none'",
+		"frame-ancestors 'none'",
+	} {
+		if !strings.Contains(csp, want) {
+			t.Errorf("CSP must contain %q; got: %s", want, csp)
+		}
 	}
 }
 
