@@ -3,6 +3,7 @@ package service
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -652,5 +653,72 @@ func TestLogBuffer_RotateLogFile(t *testing.T) {
 	recent := buffer.GetRecent(5)
 	if len(recent) > 3 {
 		t.Errorf("Buffer should have max 3 entries after rotation, got %d", len(recent))
+	}
+}
+
+// TestLogBuffer_SymlinkProtection_RegularFileSucceeds verifies that opening a
+// regular (non-symlink) log file path succeeds without error.
+func TestLogBuffer_SymlinkProtection_RegularFileSucceeds(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	buffer, err := NewLogBuffer("test-symlink-ok", 100, true, tmpDir)
+	if err != nil {
+		t.Fatalf("NewLogBuffer() failed for a regular file path: %v", err)
+	}
+	defer func() { _ = buffer.Close() }()
+
+	// Confirm the created path is a regular file, not a symlink
+	fi, err := os.Lstat(buffer.filePath)
+	if err != nil {
+		t.Fatalf("Lstat(%q) failed: %v", buffer.filePath, err)
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		t.Errorf("expected a regular file at %q, got a symlink", buffer.filePath)
+	}
+}
+
+// TestLogBuffer_SymlinkProtection_RejectsSymlink verifies that NewLogBuffer
+// returns an error when the target log file path is already a symbolic link,
+// preventing CWE-59 symlink-follow attacks.
+func TestLogBuffer_SymlinkProtection_RejectsSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping symlink rejection test on Windows: symlink creation requires Developer Mode or elevated privileges")
+	}
+
+	tmpDir := t.TempDir()
+
+	// Pre-create the logs directory so we can place a symlink inside it
+	logsDir := filepath.Join(tmpDir, ".azure", "logs")
+	if err := os.MkdirAll(logsDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll(%q) failed: %v", logsDir, err)
+	}
+
+	// Create an innocent target file that the symlink will point to
+	targetFile := filepath.Join(tmpDir, "sensitive_target.txt")
+	if err := os.WriteFile(targetFile, []byte("sensitive content"), 0o644); err != nil {
+		t.Fatalf("WriteFile(%q) failed: %v", targetFile, err)
+	}
+
+	// Place a symlink at the exact path NewLogBuffer would use for "symlink-victim"
+	symlinkPath := filepath.Join(logsDir, "symlink-victim.log")
+	if err := os.Symlink(targetFile, symlinkPath); err != nil {
+		t.Skipf("could not create symlink (may need elevated privileges): %v", err)
+	}
+
+	_, err := NewLogBuffer("symlink-victim", 100, true, tmpDir)
+	if err == nil {
+		t.Fatal("NewLogBuffer() should have returned an error when the log file path is a symlink")
+	}
+	if !strings.Contains(err.Error(), "symbolic link") {
+		t.Errorf("expected error to mention 'symbolic link', got: %v", err)
+	}
+
+	// The target must not have been written to
+	content, readErr := os.ReadFile(targetFile)
+	if readErr != nil {
+		t.Fatalf("ReadFile(%q) failed: %v", targetFile, readErr)
+	}
+	if string(content) != "sensitive content" {
+		t.Errorf("symlink target was written to; got %q, want %q", string(content), "sensitive content")
 	}
 }

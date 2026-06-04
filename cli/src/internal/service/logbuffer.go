@@ -69,7 +69,7 @@ func NewLogBufferWithFilter(serviceName string, maxSize int, enableFileLogging b
 		}
 
 		lb.filePath = filepath.Join(logsDir, fmt.Sprintf("%s.log", filepath.Base(serviceName)))
-		file, err := os.OpenFile(lb.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+		file, err := openLogFile(lb.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open log file: %w", err)
 		}
@@ -195,7 +195,7 @@ func (lb *LogBuffer) rotateLogFile() {
 	}
 
 	// Open new file
-	file, err := os.OpenFile(lb.filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	file, err := openLogFile(lb.filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to create new log file after rotation: %v\n", err)
 		return
