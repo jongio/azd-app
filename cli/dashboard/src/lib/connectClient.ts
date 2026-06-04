@@ -55,34 +55,28 @@ function defaultBaseUrl(): string {
 }
 
 let cachedDefaultTransport: Transport | null = null
-let cachedSessionToken: string | null = null
 
 /**
- * Fetch the session token from the server. Called once and cached.
- * The token is used to authenticate all RPC requests.
+ * Read the session token that the Go server injected into index.html as a
+ * `<meta name="azd-session-token" content="...">` tag.
+ *
+ * This is synchronous and cheap (a single DOM query). The HTTP endpoint
+ * `/api/session-token` has been removed (CWE-306/419/352): delivering the
+ * token inline in the served HTML restricts access to same-origin page loads
+ * and prevents any co-located process or DNS-rebinding attacker from reading
+ * the token over plain HTTP.
  */
-async function getSessionToken(): Promise<string> {
-  if (cachedSessionToken !== null) {
-    return cachedSessionToken
-  }
-  try {
-    const resp = await fetch('/api/session-token')
-    if (resp.ok) {
-      cachedSessionToken = await resp.text()
-    }
-  } catch {
-    // Server may not support session tokens (e.g., test environments)
-  }
-  return cachedSessionToken ?? ''
+function getSessionToken(): string {
+  return document.querySelector('meta[name="azd-session-token"]')?.getAttribute('content') ?? ''
 }
 
 /**
  * Connect interceptor that attaches the session token to every outbound
- * request. The token is fetched lazily on first use.
+ * request. The token is read directly from the page's meta tag.
  */
 function sessionTokenInterceptor(): Interceptor {
-  return (next) => async (req) => {
-    const token = await getSessionToken()
+  return (next) => (req) => {
+    const token = getSessionToken()
     if (token) {
       req.header.set('X-Session-Token', token)
     }

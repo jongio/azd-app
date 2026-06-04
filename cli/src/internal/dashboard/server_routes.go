@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"bytes"
 	"context"
 	"crypto/subtle"
 	"embed"
@@ -18,6 +19,25 @@ import (
 
 //go:embed dist
 var staticFiles embed.FS
+
+// sessionTokenPlaceholder is the verbatim string present in index.html.
+// The server replaces it (with injectSessionToken) before every HTML response,
+// injecting the real per-session token into the page it serves.
+const sessionTokenPlaceholder = `<meta name="azd-session-token" content="">`
+
+// injectSessionToken returns a copy of indexHTML with the placeholder
+// meta-tag content attribute set to token.
+//
+// Safety: rpc.GenerateSessionToken returns a hex-encoded random string
+// (characters 0-9 and a-f only). Those characters are unconditionally safe
+// inside an HTML attribute value — no further encoding is needed. If the
+// placeholder is absent the original slice is returned unchanged; the client
+// will read an empty string and every RPC call will be rejected by the
+// server-side auth interceptor, which is the safe failure mode (CWE-306).
+func injectSessionToken(indexHTML []byte, token string) []byte {
+	replacement := []byte(`<meta name="azd-session-token" content="` + token + `">`)
+	return bytes.Replace(indexHTML, []byte(sessionTokenPlaceholder), replacement, 1)
+}
 
 // setupRoutes configures HTTP routes.
 func (s *Server) setupRoutes() {
@@ -88,14 +108,6 @@ func (s *Server) setupRoutes() {
 		panic("rpc.Mount: " + err.Error())
 	}
 
-	// Serve session token for dashboard authentication.
-	// The React app fetches this on startup and includes it in all RPC calls.
-	s.mux.HandleFunc("/api/session-token", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Header().Set("Cache-Control", "no-store")
-		_, _ = w.Write([]byte(s.sessionToken))
-	})
-
 	// Shutdown endpoint: signals the run process to initiate graceful teardown.
 	// Used by `azd app stop` from a separate terminal.
 	s.mux.HandleFunc("POST /api/shutdown", func(w http.ResponseWriter, r *http.Request) {
@@ -109,8 +121,24 @@ func (s *Server) setupRoutes() {
 		_, _ = w.Write([]byte(`{"status":"shutting_down"}`))
 	})
 
-	// Pre-read index.html once for SPA client-side routing fallback
+	// Pre-read index.html once. Pre-compute the token-injected variant used for
+	// all HTML responses. The /api/session-token HTTP endpoint has been removed
+	// (CWE-306/419/352): the token is now delivered exclusively via this meta
+	// tag, which is only accessible to same-origin page loads and is invisible
+	// to DNS-rebinding or same-machine HTTP sniffing attacks.
 	indexContent, indexReadErr := fs.ReadFile(distFS, "index.html")
+	var tokenizedIndex []byte
+	if indexReadErr == nil {
+		tokenizedIndex = injectSessionToken(indexContent, s.sessionToken)
+	}
+
+	// serveIndex writes the tokenized index.html with headers that prevent
+	// the token-carrying HTML from being stored by browser or proxy caches.
+	serveIndex := func(w http.ResponseWriter) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(tokenizedIndex)
+	}
 
 	// Serve static files
 	fileServer := http.FileServer(http.FS(distFS))
@@ -121,23 +149,32 @@ func (s *Server) setupRoutes() {
 			path = "/index.html"
 		}
 
-		// Try to open the file
-		f, err := distFS.Open(strings.TrimPrefix(path, "/"))
-		if err != nil {
-			// File doesn't exist - serve index.html for client-side routing
-			// This handles routes like /console, /services, /environment, /metrics
+		// Root and /index.html always serve the token-injected page so the
+		// SPA receives its auth credential on the initial load.
+		if path == "/index.html" {
 			if indexReadErr != nil {
 				http.NotFound(w, r)
 				return
 			}
+			serveIndex(w)
+			return
+		}
 
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write(indexContent)
+		// Try to open the file from the embedded FS.
+		f, err := distFS.Open(strings.TrimPrefix(path, "/"))
+		if err != nil {
+			// File doesn't exist — serve index.html for client-side routing.
+			// This handles routes like /console, /services, /environment, /metrics.
+			if indexReadErr != nil {
+				http.NotFound(w, r)
+				return
+			}
+			serveIndex(w)
 			return
 		}
 		_ = f.Close()
 
-		// File exists, serve it normally
+		// File exists; serve it normally (static assets can be cached freely).
 		fileServer.ServeHTTP(w, r)
 	})
 }
