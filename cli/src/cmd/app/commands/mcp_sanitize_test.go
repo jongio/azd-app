@@ -336,3 +336,112 @@ func TestMarshalToolResult_PreservesNewlinesAndTabs(t *testing.T) {
 		}
 	}
 }
+
+// --- redactEnvVarForMCP tests (SEC-018, CWE-200) ---
+
+// TestRedactEnvVarForMCP_SensitiveKeys verifies that keys matching sensitive
+// naming patterns are replaced with the redaction placeholder (AC1, AC4).
+func TestRedactEnvVarForMCP_SensitiveKeys(t *testing.T) {
+	cases := []struct {
+		key   string
+		value string
+	}{
+		// Suffix: _KEY (AC4)
+		{"API_KEY", "sk_live_xyz"},
+		{"OPENAI_API_KEY", "sk-abc123"},
+		{"MY_KEY", "supersecret"},
+		// Suffix: _TOKEN
+		{"ACCESS_TOKEN", "tok-abc"},
+		{"GITHUB_TOKEN", "ghp_xyz"},
+		// Suffix: _SECRET
+		{"CLIENT_SECRET", "clisc-xyz"},
+		{"OAUTH_SECRET", "s3cr3t"},
+		// Suffix: _PASSWORD
+		{"DB_PASSWORD", "hunter2"},
+		{"ADMIN_PASSWORD", "p@ssw0rd"},
+		// Suffix: _CREDENTIAL
+		{"AZURE_CREDENTIAL", "cred-val"},
+		// Suffix: _APIKEY
+		{"SERVICE_APIKEY", "key-val"},
+		// Prefix: SECRET_
+		{"SECRET_SAUCE", "recipe"},
+		{"SECRET_KEY", "keyval"},
+		// Prefix: TOKEN_
+		{"TOKEN_VALUE", "tok"},
+		// Exact: PASSWORD
+		{"PASSWORD", "mypassword"},
+		// Exact: SECRET
+		{"SECRET", "mysecret"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key, func(t *testing.T) {
+			got := redactEnvVarForMCP(tc.key, tc.value)
+			if got != redacted {
+				t.Errorf("redactEnvVarForMCP(%q, %q) = %q, want %q",
+					tc.key, tc.value, got, redacted)
+			}
+		})
+	}
+}
+
+// TestRedactEnvVarForMCP_NonSensitiveKeys verifies that non-sensitive keys pass
+// through unchanged (AC2, AC5).
+func TestRedactEnvVarForMCP_NonSensitiveKeys(t *testing.T) {
+	cases := []struct {
+		key   string
+		value string
+	}{
+		{"PORT", "3000"},
+		{"NODE_ENV", "production"},
+		{"DATABASE_URL", "postgres://localhost/mydb"},
+		{"HOST", "localhost"},
+		{"LOG_LEVEL", "info"},
+		{"APP_NAME", "myapp"},
+		{"TIMEOUT_MS", "5000"},
+		{"MAX_RETRIES", "3"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key, func(t *testing.T) {
+			got := redactEnvVarForMCP(tc.key, tc.value)
+			if got != tc.value {
+				t.Errorf("redactEnvVarForMCP(%q, %q) = %q, want value unchanged",
+					tc.key, tc.value, got)
+			}
+		})
+	}
+}
+
+// TestRedactEnvVarForMCP_CaseInsensitive verifies that matching is
+// case-insensitive (AC1 — lowercase and mixed-case keys are caught).
+func TestRedactEnvVarForMCP_CaseInsensitive(t *testing.T) {
+	cases := []struct {
+		key   string
+		value string
+	}{
+		{"api_key", "lower-case-key"},
+		{"Api_Key", "mixed-case-key"},
+		{"password", "lower-password"},
+		{"secret", "lower-secret"},
+		{"github_token", "ghp_lc"},
+		{"secret_sauce", "lower-prefix"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key, func(t *testing.T) {
+			got := redactEnvVarForMCP(tc.key, tc.value)
+			if got != redacted {
+				t.Errorf("redactEnvVarForMCP(%q, %q) = %q, want %q (case insensitive)",
+					tc.key, tc.value, got, redacted)
+			}
+		})
+	}
+}
+
+// TestRedactEnvVarForMCP_EmptyValue verifies that an empty secret value is
+// still replaced with the redaction marker (leaking "key is unset" via a
+// zero-length value is also a secret disclosure).
+func TestRedactEnvVarForMCP_EmptyValue(t *testing.T) {
+	got := redactEnvVarForMCP("API_KEY", "")
+	if got != redacted {
+		t.Errorf("redactEnvVarForMCP(\"API_KEY\", \"\") = %q, want %q", got, redacted)
+	}
+}

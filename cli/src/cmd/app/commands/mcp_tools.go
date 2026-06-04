@@ -679,7 +679,15 @@ func handleGetEnvironmentVariables(ctx context.Context, args azdext.ToolArgs) (*
 					continue
 				}
 				if env, ok := svcMap["env"].(map[string]any); ok {
-					envVars[svcName] = env
+					safeEnv := make(map[string]any, len(env))
+					for k, v := range env {
+						if strVal, ok := v.(string); ok {
+							safeEnv[k] = redactEnvVarForMCP(k, strVal)
+						} else {
+							safeEnv[k] = v
+						}
+					}
+					envVars[svcName] = safeEnv
 				}
 			}
 		}
