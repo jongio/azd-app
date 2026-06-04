@@ -210,6 +210,8 @@ func (s *Server) Start() (string, error) {
 
 	// Store dashboard port in azdconfig for other commands to discover
 	s.registerPortInConfig(port)
+	// Persist the session token so azd app stop can authenticate across processes.
+	writeTokenFile(s.projectDir, s.sessionToken)
 
 	return url, nil
 }
@@ -252,6 +254,8 @@ func (s *Server) Stop() error {
 
 	// Clear dashboard port from azdconfig so other commands know it's not running
 	s.clearPortFromConfig()
+	// Remove the session-token file so stale tokens cannot authenticate.
+	removeTokenFile(s.projectDir)
 
 	// Close the HTTP server first to drain in-flight handlers.
 	// This ensures no handlers are running when we nil dependent resources.
