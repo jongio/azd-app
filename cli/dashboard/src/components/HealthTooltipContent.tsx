@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils'
 import { formatResponseTime, formatUptime } from '@/lib/service-formatters'
 import { getCheckTypeDisplay } from '@/lib/service-health'
 import type { HealthDiagnostic, HealthStatus } from '@/types'
+import { isValidUrl } from '@/lib/service-url-utils'
 
 export interface HealthTooltipContentProps {
   /** Diagnostic information */
@@ -293,7 +294,7 @@ export function HealthTooltipContent({ diagnostic, onCopy }: Readonly<HealthTool
                         {action.command}
                       </code>
                     )}
-                    {action.docsUrl && (
+                    {action.docsUrl && isValidUrl(action.docsUrl) && (
                       <a
                         href={action.docsUrl}
                         target="_blank"
