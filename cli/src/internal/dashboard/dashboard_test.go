@@ -363,3 +363,88 @@ func TestTimeoutContext(t *testing.T) {
 		t.Errorf("deadline should be ~5s from now, got %v", remaining)
 	}
 }
+
+// TestSecurityHeaders_CacheControl verifies SEC-028 (CWE-525): the
+// securityHeaders middleware must set Cache-Control: no-store on API and
+// Connect-RPC paths so browsers and shared proxies cannot cache sensitive
+// response data.  Static asset paths must NOT receive that header so they
+// continue to benefit from normal browser caching.
+//
+// Acceptance criteria:
+//
+//	AC1 — /api/shutdown receives Cache-Control: no-store
+//	AC2 — Connect-RPC path (/azdapp.v1.*) receives Cache-Control: no-store
+//	AC3 — root path (/) does NOT receive Cache-Control: no-store
+//	AC4 — static asset paths do NOT receive Cache-Control: no-store
+func TestSecurityHeaders_CacheControl(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		wantSet bool // true → header must equal "no-store"; false → header must be absent
+	}{
+		// AC1: REST API endpoint.
+		{"api_shutdown_sets_no_store", "/api/shutdown", true},
+		// Any other /api/ path must also be covered.
+		{"api_prefix_sets_no_store", "/api/anything", true},
+		// AC2: Connect-RPC paths (/azdapp.v1.<Service>/<Method>).
+		{"connect_rpc_lifecycle_sets_no_store", "/azdapp.v1.LifecycleService/Ping", true},
+		{"connect_rpc_health_sets_no_store", "/azdapp.v1.HealthService/GetHealth", true},
+		// AC3: SPA root — must NOT get no-store (serveIndex handles it separately).
+		{"root_does_not_set_no_store", "/", false},
+		// AC4: static assets — must NOT get no-store so they remain cacheable.
+		{"app_js_does_not_set_no_store", "/app.js", false},
+		{"favicon_does_not_set_no_store", "/favicon.ico", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			got := rec.Header().Get("Cache-Control")
+			if tt.wantSet && got != "no-store" {
+				t.Errorf("path %q: Cache-Control = %q, want \"no-store\" (CWE-525)", tt.path, got)
+			}
+			if !tt.wantSet && got == "no-store" {
+				t.Errorf("path %q: Cache-Control = \"no-store\", want not set (static assets must remain cacheable)", tt.path)
+			}
+		})
+	}
+}
+
+// TestSecurityHeaders_CacheControl_OtherHeadersUnchanged confirms that adding
+// the conditional Cache-Control header does not disturb any of the other
+// security headers on API paths.
+func TestSecurityHeaders_CacheControl_OtherHeadersUnchanged(t *testing.T) {
+	handler := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/shutdown", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	// Cache-Control must be set.
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q, want \"no-store\"", got)
+	}
+	// All other security headers must still be present.
+	checks := map[string]string{
+		"X-Content-Type-Options": "nosniff",
+		"X-Frame-Options":        "DENY",
+		"Referrer-Policy":        "strict-origin-when-cross-origin",
+	}
+	for key, want := range checks {
+		if got := rec.Header().Get(key); got != want {
+			t.Errorf("header %q = %q, want %q", key, got, want)
+		}
+	}
+	if csp := rec.Header().Get("Content-Security-Policy"); csp == "" {
+		t.Error("Content-Security-Policy must still be set on API paths")
+	}
+}
