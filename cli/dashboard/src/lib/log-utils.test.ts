@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { convertAnsiToHtml, isErrorLine, isWarningLine, getLogLevel, getServiceColor, getLogColor, stripEmbeddedTimestamp } from './log-utils'
+import { convertAnsiToHtml, sanitizeHref, isErrorLine, isWarningLine, getLogLevel, getServiceColor, getLogColor, stripEmbeddedTimestamp } from './log-utils'
 
 describe('log-utils', () => {
   describe('convertAnsiToHtml', () => {
@@ -101,6 +101,48 @@ describe('log-utils', () => {
     it('should linkify plain URLs without ports', () => {
       const result = convertAnsiToHtml('Visit http://localhost for more info')
       expect(result).toContain('href="http://localhost"')
+    })
+
+    it('should produce an href value that contains no raw double-quotes (CWE-79 regression)', () => {
+      // Normal localhost URL — verify the attribute value itself is quote-free
+      const result = convertAnsiToHtml('Server at http://localhost:3000/')
+      const hrefMatch = result.match(/href="([^"]*)"/)
+      expect(hrefMatch).toBeTruthy()
+      expect(hrefMatch![1]).not.toContain('"')
+      expect(hrefMatch![1]).toBe('http://localhost:3000/')
+    })
+
+    it('should encode curly braces in URLs matched by URL_PATTERN', () => {
+      // {} are allowed mid-URL by URL_PATTERN but are unsafe in href; encodeURI encodes them
+      const result = convertAnsiToHtml('API at http://example.com/api?filter={name}')
+      expect(result).toContain('href="http://example.com/api?filter=%7Bname%7D"')
+      expect(result).not.toContain('href="http://example.com/api?filter={name}"')
+    })
+  })
+
+  describe('sanitizeHref', () => {
+    it('should encode double-quotes to prevent href attribute breakout (CWE-79)', () => {
+      // A URL containing " would break out of href="..." if not encoded
+      const xssUrl = 'http://example.com/path"onmouseover="alert(1)'
+      const result = sanitizeHref(xssUrl)
+      expect(result).not.toContain('"')
+      expect(result).toContain('%22')
+      expect(result).toMatch(/^http:\/\/example\.com\/path%22/)
+    })
+
+    it('should keep normal URLs unchanged', () => {
+      expect(sanitizeHref('http://localhost:3000/')).toBe('http://localhost:3000/')
+    })
+
+    it('should preserve query-string delimiters (& = ?) so links stay functional', () => {
+      const url = 'http://localhost:8080/api?key=value&foo=bar'
+      expect(sanitizeHref(url)).toBe('http://localhost:8080/api?key=value&foo=bar')
+    })
+
+    it('should encode curly braces in query params', () => {
+      expect(sanitizeHref('http://example.com/api?filter={name}')).toBe(
+        'http://example.com/api?filter=%7Bname%7D'
+      )
     })
   })
 
