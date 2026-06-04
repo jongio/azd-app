@@ -1,5 +1,6 @@
 // Test API server that connects to container services
 const http = require('http');
+const https = require('https');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { CosmosClient } = require('@azure/cosmos');
 const { createClient: createRedisClient } = require('redis');
@@ -100,12 +101,13 @@ async function testAzurite() {
 // ========== Cosmos DB ==========
 async function testCosmos() {
   try {
-    // Cosmos emulator uses self-signed cert
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    
+    // Cosmos emulator uses a self-signed cert — scope TLS bypass to this client only (CWE-295)
+    const agent = new https.Agent({ rejectUnauthorized: false });
+
     const client = new CosmosClient({
       endpoint: COSMOS_ENDPOINT,
-      key: COSMOS_KEY
+      key: COSMOS_KEY,
+      agent
     });
     
     const dbName = 'testdb';
