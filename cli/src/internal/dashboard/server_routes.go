@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"embed"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -37,6 +38,36 @@ const sessionTokenPlaceholder = `<meta name="azd-session-token" content="">`
 func injectSessionToken(indexHTML []byte, token string) []byte {
 	replacement := []byte(`<meta name="azd-session-token" content="` + token + `">`)
 	return bytes.Replace(indexHTML, []byte(sessionTokenPlaceholder), replacement, 1)
+}
+
+// shutdownOriginAllowed reports whether r carries sufficient same-origin proof
+// for the POST /api/shutdown endpoint (CWE-352 defence).
+//
+// Decision matrix:
+//
+//	Sec-Fetch-Site present → accept "same-origin" only; reject all other values
+//	                          (including "same-site", "cross-site", "none").
+//	Sec-Fetch-Site absent  → fall back to the Origin header:
+//	                          accept http://localhost:<port> and
+//	                          http://127.0.0.1:<port>; reject everything else,
+//	                          including a missing Origin.
+//
+// The absent-Sec-Fetch-Site branch exists for the `azd app stop` CLI path:
+// Go's net/http does not send Sec-Fetch-Site automatically (it is browser-UA
+// behaviour). The CLI sets it explicitly to "same-origin", which takes the
+// first branch and never reaches the Origin fallback. Browser-originated
+// requests always carry Sec-Fetch-Site injected by the UA.
+func (s *Server) shutdownOriginAllowed(r *http.Request) bool {
+	if fetchSite := r.Header.Get("Sec-Fetch-Site"); fetchSite != "" {
+		return fetchSite == "same-origin"
+	}
+	// Sec-Fetch-Site absent — fall back to the Origin header.
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return false
+	}
+	return origin == fmt.Sprintf("http://localhost:%d", s.port) ||
+		origin == fmt.Sprintf("http://127.0.0.1:%d", s.port)
 }
 
 // setupRoutes configures HTTP routes.
@@ -110,7 +141,19 @@ func (s *Server) setupRoutes() {
 
 	// Shutdown endpoint: signals the run process to initiate graceful teardown.
 	// Used by `azd app stop` from a separate terminal.
+	//
+	// Two-factor check (CWE-352):
+	//   1. Origin proof  — shutdownOriginAllowed rejects cross-origin callers.
+	//   2. Session token — ConstantTimeCompare rejects unauthenticated callers.
+	//
+	// Origin proof is evaluated first so that cross-origin requests are rejected
+	// even if the attacker somehow obtains a valid token (e.g. via MITM on the
+	// loopback — mitigated by hostAllow, but defence-in-depth applies).
 	s.mux.HandleFunc("POST /api/shutdown", func(w http.ResponseWriter, r *http.Request) {
+		if !s.shutdownOriginAllowed(r) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 		token := r.Header.Get("X-Session-Token")
 		if subtle.ConstantTimeCompare([]byte(token), []byte(s.sessionToken)) != 1 {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)

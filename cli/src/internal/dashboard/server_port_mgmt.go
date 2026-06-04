@@ -186,6 +186,66 @@ func ReadPortFile(projectDir string) int {
 	return port
 }
 
+// tokenFilePath returns the path to the session-token file for a project.
+// The file lives in the same per-project nonce directory as the nonce file
+// (~/.azd/azd-app/{hash}/session-token) and is written with mode 0o600 so
+// only the owning OS user can read it.
+func tokenFilePath(projectDir string) (string, error) {
+	hash := azdconfig.ProjectHash(projectDir)
+	dir, err := nonceStateDir(hash)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "session-token"), nil
+}
+
+// writeTokenFile persists the session token for cross-process discovery by
+// azd app stop. The file is mode 0o600 (owner-read/write only).
+func writeTokenFile(projectDir, token string) {
+	path, err := tokenFilePath(projectDir)
+	if err != nil {
+		slog.Debug("failed to resolve session-token file path", "error", err)
+		return
+	}
+	// Ensure the directory exists (nonce file may have created it already, but
+	// be defensive in case tokenFilePath is called before loadOrCreateNonce).
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		slog.Debug("failed to create session-token directory", "error", err)
+		return
+	}
+	if err := os.WriteFile(path, []byte(token), 0o600); err != nil {
+		slog.Debug("failed to write session-token file", "path", path, "error", err)
+	}
+}
+
+// removeTokenFile removes the session-token file when the server shuts down,
+// so stale tokens cannot be used to reach a non-running endpoint.
+func removeTokenFile(projectDir string) {
+	path, err := tokenFilePath(projectDir)
+	if err != nil {
+		slog.Debug("failed to resolve session-token file path for removal", "error", err)
+		return
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		slog.Debug("failed to remove session-token file", "path", path, "error", err)
+	}
+}
+
+// ReadTokenFile reads the session token written by the running dashboard server.
+// Returns an empty string if the file does not exist or cannot be read.
+// Used by azd app stop to authenticate the POST /api/shutdown request.
+func ReadTokenFile(projectDir string) string {
+	path, err := tokenFilePath(projectDir)
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
 // generatePreferredPort returns a preferred port for the dashboard server.
 func (s *Server) generatePreferredPort(portMgr *portmanager.PortManager) (int, error) {
 	// Check for existing persisted port first to maintain URL consistency across runs
@@ -278,6 +338,8 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		default:
 			// Successfully started - register the new port in azdconfig
 			s.registerPortInConfig(port)
+			// Persist the session token so azd app stop can authenticate.
+			writeTokenFile(s.projectDir, s.sessionToken)
 			fmt.Fprintf(os.Stderr, "✓ Dashboard started on alternative port %d\n\n", port)
 			return port, nil
 		}
