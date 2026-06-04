@@ -3,6 +3,7 @@ package dashboard
 import (
 	"net"
 	"net/http"
+	"strings"
 )
 
 // securityHeaders is middleware that adds security headers to all HTTP responses.
@@ -18,6 +19,17 @@ import (
 //   - connect-src: 'self' only — the legacy WebSocket endpoint
 //     (ws://localhost:* / wss://localhost:*) was removed; Connect-RPC uses HTTP.
 //   - object-src, base-uri, form-action: 'none' for defence-in-depth.
+//
+// Cache-Control notes:
+//
+//	API and Connect-RPC responses receive Cache-Control: no-store (CWE-525) to
+//	prevent browsers and shared proxies from persisting potentially sensitive
+//	data (service state, auth tokens, log content) across requests.
+//	Static assets (/app.js, /app.css, fonts, images) are intentionally excluded
+//	so they benefit from normal browser caching; those paths never carry
+//	per-user data.  index.html is excluded here because serveIndex (server_routes.go)
+//	already sets no-store on that response to prevent the session-token-bearing
+//	HTML from being cached.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -34,6 +46,12 @@ func securityHeaders(next http.Handler) http.Handler {
 				"frame-ancestors 'none'",
 		)
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		// CWE-525: prevent caching of API responses that may carry sensitive data.
+		// /api/* covers the REST shutdown endpoint; /azdapp.v1. covers all
+		// Connect-RPC service paths (e.g. /azdapp.v1.LifecycleService/Ping).
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/azdapp.v1.") {
+			w.Header().Set("Cache-Control", "no-store")
+		}
 		next.ServeHTTP(w, r)
 	})
 }
