@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 )
@@ -244,4 +245,37 @@ func endsWithPath(fullPath string, parts ...string) bool {
 
 func endsWith(s, suffix string) bool {
 	return len(s) >= len(suffix) && s[len(s)-len(suffix):] == suffix
+}
+
+// TestConfigDirPermissions verifies that the ~/.azd directory is created with
+// owner-only (0o700) permissions so user configuration is not world-readable.
+// Skipped on Windows where Unix permissions are not enforced.
+func TestConfigDirPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix file permissions not applicable on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, ".azd", "config.json")
+
+	originalGetConfigPath := GetConfigPath
+	GetConfigPath = func() (string, error) {
+		return configPath, nil
+	}
+	defer func() { GetConfigPath = originalGetConfigPath }()
+
+	if err := Save(&Config{}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	configDir := filepath.Dir(configPath)
+	info, err := os.Stat(configDir)
+	if err != nil {
+		t.Fatalf("os.Stat(configDir) error = %v", err)
+	}
+
+	perm := info.Mode().Perm()
+	if perm != 0o700 {
+		t.Errorf("configDir permissions = %04o, want 0700 (CWE-732: world-readable private config)", perm)
+	}
 }
