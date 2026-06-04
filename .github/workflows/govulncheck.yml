@@ -1,4 +1,4 @@
-name: Go Vulnerability Check
+name: Vulnerability Scan
 
 on:
   push:
@@ -17,15 +17,22 @@ permissions:
 
 jobs:
   govulncheck:
-    name: Run govulncheck
+    name: Go Vulnerability Check
     runs-on: ubuntu-latest
-
+    # Allow-list: govulncheck has no built-in ignore file; the recommended approach is
+    # to update the affected dependency. If a CVE is not reachable via actual call paths,
+    # govulncheck already suppresses it automatically (it only flags called symbols).
+    # For advisory-level overrides, create cli/.govulncheck.yaml with an 'exclude' block:
+    #
+    #   govulncheck:
+    #     exclude:
+    #       - id: GO-2024-XXXX   # reason: not reachable; tracked in issue #NNN
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Go
-        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           go-version-file: cli/go.mod
           cache-dependency-path: cli/go.sum
@@ -36,3 +43,44 @@ jobs:
       - name: Run govulncheck
         working-directory: cli
         run: govulncheck ./...
+
+  pnpm-audit:
+    name: pnpm Dependency Audit
+    runs-on: ubuntu-latest
+    # Fails on HIGH or CRITICAL advisories (--audit-level=high).
+    # Only production dependencies are scanned (--prod); devDependencies are excluded.
+    #
+    # Allow-list: to suppress a specific advisory that cannot be fixed immediately,
+    # add --ignore-cves with the GHSA ID and a tracking comment:
+    #
+    #   pnpm audit --prod --audit-level=high --ignore-cves GHSA-xxxx-xxxx-xxxx
+    #     # reason: only affects build tooling, not shipped code; tracked in issue #NNN
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@5b4374b04084dc1f9032b52464284b769ac5059e # v4
+        with:
+          version: 9
+
+      - name: Install dashboard dependencies
+        working-directory: cli/dashboard
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit dashboard dependencies
+        working-directory: cli/dashboard
+        run: pnpm audit --prod --audit-level=high
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit web dependencies
+        working-directory: web
+        run: pnpm audit --prod --audit-level=high
