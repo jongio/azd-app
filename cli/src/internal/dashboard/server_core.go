@@ -149,7 +149,7 @@ func (s *Server) Start() (string, error) {
 	s.port = port
 	s.server = &http.Server{
 		Addr:              fmt.Sprintf("127.0.0.1:%d", port),
-		Handler:           securityHeaders(s.mux),
+		Handler:           s.buildHandler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       120 * time.Second,
@@ -212,6 +212,13 @@ func (s *Server) Start() (string, error) {
 	s.registerPortInConfig(port)
 
 	return url, nil
+}
+
+// buildHandler returns the composed HTTP handler for the dashboard server.
+// All server construction paths (primary start and port retry) must call this
+// to ensure security middleware is applied uniformly (CWE-693).
+func (s *Server) buildHandler() http.Handler {
+	return securityHeaders(s.mux)
 }
 
 // Stop stops the dashboard server and releases its port assignment.

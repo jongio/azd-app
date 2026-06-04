@@ -154,7 +154,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		s.port = port
 		s.server = &http.Server{
 			Addr:              fmt.Sprintf("127.0.0.1:%d", port),
-			Handler:           s.mux,
+			Handler:           s.buildHandler(),
 			ReadHeaderTimeout: 10 * time.Second,
 		}
 
