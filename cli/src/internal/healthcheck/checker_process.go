@@ -304,16 +304,12 @@ func parseErrorDetailsFromBody(body []byte) string {
 		for _, key := range []string{statusError, "message", "detail", "details", "error_description"} {
 			if val, ok := jsonData[key]; ok {
 				if str, ok := val.(string); ok && str != "" {
-					return str
+					return sanitizeResponseBody(str, 200)
 				}
 			}
 		}
 	}
 
-	// If JSON parsing failed or no error field found, return truncated body (first 200 chars)
-	bodyStr := string(body)
-	if len(bodyStr) > 200 {
-		return bodyStr[:200] + "..."
-	}
-	return bodyStr
+	// JSON parsing failed or no recognised error field — sanitize and return body text
+	return sanitizeResponseBody(string(body), 200)
 }
