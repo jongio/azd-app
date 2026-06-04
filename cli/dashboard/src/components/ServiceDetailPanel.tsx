@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { useClipboard } from '@/hooks/useClipboard'
 import { useServiceUrls } from '@/hooks/useServiceUrls'
+import { isValidUrl } from '@/lib/service-url-utils'
 import { StatusBadge, type EffectiveStatus } from './StatusIndicator'
 import { ServiceActions } from '@/components/ServiceActions'
 import { useServiceOperations, type OperationState } from '@/hooks/useServiceOperations'
@@ -287,7 +288,7 @@ function OverviewTab({ service, healthStatus, operationState }: OverviewTabProps
               } 
             />
           )}
-          {effectiveLocal.source === 'customUrl' && effectiveLocal.defaultUrl && (
+          {effectiveLocal.source === 'customUrl' && effectiveLocal.defaultUrl && isValidUrl(effectiveLocal.defaultUrl) && (
             <InfoRow 
               label="Default URL" 
               value={
@@ -432,7 +433,7 @@ function LocalTab({ service, healthStatus, copiedField, onCopy, operationState }
         <SectionCard title="URLs">
           <div className="space-y-0">
             {/* Custom URL (highest precedence) */}
-            {service.local?.customUrl && (
+            {service.local?.customUrl && isValidUrl(service.local.customUrl) && (
               <InfoRow 
                 label="Custom URL"
                 value={
@@ -452,7 +453,7 @@ function LocalTab({ service, healthStatus, copiedField, onCopy, operationState }
               />
             )}
             {/* Default/Auto-discovered URL */}
-            {service.local?.url && (
+            {service.local?.url && isValidUrl(service.local.url) && (
               <InfoRow 
                 label={service.local.customUrl ? "Default URL" : "URL"}
                 value={
@@ -561,7 +562,7 @@ function AzureTab({ service }: AzureTabProps) {
         <SectionCard title="URLs">
           <div className="space-y-0">
             {/* Custom Domain (highest precedence for user-configured) */}
-            {service.azure?.customDomain && service.azure.customDomainSource === 'user' && (
+            {service.azure?.customDomain && service.azure.customDomainSource === 'user' && isValidUrl(service.azure.customDomain) && (
               <InfoRow 
                 label="Custom Domain"
                 value={
@@ -579,7 +580,7 @@ function AzureTab({ service }: AzureTabProps) {
             )}
 
             {/* Custom Domain from Azure SDK */}
-            {service.azure?.customDomain && service.azure.customDomainSource === 'azure-sdk' && (
+            {service.azure?.customDomain && service.azure.customDomainSource === 'azure-sdk' && isValidUrl(service.azure.customDomain) && (
               <InfoRow 
                 label="Custom Domain (Azure)"
                 value={
@@ -597,7 +598,7 @@ function AzureTab({ service }: AzureTabProps) {
             )}
             
             {/* Custom URL */}
-            {service.azure?.customUrl && (
+            {service.azure?.customUrl && isValidUrl(service.azure.customUrl) && (
               <InfoRow 
                 label="Custom URL" 
                 value={
@@ -615,7 +616,7 @@ function AzureTab({ service }: AzureTabProps) {
             )}
             
             {/* Deployment URL (auto-discovered) */}
-            {service.azure?.url && (
+            {service.azure?.url && isValidUrl(service.azure.url) && (
               <InfoRow 
                 label={service.azure.customUrl || service.azure.customDomain ? "Deployment URL" : "URL"}
                 value={

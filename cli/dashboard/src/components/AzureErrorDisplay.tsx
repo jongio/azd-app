@@ -24,6 +24,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { ErrorInfo } from '@/types'
 import { useTimeout } from '@/hooks/useTimeout'
+import { isValidUrl } from '@/lib/service-url-utils'
 
 // =============================================================================
 // Types
@@ -375,7 +376,7 @@ export function AzureErrorDisplay({
   const effectiveMessage = errorInfo?.message ?? message ?? config.description(serviceName)
   const actionMessage = errorInfo?.action
   const commandToRun = errorInfo?.command
-  const docsUrl = errorInfo?.docsUrl
+  const docsUrl = errorInfo?.docsUrl && isValidUrl(errorInfo.docsUrl) ? errorInfo.docsUrl : undefined
   
   const Icon = config.icon
 
