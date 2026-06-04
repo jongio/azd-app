@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
+	internalsec "github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-core/security"
 
 	"gopkg.in/yaml.v3"
@@ -29,7 +30,8 @@ func ParseAzureYaml(workingDir string) (*AzureYaml, error) {
 	}
 
 	// Read file
-	// #nosec G304 -- Path validated by security.ValidatePath
+	// #nosec G304 -- azureYamlPath is produced by detector.FindAzureYaml (internal) and
+	// validated by security.ValidatePath immediately above.
 	data, err := os.ReadFile(azureYamlPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read azure.yaml: %w", err)
@@ -41,20 +43,38 @@ func ParseAzureYaml(workingDir string) (*AzureYaml, error) {
 		return nil, fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
-	// Resolve relative paths in service projects
+	// Resolve relative paths in service projects and enforce containment within
+	// the project root (CWE-22).  A naive filepath.Clean(filepath.Join(...))
+	// silently removes ".." components from the string, so security.ValidatePath
+	// (which searches for ".." literals) would pass even when the resolved path
+	// escapes the project root.  We use ValidatePathContainment instead, which
+	// uses filepath.Rel on the fully-resolved absolute paths — the only correct
+	// approach.
 	azureYamlDir := filepath.Dir(azureYamlPath)
 	for name, svc := range azureYaml.Services {
 		if svc.Project != "" {
-			// Convert relative path to absolute
 			if !filepath.IsAbs(svc.Project) {
-				// Clean the path and join with azure.yaml directory
-				absPath := filepath.Clean(filepath.Join(azureYamlDir, svc.Project))
-				svc.Project = absPath
+				// Convert relative path to absolute before the containment check.
+				svc.Project = filepath.Clean(filepath.Join(azureYamlDir, svc.Project))
 				azureYaml.Services[name] = svc
 			}
+
+			// Validate that the (now-absolute) project path is still within
+			// azureYamlDir, whether it was originally relative (e.g. "../../etc/passwd"
+			// which filepath.Clean resolves outside the root) or absolute
+			// (e.g. "/etc/passwd" supplied directly in azure.yaml).
+			resolved, containErr := internalsec.ValidatePathContainment(svc.Project, azureYamlDir)
+			if containErr != nil {
+				return nil, fmt.Errorf(
+					"service %q: project path is outside the project root: %w",
+					name, containErr,
+				)
+			}
+			svc.Project = resolved
+			azureYaml.Services[name] = svc
 		}
 
-		// Validate service configuration
+		// Validate service configuration (URLs, domains, etc.)
 		if err := ValidateServiceConfig(name, &svc); err != nil {
 			return nil, err
 		}
