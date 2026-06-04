@@ -1436,6 +1436,57 @@ func TestInstallDependenciesToolValidation(t *testing.T) {
 	}
 }
 
+// TestInstallDependenciesAzureYamlGate verifies the SEC-026 workspace-trust gate:
+// install_dependencies must reject directories that are not azd projects, and
+// must pass through when azure.yaml is present so only the downstream invocation
+// (azd deps) determines success.
+func TestInstallDependenciesAzureYamlGate(t *testing.T) {
+	ctx := context.Background()
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+
+	t.Run("rejects directory without azure.yaml", func(t *testing.T) {
+		// Temp dir under cwd so validateProjectDir accepts it (containment check).
+		tempDir, err := os.MkdirTemp(cwd, "test_install_deps_no_azure_yaml")
+		require.NoError(t, err)
+		defer os.RemoveAll(tempDir) //nolint:errcheck
+
+		args := testToolArgs(map[string]any{"projectDir": tempDir})
+		result, err := handleInstallDependencies(ctx, args)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.True(t, result.IsError, "expected an error result when azure.yaml is absent")
+		require.NotEmpty(t, result.Content)
+		textContent, ok := result.Content[0].(mcp.TextContent)
+		require.True(t, ok, "expected TextContent in result")
+		require.True(t, containsSubstr(textContent.Text, "azure.yaml"),
+			"error must mention azure.yaml, got: %s", textContent.Text)
+	})
+
+	t.Run("passes azure.yaml gate for valid project directory", func(t *testing.T) {
+		// Temp dir under cwd with azure.yaml present.
+		tempDir, err := os.MkdirTemp(cwd, "test_install_deps_with_azure_yaml")
+		require.NoError(t, err)
+		defer os.RemoveAll(tempDir) //nolint:errcheck
+
+		err = os.WriteFile(filepath.Join(tempDir, "azure.yaml"), []byte("name: test-project\n"), 0o644)
+		require.NoError(t, err)
+
+		args := testToolArgs(map[string]any{"projectDir": tempDir})
+		result, err := handleInstallDependencies(ctx, args)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		// The azure.yaml gate must pass. If execution fails afterward (azd binary
+		// unavailable in test env), the error must NOT be about azure.yaml.
+		if result.IsError && len(result.Content) > 0 {
+			if textContent, ok := result.Content[0].(mcp.TextContent); ok {
+				require.False(t, containsSubstr(textContent.Text, "requires an azure.yaml"),
+					"azure.yaml gate must not fire when azure.yaml is present, got: %s", textContent.Text)
+			}
+		}
+	})
+}
+
 // TestContextCancellation tests that handlers respect context cancellation
 func TestContextCancellation(t *testing.T) {
 	// Create a cancelled context

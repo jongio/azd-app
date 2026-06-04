@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
+	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/security"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -553,7 +554,6 @@ func addInstallDependenciesTool(b *azdext.MCPServerBuilder) {
 		azdext.MCPToolOptions{
 			Title:       "Install Project Dependencies",
 			Description: "Install dependencies for all detected projects (Node.js, Python, .NET). Automatically detects package managers (npm/pnpm/yarn, uv/poetry/pip, dotnet) and installs dependencies.",
-			Idempotent:  true,
 		},
 		mcp.WithString(
 			"projectDir",
@@ -566,6 +566,21 @@ func handleInstallDependencies(ctx context.Context, args azdext.ToolArgs) (*mcp.
 	cmdArgs, err := extractProjectDirArg(args)
 	if err != nil {
 		return mcpErrorResult("Invalid project directory: %v", err), nil
+	}
+
+	// SEC-026 (CWE-829): Verify the target directory is an azd workspace before
+	// running package managers. Postinstall scripts execute arbitrary code, so we
+	// must not invoke them outside a trusted project directory.
+	projectDir, err := extractValidatedProjectDir(args)
+	if err != nil {
+		return mcpErrorResult("Invalid project directory: %v", err), nil
+	}
+	azureYamlPath, err := detector.FindAzureYaml(projectDir)
+	if err != nil {
+		return mcpErrorResult("Error searching for azure.yaml: %v", err), nil
+	}
+	if azureYamlPath == "" {
+		return mcpErrorResult("install_dependencies requires an azure.yaml project — run from a project directory"), nil
 	}
 
 	if ctxErr := ctx.Err(); ctxErr != nil {
