@@ -47,12 +47,15 @@ func newModeTestServer(
 	mgr := broadcast.New()
 
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{
-		Broadcast:  mgr,
-		Project:    source,
-		ProjectDir: projectDir,
-		Mode:       store,
-	})
+	if err := Mount(mux, Dependencies{
+		Broadcast:            mgr,
+		Project:              source,
+		ProjectDir:           projectDir,
+		Mode:                 store,
+		AllowUnauthenticated: true,
+	}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 
 	srv := httptest.NewServer(mux)
 	client := azdappv1connect.NewModeServiceClient(srv.Client(), srv.URL)
@@ -266,12 +269,15 @@ func TestModeServiceNotMountedWithoutStore(t *testing.T) {
 	defer mgr.StopAll()
 
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{
-		Broadcast:  mgr,
-		Project:    &stubProjectSource{yaml: &service.AzureYaml{}},
-		ProjectDir: "/abs/anywhere",
+	if err := Mount(mux, Dependencies{
+		Broadcast:            mgr,
+		Project:              &stubProjectSource{yaml: &service.AzureYaml{}},
+		ProjectDir:           "/abs/anywhere",
+		AllowUnauthenticated: true,
 		// Mode intentionally absent.
-	})
+	}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()

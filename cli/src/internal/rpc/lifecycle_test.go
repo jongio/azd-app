@@ -23,7 +23,9 @@ func newTestServer(t *testing.T, version string) (*broadcast.Manager, azdappv1co
 	mgr := broadcast.New()
 
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{Broadcast: mgr, Version: version})
+	if err := Mount(mux, Dependencies{Broadcast: mgr, Version: version, AllowUnauthenticated: true}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 
 	srv := httptest.NewServer(mux)
 	client := azdappv1connect.NewLifecycleServiceClient(srv.Client(), srv.URL)
@@ -59,7 +61,9 @@ func TestPingRejectsGetRequest(t *testing.T) {
 	// Spin up a separate server to GET against the unary procedure path.
 	mgr := broadcast.New()
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{Broadcast: mgr, Version: ""})
+	if err := Mount(mux, Dependencies{Broadcast: mgr, Version: "", AllowUnauthenticated: true}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 	defer mgr.StopAll()

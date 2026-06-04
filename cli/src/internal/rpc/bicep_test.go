@@ -72,11 +72,14 @@ func newBicepTestServer(
 	mgr := broadcast.New()
 
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{
-		Broadcast:    mgr,
-		ProjectDir:   projectDir,
-		BicepFactory: factory,
-	})
+	if err := Mount(mux, Dependencies{
+		Broadcast:            mgr,
+		ProjectDir:           projectDir,
+		BicepFactory:         factory,
+		AllowUnauthenticated: true,
+	}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 
 	srv := httptest.NewServer(mux)
 	client := azdappv1connect.NewBicepServiceClient(srv.Client(), srv.URL)
@@ -119,11 +122,14 @@ func TestBicepNotMountedWhenFactoryMissing(t *testing.T) {
 	defer mgr.StopAll()
 
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{
-		Broadcast:  mgr,
-		ProjectDir: "/p",
+	if err := Mount(mux, Dependencies{
+		Broadcast:            mgr,
+		ProjectDir:           "/p",
+		AllowUnauthenticated: true,
 		// BicepFactory deliberately unset.
-	})
+	}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()

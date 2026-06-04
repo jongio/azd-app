@@ -41,11 +41,14 @@ func newProjectTestServer(t *testing.T, projectDir string, source *stubProjectSo
 	mgr := broadcast.New()
 
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{
-		Broadcast:  mgr,
-		Project:    source,
-		ProjectDir: projectDir,
-	})
+	if err := Mount(mux, Dependencies{
+		Broadcast:            mgr,
+		Project:              source,
+		ProjectDir:           projectDir,
+		AllowUnauthenticated: true,
+	}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 
 	srv := httptest.NewServer(mux)
 	client := azdappv1connect.NewProjectServiceClient(srv.Client(), srv.URL)
@@ -141,7 +144,9 @@ func TestProjectServiceNotMountedWithoutSource(t *testing.T) {
 	defer mgr.StopAll()
 
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{Broadcast: mgr})
+	if err := Mount(mux, Dependencies{Broadcast: mgr, AllowUnauthenticated: true}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
