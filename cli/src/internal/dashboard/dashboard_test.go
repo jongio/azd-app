@@ -39,6 +39,42 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 }
 
+func TestSecurityHeaders_RetryPath(t *testing.T) {
+	// buildHandler() is the shared construction point used by both the primary
+	// start path (server_core.go) and the retry-port path (server_port_mgmt.go).
+	// This test verifies that it applies securityHeaders so both paths return
+	// X-Frame-Options: DENY, guarding against CWE-693.
+	s := &Server{mux: http.NewServeMux()}
+	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := s.buildHandler()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	want := "DENY"
+	if got := rec.Header().Get("X-Frame-Options"); got != want {
+		t.Errorf("retry-path handler X-Frame-Options = %q, want %q", got, want)
+	}
+
+	// Verify the full set of security headers is present, not just X-Frame-Options.
+	checks := map[string]string{
+		"X-Content-Type-Options": "nosniff",
+		"X-Frame-Options":        "DENY",
+		"Referrer-Policy":        "strict-origin-when-cross-origin",
+	}
+	for key, wantVal := range checks {
+		if got := rec.Header().Get(key); got != wantVal {
+			t.Errorf("retry-path handler %q = %q, want %q", key, got, wantVal)
+		}
+	}
+	if csp := rec.Header().Get("Content-Security-Policy"); csp == "" {
+		t.Error("retry-path handler Content-Security-Policy should be set")
+	}
+}
+
 func TestSecurityHeaders_PassesThrough(t *testing.T) {
 	called := false
 	handler := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
