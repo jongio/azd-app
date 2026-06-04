@@ -694,10 +694,14 @@ func addSetEnvironmentVariableTool(b *azdext.MCPServerBuilder) {
 	b.AddTool(
 		"set_environment_variable", handleSetEnvironmentVariable,
 		azdext.MCPToolOptions{
-			Title:       "Set Environment Variable",
-			Description: "Set an environment variable for services. Note: This provides guidance on how to set environment variables, as they must be configured in azure.yaml or .env files.",
-			ReadOnly:    true,
-			Idempotent:  true,
+			Title: "Set Environment Variable",
+			Description: "Provides guidance on how to set an environment variable for services. " +
+				"This tool does NOT modify any files or system state — it returns instructions " +
+				"for configuring the variable in azure.yaml, .env files, or the shell. " +
+				"Secret-pattern values (keys containing TOKEN, SECRET, KEY, PASSWORD, CREDENTIAL, " +
+				"CONNECTION_STRING) are redacted in the response.",
+			ReadOnly:   true,
+			Idempotent: true,
 		},
 		mcp.WithString(
 			"name",
@@ -731,6 +735,11 @@ func handleSetEnvironmentVariable(ctx context.Context, args azdext.ToolArgs) (*m
 		return mcpErrorResult("%s", err.Error()), nil
 	}
 
+	// Redact secret-pattern values before including them in any response.
+	// This prevents tokens, passwords, API keys, and credentials from leaking
+	// through the MCP tool result (CWE-684).
+	displayValue := redactSecretValue(name, value)
+
 	serviceName := args.OptionalString("serviceName", "")
 	if serviceName != "" {
 		if err := security.ValidateServiceName(serviceName, true); err != nil {
@@ -758,16 +767,16 @@ Export in your shell:
 export %s="%s"
 
 After updating, restart services for changes to take effect.`,
-		name, value,
-		serviceName, name, value,
-		name, value,
-		name, value)
+		name, displayValue,
+		serviceName, name, displayValue,
+		name, displayValue,
+		name, displayValue)
 
 	result := map[string]any{
 		"status":   "guidance",
 		"message":  guidance,
 		"variable": name,
-		"value":    value,
+		"value":    displayValue,
 	}
 
 	return marshalToolResult(result)
