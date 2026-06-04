@@ -67,6 +67,30 @@ type AzureYaml struct {
 	Hooks     *Hooks              `yaml:"hooks,omitempty"`
 	Dashboard *DashboardConfig    `yaml:"dashboard,omitempty"`
 	Logs      *LogsConfig         `yaml:"logs,omitempty"` // Project-level logging configuration
+	EnvFilter *EnvFilterConfig    `yaml:"envFilter,omitempty"` // Optional env-var filter configuration
+}
+
+// EnvFilterConfig controls environment variable filtering at the dashboard-to-child-service
+// boundary. It extends the built-in denylist (*_TOKEN, *_SECRET, *_KEY, *_PASSWORD, AWS_*,
+// AZURE_*) with project-specific rules without replacing the defaults.
+//
+// Example azure.yaml usage:
+//
+//	envFilter:
+//	  additionalDenylist:
+//	    - "_CREDENTIAL"   # blocks any var ending in _CREDENTIAL
+//	    - "GCP_"          # blocks all GCP_* vars
+//	  additionalAllowlist:
+//	    - "AZURE_FUNCTION_APP_NAME"  # allow this specific AZURE_* var
+type EnvFilterConfig struct {
+	// AdditionalDenylist contains extra patterns appended to the default denylist.
+	// Each entry is matched as a suffix (e.g., "_CREDENTIAL") or exact prefix
+	// (e.g., "GCP_") against the uppercased variable name. Both forms are tried.
+	AdditionalDenylist []string `yaml:"additionalDenylist,omitempty"`
+	// AdditionalAllowlist contains exact env var names (case-insensitive) to permit
+	// even when they match a denylist pattern. Useful for non-sensitive vars caught
+	// by broad prefix patterns such as AZURE_* or AWS_*.
+	AdditionalAllowlist []string `yaml:"additionalAllowlist,omitempty"`
 }
 
 // DashboardConfig represents dashboard configuration in azure.yaml.
