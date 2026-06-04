@@ -516,6 +516,29 @@ func TestValidateProjectDir(t *testing.T) {
 			dir:       "/etc",
 			wantError: true, // Should fail due to system directory protection
 		},
+		// CWE-88 leading-dash guard: paths whose segments start with '-' must be
+		// rejected before the directory-existence check so the error is clear and
+		// the segment never reaches a subprocess argv.
+		{
+			name:      "Leading-dash segment - double-dash flag-like",
+			dir:       "--config=/etc/passwd",
+			wantError: true,
+		},
+		{
+			name:      "Leading-dash segment - single-dash flag-like",
+			dir:       "-flag/subdir",
+			wantError: true,
+		},
+		{
+			name:      "Leading-dash segment - tilde prefix with embedded flag",
+			dir:       "~/--config=/etc/passwd/",
+			wantError: true,
+		},
+		{
+			name:      "Leading-dash in middle segment",
+			dir:       "src/--evil/deep",
+			wantError: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -529,6 +552,52 @@ func TestValidateProjectDir(t *testing.T) {
 			}
 			if !tt.wantError && result == "" {
 				t.Errorf("Expected non-empty result for %s", tt.dir)
+			}
+		})
+	}
+}
+
+// TestValidateProjectDir_LeadingDashRejected is a focused CWE-88 acceptance test.
+// It verifies that validateProjectDir rejects paths containing segments that start
+// with '-' before the directory-existence check is reached, producing an error that
+// explicitly references CWE-88.
+func TestValidateProjectDir_LeadingDashRejected(t *testing.T) {
+	tests := []struct {
+		name        string
+		dir         string
+		wantMsgFrag string // substring that must appear in the error message
+	}{
+		{
+			name:        "double-dash flag-style first segment",
+			dir:         "--config=/etc/passwd",
+			wantMsgFrag: "CWE-88",
+		},
+		{
+			name:        "single-dash flag-style first segment",
+			dir:         "-flag/subdir",
+			wantMsgFrag: "CWE-88",
+		},
+		{
+			name:        "tilde path with embedded double-dash segment",
+			dir:         "~/--config=/etc/passwd/",
+			wantMsgFrag: "CWE-88",
+		},
+		{
+			name:        "leading-dash in non-first segment",
+			dir:         "legitimate/--injected/deep",
+			wantMsgFrag: "CWE-88",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := validateProjectDir(tt.dir)
+			if err == nil {
+				t.Fatalf("validateProjectDir(%q): expected rejection, got nil error", tt.dir)
+			}
+			if !strings.Contains(err.Error(), tt.wantMsgFrag) {
+				t.Errorf("validateProjectDir(%q) error = %q; want message containing %q",
+					tt.dir, err.Error(), tt.wantMsgFrag)
 			}
 		})
 	}

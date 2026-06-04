@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
+	"github.com/jongio/azd-app/cli/src/internal/executor"
 	internalversion "github.com/jongio/azd-app/cli/src/internal/version"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -299,6 +300,18 @@ func validateProjectDir(dir string) (string, error) {
 
 	// Clean the path to resolve any . or .. components
 	cleanPath := filepath.Clean(dir)
+
+	// Reject any path segment starting with '-' (CWE-88 argv injection guard).
+	// This path is ultimately passed as --cwd <path> to a subprocess; a segment
+	// beginning with '-' would be interpreted as a CLI flag rather than a data
+	// value, allowing an attacker to inject arbitrary flags into the subprocess.
+	// Legitimate project directory paths (absolute, relative, or tilde-prefixed)
+	// never contain segments that start with '-'.
+	for _, seg := range strings.Split(cleanPath, string(filepath.Separator)) {
+		if err := executor.RejectLeadingDash(seg); err != nil {
+			return "", fmt.Errorf("project directory path contains invalid segment: %w", err)
+		}
+	}
 
 	// Get absolute path
 	absPath, err := filepath.Abs(cleanPath)
