@@ -451,7 +451,7 @@ func newAzureTestServer(t *testing.T, funcs AzureStoreFuncs) (azdappv1connect.Az
 	t.Helper()
 	mgr := broadcast.New()
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{Broadcast: mgr, Azure: funcs, AllowUnauthenticated: true})
+	Mount(mux, Dependencies{Broadcast: mgr, Azure: funcs, AllowUnauthenticated: true}) //nolint:errcheck // test helper
 	srv := httptest.NewServer(mux)
 	client := azdappv1connect.NewAzureServiceClient(srv.Client(), srv.URL)
 	return client, func() {
@@ -1997,7 +1997,7 @@ func TestSendWithBackpressure_TimesOutOnSlowClient(t *testing.T) {
 	funcs.FetchLogsFn = func(context.Context, azure.StandaloneLogsConfig) ([]azure.LogEntry, error) {
 		return []azure.LogEntry{makeAzureLogEntry("api", "x", t0)}, nil
 	}
-	Mount(mux, Dependencies{Broadcast: mgr, Azure: funcs, AllowUnauthenticated: true})
+	Mount(mux, Dependencies{Broadcast: mgr, Azure: funcs, AllowUnauthenticated: true}) //nolint:errcheck // test helper
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 	defer mgr.StopAll()

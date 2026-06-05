@@ -128,9 +128,9 @@ describe('connectClient factories', () => {
       getDefaultTransport()
 
       // The raw token string must not be reachable as a window property.
-      expect((window as Record<string, unknown>)[canary]).toBeUndefined()
+      expect((window as unknown as Record<string, unknown>)[canary]).toBeUndefined()
       // Nor should there be an 'azd-session-token' key on window.
-      expect((window as Record<string, unknown>)['azd-session-token']).toBeUndefined()
+      expect((window as unknown as Record<string, unknown>)['azd-session-token']).toBeUndefined()
     } finally {
       document.head.removeChild(meta)
     }

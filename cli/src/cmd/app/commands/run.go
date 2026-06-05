@@ -139,14 +139,14 @@ func ensureWorkspaceTrusted(azureYamlPath string) error {
 	if !isInteractiveTerminal() {
 		if errors.Is(trustErr, trust.ErrHashChanged) {
 			return fmt.Errorf(
-				"workspace at %s is no longer trusted: azure.yaml has changed.\n"+
-					"Re-run with --trust flag or set AZD_APP_TRUST=1 to trust the updated file.",
-				projectDir,
-			)
+			"workspace at %s is no longer trusted: azure.yaml has changed; "+
+				"re-run with --trust flag or set AZD_APP_TRUST=1 to trust the updated file",
+			projectDir,
+		)
 		}
 		return fmt.Errorf(
-			"workspace at %s is not trusted.\n"+
-				"Re-run with --trust flag or set AZD_APP_TRUST=1 to trust this workspace.",
+			"workspace at %s is not trusted; "+
+				"re-run with --trust flag or set AZD_APP_TRUST=1 to trust this workspace",
 			projectDir,
 		)
 	}

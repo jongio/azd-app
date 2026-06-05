@@ -20,6 +20,12 @@ import {
   getLocalUrlTooltip,
   getAzureUrlTooltip,
 } from './service-url-utils'
+import type { LocalServiceInfo } from '@/types'
+
+/** Helper to create a partial LocalServiceInfo for URL-focused tests */
+function localInfo(overrides: Partial<LocalServiceInfo> = {}): LocalServiceInfo {
+  return { status: 'running', health: 'unknown', ...overrides }
+}
 
 // =============================================================================
 // isValidUrl — scheme allowlist (CWE-79 regression suite)
@@ -127,42 +133,42 @@ describe('getEffectiveLocalUrl', () => {
   })
 
   it('returns null when both urls are absent', () => {
-    expect(getEffectiveLocalUrl({})).toEqual({ url: null, source: null })
+    expect(getEffectiveLocalUrl(localInfo())).toEqual({ url: null, source: null })
   })
 
   describe('customUrl precedence', () => {
     it('prefers customUrl over url when both valid', () => {
-      const result = getEffectiveLocalUrl({
+      const result = getEffectiveLocalUrl(localInfo({
         url: 'http://localhost:3000',
         customUrl: 'https://custom.dev',
-      })
+      }))
       expect(result.url).toBe('https://custom.dev')
       expect(result.source).toBe('customUrl')
       expect(result.defaultUrl).toBe('http://localhost:3000')
     })
 
     it('blocks javascript: customUrl — falls back to url', () => {
-      const result = getEffectiveLocalUrl({
+      const result = getEffectiveLocalUrl(localInfo({
         url: 'http://localhost:3000',
         customUrl: 'javascript:alert(document.cookie)',
-      })
+      }))
       expect(result.url).toBe('http://localhost:3000')
       expect(result.source).toBe('url')
     })
 
     it('blocks data: customUrl — falls back to url', () => {
-      const result = getEffectiveLocalUrl({
+      const result = getEffectiveLocalUrl(localInfo({
         url: 'http://localhost:3000',
         customUrl: 'data:text/html,<script>alert(1)</script>',
-      })
+      }))
       expect(result.url).toBe('http://localhost:3000')
       expect(result.source).toBe('url')
     })
 
     it('blocks javascript: customUrl and invalid url — returns null', () => {
-      const result = getEffectiveLocalUrl({
+      const result = getEffectiveLocalUrl(localInfo({
         customUrl: 'javascript:alert(1)',
-      })
+      }))
       expect(result.url).toBeNull()
       expect(result.source).toBeNull()
     })
@@ -170,19 +176,19 @@ describe('getEffectiveLocalUrl', () => {
 
   describe('url fallback', () => {
     it('uses url when customUrl absent', () => {
-      const result = getEffectiveLocalUrl({ url: 'http://localhost:4000' })
+      const result = getEffectiveLocalUrl(localInfo({ url: 'http://localhost:4000' }))
       expect(result.url).toBe('http://localhost:4000')
       expect(result.source).toBe('url')
     })
 
     it('blocks javascript: url', () => {
-      const result = getEffectiveLocalUrl({ url: 'javascript:void(0)' })
+      const result = getEffectiveLocalUrl(localInfo({ url: 'javascript:void(0)' }))
       expect(result.url).toBeNull()
       expect(result.source).toBeNull()
     })
 
     it('filters out unbound port :0', () => {
-      const result = getEffectiveLocalUrl({ url: 'http://localhost:0' })
+      const result = getEffectiveLocalUrl(localInfo({ url: 'http://localhost:0' }))
       expect(result.url).toBeNull()
       expect(result.source).toBeNull()
     })
