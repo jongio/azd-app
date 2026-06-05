@@ -91,16 +91,16 @@ func TestInjectSessionToken(t *testing.T) {
 // the combined handler path (origin check → token check → action).
 //
 // Acceptance criteria:
-//   1. Sec-Fetch-Site: same-origin accepted (200)
-//   2. Sec-Fetch-Site: cross-site rejected (403)
-//   3. No Sec-Fetch-Site, no Origin → fail-closed (403)
-//   4. Origin fallback: http://localhost:<port> accepted (200)
-//   5. Origin fallback: http://127.0.0.1:<port> accepted (200)
-//   6. Origin fallback: cross-site Origin rejected (403)
+//  1. Sec-Fetch-Site: same-origin accepted (200)
+//  2. Sec-Fetch-Site: cross-site rejected (403)
+//  3. No Sec-Fetch-Site, no Origin → fail-closed (403)
+//  4. Origin fallback: http://localhost:<port> accepted (200)
+//  5. Origin fallback: http://127.0.0.1:<port> accepted (200)
+//  6. Origin fallback: cross-site Origin rejected (403)
 func TestShutdownOriginCheck(t *testing.T) {
 	const (
-		validToken  = "deadbeefdeadbeefdeadbeefdeadbeef"
-		serverPort  = 45678
+		validToken = "deadbeefdeadbeefdeadbeefdeadbeef"
+		serverPort = 45678
 	)
 
 	// newSrv constructs a minimal Server suitable for HTTP-level testing.
@@ -266,6 +266,7 @@ func TestShutdownOriginCheck(t *testing.T) {
 		}
 	})
 }
+
 // verifies the full request→response path for token injection. Because the
 // embedded dist/ FS has no built index.html at development time, this test
 // constructs its own handler using the same injectSessionToken helper that

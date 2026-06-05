@@ -210,14 +210,14 @@ func TestFilterSensitiveEnvVars_TokenNotLeaked(t *testing.T) {
 // TestFilterSensitiveEnvVars_NonSensitivePassThrough verifies PATH, HOME, and GOPATH pass through.
 func TestFilterSensitiveEnvVars_NonSensitivePassThrough(t *testing.T) {
 	env := map[string]string{
-		"PATH":         "/usr/local/bin:/usr/bin:/bin",
-		"HOME":         "/home/runner",
-		"GOPATH":       "/home/runner/go",
-		"PYTHONPATH":   "/usr/lib/python3",
-		"NODE_ENV":     "test",
-		"PORT":         "8080",
-		"LANG":         "en_US.UTF-8",
-		"GITHUB_TOKEN": "should-be-filtered",
+		"PATH":                  "/usr/local/bin:/usr/bin:/bin",
+		"HOME":                  "/home/runner",
+		"GOPATH":                "/home/runner/go",
+		"PYTHONPATH":            "/usr/lib/python3",
+		"NODE_ENV":              "test",
+		"PORT":                  "8080",
+		"LANG":                  "en_US.UTF-8",
+		"GITHUB_TOKEN":          "should-be-filtered",
 		"AWS_SECRET_ACCESS_KEY": "also-filtered",
 	}
 
@@ -282,17 +282,17 @@ func TestFilterSensitiveEnvVars_AllowlistPreserved(t *testing.T) {
 func TestFilterSensitiveEnvVars_DenylistPatterns(t *testing.T) {
 	sensitive := map[string]string{
 		// Suffix: _TOKEN
-		"GITHUB_TOKEN":  "ghp_token",
-		"NPM_TOKEN":     "npm_token",
-		"PYPI_TOKEN":    "pypi_token",
-		"ACCESS_TOKEN":  "access_token",
+		"GITHUB_TOKEN": "ghp_token",
+		"NPM_TOKEN":    "npm_token",
+		"PYPI_TOKEN":   "pypi_token",
+		"ACCESS_TOKEN": "access_token",
 		// Suffix: _SECRET
 		"CLIENT_SECRET": "client_secret",
 		"APP_SECRET":    "app_secret",
 		// Suffix: _KEY
-		"API_KEY":          "api_key",
-		"PRIVATE_KEY":      "private_key",
-		"SSH_PRIVATE_KEY":  "ssh_key",
+		"API_KEY":         "api_key",
+		"PRIVATE_KEY":     "private_key",
+		"SSH_PRIVATE_KEY": "ssh_key",
 		// Suffix: _PASSWORD
 		"DB_PASSWORD":       "db_pass",
 		"POSTGRES_PASSWORD": "pg_pass",

@@ -912,7 +912,6 @@ func TestSanitizeResponseBody_CombinedSanitizationAndTruncation(t *testing.T) {
 	}
 }
 
-
 func TestSuggestTCPErrorAction(t *testing.T) {
 	tests := []struct {
 		name string

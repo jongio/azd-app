@@ -66,7 +66,7 @@ type AzureYaml struct {
 	Metadata  map[string]any      `yaml:"metadata,omitempty"`
 	Hooks     *Hooks              `yaml:"hooks,omitempty"`
 	Dashboard *DashboardConfig    `yaml:"dashboard,omitempty"`
-	Logs      *LogsConfig         `yaml:"logs,omitempty"` // Project-level logging configuration
+	Logs      *LogsConfig         `yaml:"logs,omitempty"`      // Project-level logging configuration
 	EnvFilter *EnvFilterConfig    `yaml:"envFilter,omitempty"` // Optional env-var filter configuration
 }
 

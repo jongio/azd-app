@@ -138,11 +138,11 @@ func TestSanitizeForLLM_C0ControlChars(t *testing.T) {
 		{"NUL 0x00", '\x00', false},
 		{"BEL 0x07", '\x07', false},
 		{"BS 0x08", '\x08', false},
-		{"TAB 0x09", '\x09', true},  // \t preserved
-		{"LF 0x0A", '\x0A', true},   // \n preserved
+		{"TAB 0x09", '\x09', true}, // \t preserved
+		{"LF 0x0A", '\x0A', true},  // \n preserved
 		{"VT 0x0B", '\x0B', false},
 		{"FF 0x0C", '\x0C', false},
-		{"CR 0x0D", '\x0D', true},   // \r preserved
+		{"CR 0x0D", '\x0D', true}, // \r preserved
 		{"SO 0x0E", '\x0E', false},
 		{"ESC 0x1B", '\x1B', false}, // bare ESC stripped
 		{"US 0x1F", '\x1F', false},
@@ -197,9 +197,9 @@ func TestSanitizeAny_RecursiveWalk(t *testing.T) {
 			"clean",
 			map[string]any{"deep": "\x1b[0mhidden"},
 		},
-		"number": float64(42),   // must not be modified
-		"flag":   true,          // must not be modified
-		"null":   nil,           // must not be modified
+		"number": float64(42), // must not be modified
+		"flag":   true,        // must not be modified
+		"null":   nil,         // must not be modified
 	}
 
 	got := sanitizeAny(input).(map[string]any)

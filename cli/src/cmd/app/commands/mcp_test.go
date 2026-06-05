@@ -1153,8 +1153,8 @@ func TestSetEnvironmentVariableRedactsSecrets(t *testing.T) {
 
 	t.Run("secret key values are redacted", func(t *testing.T) {
 		cases := []struct {
-			keyName   string
-			rawValue  string
+			keyName    string
+			rawValue   string
 			wantAbsent string // the raw value must not appear in the response
 		}{
 			// AC4: the explicit acceptance-criteria example
