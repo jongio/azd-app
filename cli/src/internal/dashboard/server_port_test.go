@@ -330,7 +330,7 @@ func TestPortFileNonce_NonceIs128Bits(t *testing.T) {
 		t.Errorf("expected 32-char nonce (128 bits), got %d chars: %q", len(nonce), nonce)
 	}
 	for _, ch := range nonce {
-		if !((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f')) {
+		if !(ch >= '0' && ch <= '9') && !(ch >= 'a' && ch <= 'f') {
 			t.Errorf("nonce contains non-hex character %q in %q", string(ch), nonce)
 		}
 	}
