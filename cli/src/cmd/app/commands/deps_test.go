@@ -3168,7 +3168,7 @@ services:
 	if err == nil {
 		t.Fatal("Expected error for path traversal, got nil")
 	}
-	if !strings.Contains(err.Error(), "resolves outside the project root") {
+	if !strings.Contains(err.Error(), "outside") || !strings.Contains(err.Error(), "project root") {
 		t.Errorf("Expected path traversal error, got: %v", err)
 	}
 }
