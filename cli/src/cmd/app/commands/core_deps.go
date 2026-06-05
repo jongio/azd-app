@@ -366,10 +366,16 @@ func detectProjectsFromAzureYaml(searchRoot string) ([]types.NodeProject, []type
 		return nil, nil, nil, fmt.Errorf("no services defined in azure.yaml - add a 'services' section to define your development environment")
 	}
 
-	// Resolve the project root to an absolute path for containment checks
+	// Resolve the project root to an absolute path for containment checks.
+	// EvalSymlinks is required on platforms like macOS where temp dirs use
+	// symlinks (e.g., /var → /private/var); ParseAzureYaml returns resolved
+	// paths, so the root must also be resolved for Rel to work correctly.
 	absSearchRoot, err := filepath.Abs(searchRoot)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to resolve project root: %w", err)
+	}
+	if resolved, symlinkErr := filepath.EvalSymlinks(absSearchRoot); symlinkErr == nil {
+		absSearchRoot = resolved
 	}
 
 	var nodeProjects []types.NodeProject

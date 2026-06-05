@@ -93,8 +93,14 @@ services:
 	if !filepath.IsAbs(svc.Project) {
 		t.Errorf("service project path %q is not absolute", svc.Project)
 	}
-	if !strings.HasPrefix(svc.Project, root) {
-		t.Errorf("service project path %q does not start with project root %q", svc.Project, root)
+	// ParseAzureYaml resolves symlinks on the project path (e.g., macOS /var → /private/var),
+	// so resolve root the same way before comparing.
+	resolvedRoot := root
+	if r, err := filepath.EvalSymlinks(root); err == nil {
+		resolvedRoot = r
+	}
+	if !strings.HasPrefix(svc.Project, resolvedRoot) {
+		t.Errorf("service project path %q does not start with project root %q", svc.Project, resolvedRoot)
 	}
 }
 
@@ -125,8 +131,12 @@ services:
 	if !filepath.IsAbs(svc.Project) {
 		t.Errorf("service project path %q is not absolute", svc.Project)
 	}
-	if !strings.HasPrefix(svc.Project, root) {
-		t.Errorf("service project path %q does not start with project root %q", svc.Project, root)
+	resolvedRoot := root
+	if r, err := filepath.EvalSymlinks(root); err == nil {
+		resolvedRoot = r
+	}
+	if !strings.HasPrefix(svc.Project, resolvedRoot) {
+		t.Errorf("service project path %q does not start with project root %q", svc.Project, resolvedRoot)
 	}
 }
 
