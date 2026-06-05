@@ -51,6 +51,13 @@ func ParseAzureYaml(workingDir string) (*AzureYaml, error) {
 	// uses filepath.Rel on the fully-resolved absolute paths — the only correct
 	// approach.
 	azureYamlDir := filepath.Dir(azureYamlPath)
+	// Resolve symlinks on azureYamlDir so that paths joined below are in the
+	// same canonical form as ValidatePathContainment will produce. Without this,
+	// platforms like macOS (where /var → /private/var) would produce a base dir
+	// in one form and a joined path in another, causing false containment failures.
+	if resolved, err := filepath.EvalSymlinks(azureYamlDir); err == nil {
+		azureYamlDir = resolved
+	}
 	for name, svc := range azureYaml.Services {
 		if svc.Project != "" {
 			if !filepath.IsAbs(svc.Project) {

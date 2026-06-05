@@ -182,8 +182,14 @@ func TestValidatePathContainment_ReturnValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.HasPrefix(got, root) {
-		t.Errorf("returned path %q does not start with root %q", got, root)
+	// The returned path is symlink-resolved (e.g., macOS /var → /private/var),
+	// so resolve root the same way before comparing.
+	resolvedRoot, evalErr := filepath.EvalSymlinks(root)
+	if evalErr != nil {
+		resolvedRoot = root
+	}
+	if !strings.HasPrefix(got, resolvedRoot) {
+		t.Errorf("returned path %q does not start with root %q", got, resolvedRoot)
 	}
 	if !filepath.IsAbs(got) {
 		t.Errorf("returned path %q is not absolute", got)
