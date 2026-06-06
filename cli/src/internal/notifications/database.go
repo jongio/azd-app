@@ -41,9 +41,9 @@ type NotificationRecord struct {
 
 // NewDatabase creates a new notification database
 func NewDatabase(path string) (*Database, error) {
-	// Ensure parent directory exists
+	// Ensure parent directory exists with owner-only permissions (database is user-private)
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 

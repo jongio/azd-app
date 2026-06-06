@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { useTimeout } from '@/hooks/useTimeout'
 import { createAzureClient } from '@/lib/connectClient'
+import { isValidUrl } from '@/lib/service-url-utils'
 import {
   AzureCheckStatus,
   AzureOverallStatus,
@@ -510,20 +511,22 @@ export function DiagnosticsModal({ isOpen, onClose, onOpenSetupGuide }: Readonly
                       Copy Report
                     </button>
 
-                    <a
-                      href={data.docsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn(
-                        'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold border shadow-sm',
-                        'text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700',
-                        'bg-white hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800',
-                        'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900',
-                      )}
-                    >
-                      Troubleshooting Guide
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                    {data.docsUrl && isValidUrl(data.docsUrl) && (
+                      <a
+                        href={data.docsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold border shadow-sm',
+                          'text-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700',
+                          'bg-white hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800',
+                          'focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900',
+                        )}
+                      >
+                        Troubleshooting Guide
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
                   </>
                 )}
 

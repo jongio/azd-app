@@ -59,10 +59,12 @@ func runStop(cmd *cobra.Command, args []string) error {
 
 	baseURL := fmt.Sprintf("http://localhost:%d", dashboardPort)
 
-	// Get session token for authentication
-	token, err := fetchSessionToken(baseURL)
-	if err != nil {
-		return fmt.Errorf("failed to authenticate with running app: %w", err)
+	// Read the session token written by the running dashboard server.
+	// The token is stored in a 0o600 file under ~/.azd/azd-app/{hash}/ and
+	// removed when the server shuts down.
+	token := dashboard.ReadTokenFile(projectDir)
+	if token == "" {
+		return fmt.Errorf("could not read session token — is 'azd app run' active in this project?")
 	}
 
 	// Send shutdown request
@@ -106,34 +108,11 @@ func discoverDashboardPort(projectDir string) (int, error) {
 	return 0, fmt.Errorf("no running app found — is 'azd app run' active in this project?")
 }
 
-// fetchSessionToken retrieves the session token from the running dashboard.
-func fetchSessionToken(baseURL string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/session-token", nil)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("could not connect to running app — it may have already stopped")
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected response from session-token endpoint (status %d)", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	return string(body), nil
-}
-
 // sendShutdownRequest sends a POST to the dashboard's shutdown endpoint.
+// It sets Sec-Fetch-Site: same-origin to satisfy the CWE-352 origin check on
+// the server side. Go's net/http does not send this header automatically (it is
+// injected by browser UAs); the CLI sets it explicitly so the server can apply
+// the same allow-list logic to both browser and CLI callers.
 func sendShutdownRequest(baseURL, token string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -143,6 +122,7 @@ func sendShutdownRequest(baseURL, token string) error {
 		return err
 	}
 	req.Header.Set("X-Session-Token", token)
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

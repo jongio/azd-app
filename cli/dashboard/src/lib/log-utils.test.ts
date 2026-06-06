@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { convertAnsiToHtml, isErrorLine, isWarningLine, getLogLevel, getServiceColor, getLogColor, stripEmbeddedTimestamp } from './log-utils'
+import { convertAnsiToHtml, sanitizeHref, isErrorLine, isWarningLine, getLogLevel, getServiceColor, getLogColor, stripEmbeddedTimestamp } from './log-utils'
 
 describe('log-utils', () => {
   describe('convertAnsiToHtml', () => {
@@ -27,6 +27,56 @@ describe('log-utils', () => {
       const result = convertAnsiToHtml('<script>alert("xss")</script>')
       expect(result).not.toContain('<script>')
       expect(result).toContain('&lt;script&gt;')
+    })
+
+    // -----------------------------------------------------------------------
+    // SEC-016: XSS bypass vectors — verify the upstream security boundary
+    //
+    // The previous sanitizeHtml() regex blocklist was bypassable (CWE-184).
+    // Security now relies solely on ansi-to-html's escapeXML:true option,
+    // which calls entities.encodeXML() on every text token before any HTML
+    // is assembled.  These four tests confirm that each classic bypass vector
+    // is neutralised by the upstream encoding and cannot produce injectable HTML.
+    // -----------------------------------------------------------------------
+
+    it('SEC-016 bypass: whitespace-in-handler (on\\tmouseover=) is not injected as an HTML attribute', () => {
+      // The old regex `on\w+=` would not match on<TAB>mouseover= because \t is not \w.
+      // With escapeXML:true there are no < > to form new tags, so the text stays
+      // as inert text content inside a span — event handlers in text content never fire.
+      const result = convertAnsiToHtml('click on\tmouseover=alert(1)')
+      // Must not appear as an attribute inside any HTML element
+      expect(result).not.toMatch(/<[^>]+on[\s\t]+mouseover\s*=/i)
+      // The text itself appears as content — that is safe
+      expect(result).toContain('on\tmouseover=alert(1)')
+    })
+
+    it('SEC-016 bypass: tag-blocklist-miss (<svg onload=>) is entity-encoded by escapeXML:true', () => {
+      // The old blocklist had no entry for <svg>. escapeXML:true converts the
+      // user-supplied < to &lt; so no real SVG element is ever emitted.
+      const result = convertAnsiToHtml('<svg onload=alert(document.cookie)>')
+      expect(result).not.toContain('<svg')
+      expect(result).toContain('&lt;svg')
+    })
+
+    it('SEC-016 bypass: javascript: scheme is not injected into any href attribute', () => {
+      // URL_PATTERN only matches http:// and https://, so javascript: URIs are never
+      // wrapped in an anchor tag.  The text appears as safe content, not a link.
+      const result = convertAnsiToHtml('try: javascript:alert(document.cookie)')
+      expect(result).not.toContain('href="javascript:')
+      expect(result).not.toContain("href='javascript:")
+      // Confirm no anchor element was created for it
+      expect(result).not.toMatch(/<a\b[^>]*javascript:/i)
+    })
+
+    it('SEC-016 bypass: nested-tag pattern (<<script>script>) is entity-encoded, not parsed as HTML', () => {
+      // Nested-tag tricks rely on a parser consuming one copy of the tag while a regex
+      // misses the outer shell.  escapeXML:true converts both < characters to &lt; so
+      // neither the outer nor inner angle bracket reaches the browser as HTML.
+      const result = convertAnsiToHtml('<<script>script>alert(1)</script>')
+      expect(result).not.toContain('<script>')
+      expect(result).toContain('&lt;script&gt;')
+      // The double-open bracket must also be encoded
+      expect(result).not.toMatch(/<[^>]*script/i)
     })
 
     it('should linkify http URLs', () => {
@@ -101,6 +151,48 @@ describe('log-utils', () => {
     it('should linkify plain URLs without ports', () => {
       const result = convertAnsiToHtml('Visit http://localhost for more info')
       expect(result).toContain('href="http://localhost"')
+    })
+
+    it('should produce an href value that contains no raw double-quotes (CWE-79 regression)', () => {
+      // Normal localhost URL — verify the attribute value itself is quote-free
+      const result = convertAnsiToHtml('Server at http://localhost:3000/')
+      const hrefMatch = result.match(/href="([^"]*)"/)
+      expect(hrefMatch).toBeTruthy()
+      expect(hrefMatch![1]).not.toContain('"')
+      expect(hrefMatch![1]).toBe('http://localhost:3000/')
+    })
+
+    it('should encode curly braces in URLs matched by URL_PATTERN', () => {
+      // {} are allowed mid-URL by URL_PATTERN but are unsafe in href; encodeURI encodes them
+      const result = convertAnsiToHtml('API at http://example.com/api?filter={name}')
+      expect(result).toContain('href="http://example.com/api?filter=%7Bname%7D"')
+      expect(result).not.toContain('href="http://example.com/api?filter={name}"')
+    })
+  })
+
+  describe('sanitizeHref', () => {
+    it('should encode double-quotes to prevent href attribute breakout (CWE-79)', () => {
+      // A URL containing " would break out of href="..." if not encoded
+      const xssUrl = 'http://example.com/path"onmouseover="alert(1)'
+      const result = sanitizeHref(xssUrl)
+      expect(result).not.toContain('"')
+      expect(result).toContain('%22')
+      expect(result).toMatch(/^http:\/\/example\.com\/path%22/)
+    })
+
+    it('should keep normal URLs unchanged', () => {
+      expect(sanitizeHref('http://localhost:3000/')).toBe('http://localhost:3000/')
+    })
+
+    it('should preserve query-string delimiters (& = ?) so links stay functional', () => {
+      const url = 'http://localhost:8080/api?key=value&foo=bar'
+      expect(sanitizeHref(url)).toBe('http://localhost:8080/api?key=value&foo=bar')
+    })
+
+    it('should encode curly braces in query params', () => {
+      expect(sanitizeHref('http://example.com/api?filter={name}')).toBe(
+        'http://example.com/api?filter=%7Bname%7D'
+      )
     })
   })
 

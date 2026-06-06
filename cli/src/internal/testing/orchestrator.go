@@ -186,6 +186,9 @@ func (o *TestOrchestrator) LoadServicesFromAzureYaml(azureYamlPath string) error
 	if err != nil {
 		return fmt.Errorf("failed to resolve azure.yaml directory: %w", err)
 	}
+	if resolved, symlinkErr := filepath.EvalSymlinks(azureYamlDirAbs); symlinkErr == nil {
+		azureYamlDirAbs = resolved
+	}
 
 	for name, svc := range azureYaml.Services {
 		// Resolve project directory
@@ -202,6 +205,9 @@ func (o *TestOrchestrator) LoadServicesFromAzureYaml(azureYamlPath string) error
 		projectDirAbs, err := filepath.Abs(projectDir)
 		if err != nil {
 			return fmt.Errorf("failed to resolve project directory for service %s: %w", name, err)
+		}
+		if resolved, symlinkErr := filepath.EvalSymlinks(projectDirAbs); symlinkErr == nil {
+			projectDirAbs = resolved
 		}
 
 		// Check that the project directory is under the azure.yaml directory

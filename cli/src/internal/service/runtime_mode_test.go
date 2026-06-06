@@ -39,6 +39,10 @@ func TestAspireRuntimeModes(t *testing.T) {
 				t.Fatalf("Failed to create temp dir: %v", err)
 			}
 			defer func() { _ = os.RemoveAll(tmpDir) }()
+			// Resolve symlinks for macOS compat (/var → /private/var)
+			if resolved, symlinkErr := filepath.EvalSymlinks(tmpDir); symlinkErr == nil {
+				tmpDir = resolved
+			}
 
 			// Create Aspire project structure
 			csprojPath := filepath.Join(tmpDir, "TestAppHost.csproj")

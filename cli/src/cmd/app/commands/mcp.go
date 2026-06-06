@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
+	"github.com/jongio/azd-app/cli/src/internal/executor"
 	internalversion "github.com/jongio/azd-app/cli/src/internal/version"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -213,14 +214,38 @@ func extractValidatedProjectDir(args azdext.ToolArgs) (string, error) {
 	return validateProjectDir(projectDir)
 }
 
-// marshalToolResult marshals data to JSON and returns an MCP tool result with structured content.
-// This is for tools with output schemas that need to return structured data.
+// marshalToolResult marshals data to JSON, sanitizes all string values for LLM
+// safety (stripping ANSI/control characters — CWE-150/117), and returns an MCP
+// tool result with both structured content and a text fallback.
+//
+// The JSON round-trip (Marshal → Unmarshal → sanitizeAny → Marshal) is
+// intentional: it converts any typed Go structs (e.g. []service.LogEntry) into
+// the map[string]any / []any form required by sanitizeAny, which then strips
+// ANSI sequences from every nested string regardless of the original type.
 func marshalToolResult(data any) (*mcp.CallToolResult, error) {
-	jsonBytes, err := json.MarshalIndent(data, "", "  ")
+	// First marshal: convert typed structs to their JSON representation.
+	raw, err := json.Marshal(data)
 	if err != nil {
-		return azdext.MCPErrorResult("Failed to marshal result: %v", err), nil
+		return mcpErrorResult("Failed to marshal result: %v", err), nil
 	}
-	return mcp.NewToolResultStructured(data, string(jsonBytes)), nil
+
+	// Unmarshal to generic any so sanitizeAny can traverse all string values
+	// regardless of the original Go type (struct, slice, map, primitive).
+	var generic any
+	if err := json.Unmarshal(raw, &generic); err != nil {
+		return mcpErrorResult("Failed to process result: %v", err), nil
+	}
+
+	// Sanitize every string in the decoded generic structure.
+	sanitized := sanitizeAny(generic)
+
+	// Second marshal: produce indented JSON text from the sanitized data.
+	jsonBytes, err := json.MarshalIndent(sanitized, "", "  ")
+	if err != nil {
+		return mcpErrorResult("Failed to marshal sanitized result: %v", err), nil
+	}
+
+	return mcp.NewToolResultStructured(sanitized, string(jsonBytes)), nil
 }
 
 // validateEnumParam validates that a parameter value is in allowed set
@@ -275,6 +300,18 @@ func validateProjectDir(dir string) (string, error) {
 
 	// Clean the path to resolve any . or .. components
 	cleanPath := filepath.Clean(dir)
+
+	// Reject any path segment starting with '-' (CWE-88 argv injection guard).
+	// This path is ultimately passed as --cwd <path> to a subprocess; a segment
+	// beginning with '-' would be interpreted as a CLI flag rather than a data
+	// value, allowing an attacker to inject arbitrary flags into the subprocess.
+	// Legitimate project directory paths (absolute, relative, or tilde-prefixed)
+	// never contain segments that start with '-'.
+	for _, seg := range strings.Split(cleanPath, string(filepath.Separator)) {
+		if err := executor.RejectLeadingDash(seg); err != nil {
+			return "", fmt.Errorf("project directory path contains invalid segment: %w", err)
+		}
+	}
 
 	// Get absolute path
 	absPath, err := filepath.Abs(cleanPath)

@@ -470,6 +470,10 @@ func TestNewDepsCommand_ForceFlagBehavior(t *testing.T) {
 func TestFilterProjectsByService_WithAzureYaml(t *testing.T) {
 	// Create temp directory with azure.yaml
 	tmpDir := t.TempDir()
+	// Resolve symlinks for macOS compat (/var → /private/var)
+	if resolved, err := filepath.EvalSymlinks(tmpDir); err == nil {
+		tmpDir = resolved
+	}
 
 	// Create azure.yaml with services
 	azureYamlContent := `name: test-app
@@ -926,6 +930,9 @@ func TestGetSearchRoot_WithAzureYaml(t *testing.T) {
 func TestFilterProjectsByService_SubdirectoryMatching(t *testing.T) {
 	// Create temp directory structure
 	tmpDir := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(tmpDir); err == nil {
+		tmpDir = resolved
+	}
 
 	// Create azure.yaml with service pointing to parent directory
 	azureYamlContent := `name: test-app
@@ -1510,6 +1517,9 @@ services:
 
 func TestFilterProjectsByService_PythonProjects(t *testing.T) {
 	tmpDir := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(tmpDir); err == nil {
+		tmpDir = resolved
+	}
 
 	// Create azure.yaml
 	azureYamlContent := `name: test-app
@@ -1549,6 +1559,9 @@ services:
 
 func TestFilterProjectsByService_DotnetProjects(t *testing.T) {
 	tmpDir := t.TempDir()
+	if resolved, err := filepath.EvalSymlinks(tmpDir); err == nil {
+		tmpDir = resolved
+	}
 
 	// Create azure.yaml
 	azureYamlContent := `name: test-app
@@ -3168,7 +3181,7 @@ services:
 	if err == nil {
 		t.Fatal("Expected error for path traversal, got nil")
 	}
-	if !strings.Contains(err.Error(), "resolves outside the project root") {
+	if !strings.Contains(err.Error(), "outside") || !strings.Contains(err.Error(), "project root") {
 		t.Errorf("Expected path traversal error, got: %v", err)
 	}
 }

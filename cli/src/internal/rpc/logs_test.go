@@ -192,10 +192,13 @@ func newLogsTestServer(t *testing.T, store LogsStore) (azdappv1connect.LogsServi
 	t.Helper()
 	mgr := broadcast.New()
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{
-		Broadcast: mgr,
-		Logs:      store,
-	})
+	if err := Mount(mux, Dependencies{
+		Broadcast:            mgr,
+		Logs:                 store,
+		AllowUnauthenticated: true,
+	}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 	srv := httptest.NewServer(mux)
 	client := azdappv1connect.NewLogsServiceClient(srv.Client(), srv.URL)
 	return client, func() {

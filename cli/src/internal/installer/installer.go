@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
+	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/pathutil"
 	types "github.com/jongio/azd-core/projecttype"
@@ -140,6 +141,11 @@ func RestoreDotnetProject(project types.DotnetProject) error {
 func restoreDotnetProjectWithContext(ctx context.Context, project types.DotnetProject, progressWriter io.Writer) error {
 	// Validate path
 	if err := security.ValidatePath(project.Path); err != nil {
+		return fmt.Errorf("invalid project path: %w", err)
+	}
+	// Guard against leading-dash argv injection (CWE-88): a project path like "--project"
+	// or "-c" would be interpreted as a dotnet CLI flag rather than as a file path.
+	if err := executor.RejectLeadingDash(project.Path); err != nil {
 		return fmt.Errorf("invalid project path: %w", err)
 	}
 

@@ -713,8 +713,8 @@ services:
 		t.Error("Expected error for path traversal attempt")
 	}
 
-	if !containsSubstring(err.Error(), "escapes project boundary") {
-		t.Errorf("Expected 'escapes project boundary' error, got: %v", err)
+	if !containsSubstring(err.Error(), "outside") || !containsSubstring(err.Error(), "project root") {
+		t.Errorf("Expected path traversal error, got: %v", err)
 	}
 }
 

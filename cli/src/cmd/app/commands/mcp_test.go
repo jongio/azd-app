@@ -516,6 +516,29 @@ func TestValidateProjectDir(t *testing.T) {
 			dir:       "/etc",
 			wantError: true, // Should fail due to system directory protection
 		},
+		// CWE-88 leading-dash guard: paths whose segments start with '-' must be
+		// rejected before the directory-existence check so the error is clear and
+		// the segment never reaches a subprocess argv.
+		{
+			name:      "Leading-dash segment - double-dash flag-like",
+			dir:       "--config=/etc/passwd",
+			wantError: true,
+		},
+		{
+			name:      "Leading-dash segment - single-dash flag-like",
+			dir:       "-flag/subdir",
+			wantError: true,
+		},
+		{
+			name:      "Leading-dash segment - tilde prefix with embedded flag",
+			dir:       "~/--config=/etc/passwd/",
+			wantError: true,
+		},
+		{
+			name:      "Leading-dash in middle segment",
+			dir:       "src/--evil/deep",
+			wantError: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -529,6 +552,52 @@ func TestValidateProjectDir(t *testing.T) {
 			}
 			if !tt.wantError && result == "" {
 				t.Errorf("Expected non-empty result for %s", tt.dir)
+			}
+		})
+	}
+}
+
+// TestValidateProjectDir_LeadingDashRejected is a focused CWE-88 acceptance test.
+// It verifies that validateProjectDir rejects paths containing segments that start
+// with '-' before the directory-existence check is reached, producing an error that
+// explicitly references CWE-88.
+func TestValidateProjectDir_LeadingDashRejected(t *testing.T) {
+	tests := []struct {
+		name        string
+		dir         string
+		wantMsgFrag string // substring that must appear in the error message
+	}{
+		{
+			name:        "double-dash flag-style first segment",
+			dir:         "--config=/etc/passwd",
+			wantMsgFrag: "CWE-88",
+		},
+		{
+			name:        "single-dash flag-style first segment",
+			dir:         "-flag/subdir",
+			wantMsgFrag: "CWE-88",
+		},
+		{
+			name:        "tilde path with embedded double-dash segment",
+			dir:         "~/--config=/etc/passwd/",
+			wantMsgFrag: "CWE-88",
+		},
+		{
+			name:        "leading-dash in non-first segment",
+			dir:         "legitimate/--injected/deep",
+			wantMsgFrag: "CWE-88",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := validateProjectDir(tt.dir)
+			if err == nil {
+				t.Fatalf("validateProjectDir(%q): expected rejection, got nil error", tt.dir)
+			}
+			if !strings.Contains(err.Error(), tt.wantMsgFrag) {
+				t.Errorf("validateProjectDir(%q) error = %q; want message containing %q",
+					tt.dir, err.Error(), tt.wantMsgFrag)
 			}
 		})
 	}
@@ -1057,6 +1126,111 @@ func TestSetEnvironmentVariableToolValidation(t *testing.T) {
 	}
 }
 
+// TestSetEnvironmentVariableRedactsSecrets verifies that
+// handleSetEnvironmentVariable (CWE-684 / SEC-015) never echoes sensitive
+// values — keys matching TOKEN, SECRET, KEY, PASSWORD, CREDENTIAL, or
+// CONNECTION_STRING patterns — back in the MCP tool response.
+//
+// Acceptance criteria:
+//
+//	AC1: secret-pattern key → raw value absent from every field of the response
+//	AC2: non-secret key    → raw value present (non-destructive path)
+//	AC3: CREDENTIAL pattern is recognised (added in this fix)
+//	AC4: API_KEY=sk_live_xyz → sk_live_xyz absent from response
+func TestSetEnvironmentVariableRedactsSecrets(t *testing.T) {
+	ctx := context.Background()
+
+	// resultText extracts the JSON text payload from an MCP tool result.
+	resultText := func(t *testing.T, result *mcp.CallToolResult) string {
+		t.Helper()
+		for _, c := range result.Content {
+			if text, ok := c.(mcp.TextContent); ok {
+				return text.Text
+			}
+		}
+		return ""
+	}
+
+	t.Run("secret key values are redacted", func(t *testing.T) {
+		cases := []struct {
+			keyName    string
+			rawValue   string
+			wantAbsent string // the raw value must not appear in the response
+		}{
+			// AC4: the explicit acceptance-criteria example
+			{"API_KEY", "sk_live_xyz", "sk_live_xyz"},
+			// TOKEN pattern
+			{"GITHUB_TOKEN", "ghp_AABBCCDDEEFF00112233", "ghp_AABBCCDDEEFF00112233"},
+			// PASSWORD pattern
+			{"DB_PASSWORD", "supersecret123", "supersecret123"},
+			// SECRET pattern
+			{"CLIENT_SECRET", "my-very-secret-value", "my-very-secret-value"},
+			// CREDENTIAL pattern — AC3: newly added pattern
+			{"APP_CREDENTIAL", "cred_value_abc", "cred_value_abc"},
+			// CONNECTION_STRING pattern
+			{"DB_CONNECTION_STRING", "Server=host;Password=pw;", "Server=host;Password=pw;"},
+		}
+
+		for _, tc := range cases {
+			tc := tc
+			t.Run(tc.keyName, func(t *testing.T) {
+				args := testToolArgs(map[string]any{"name": tc.keyName, "value": tc.rawValue})
+				result, err := handleSetEnvironmentVariable(ctx, args)
+				if err != nil {
+					t.Fatalf("handler returned Go error: %v", err)
+				}
+				if result == nil {
+					t.Fatal("handler returned nil result")
+				}
+				if result.IsError {
+					t.Fatalf("unexpected error result: %v", result.Content)
+				}
+
+				text := resultText(t, result)
+				if strings.Contains(text, tc.wantAbsent) {
+					t.Errorf("raw secret value %q must not appear in response for key %q\nfull response: %s",
+						tc.wantAbsent, tc.keyName, text)
+				}
+			})
+		}
+	})
+
+	t.Run("non-secret key values pass through unchanged", func(t *testing.T) {
+		cases := []struct {
+			keyName  string
+			rawValue string
+		}{
+			{"PORT", "8080"},
+			{"APP_VERSION", "1.2.3"},
+			{"LOG_LEVEL", "debug"},
+			{"REGION", "eastus"},
+		}
+
+		for _, tc := range cases {
+			tc := tc
+			t.Run(tc.keyName, func(t *testing.T) {
+				args := testToolArgs(map[string]any{"name": tc.keyName, "value": tc.rawValue})
+				result, err := handleSetEnvironmentVariable(ctx, args)
+				if err != nil {
+					t.Fatalf("handler returned Go error: %v", err)
+				}
+				if result == nil {
+					t.Fatal("handler returned nil result")
+				}
+				if result.IsError {
+					t.Fatalf("unexpected error result: %v", result.Content)
+				}
+
+				text := resultText(t, result)
+				if !strings.Contains(text, tc.rawValue) {
+					t.Errorf("non-secret value %q must be preserved in response for key %q\nfull response: %s",
+						tc.rawValue, tc.keyName, text)
+				}
+			})
+		}
+	})
+}
+
 // TestGetEnvironmentVariablesToolValidation tests validation for get_environment_variables tool
 func TestGetEnvironmentVariablesToolValidation(t *testing.T) {
 	ctx := context.Background()
@@ -1260,6 +1434,57 @@ func TestInstallDependenciesToolValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestInstallDependenciesAzureYamlGate verifies the SEC-026 workspace-trust gate:
+// install_dependencies must reject directories that are not azd projects, and
+// must pass through when azure.yaml is present so only the downstream invocation
+// (azd deps) determines success.
+func TestInstallDependenciesAzureYamlGate(t *testing.T) {
+	ctx := context.Background()
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+
+	t.Run("rejects directory without azure.yaml", func(t *testing.T) {
+		// Temp dir under cwd so validateProjectDir accepts it (containment check).
+		tempDir, err := os.MkdirTemp(cwd, "test_install_deps_no_azure_yaml")
+		require.NoError(t, err)
+		defer os.RemoveAll(tempDir) //nolint:errcheck
+
+		args := testToolArgs(map[string]any{"projectDir": tempDir})
+		result, err := handleInstallDependencies(ctx, args)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.True(t, result.IsError, "expected an error result when azure.yaml is absent")
+		require.NotEmpty(t, result.Content)
+		textContent, ok := result.Content[0].(mcp.TextContent)
+		require.True(t, ok, "expected TextContent in result")
+		require.True(t, containsSubstr(textContent.Text, "azure.yaml"),
+			"error must mention azure.yaml, got: %s", textContent.Text)
+	})
+
+	t.Run("passes azure.yaml gate for valid project directory", func(t *testing.T) {
+		// Temp dir under cwd with azure.yaml present.
+		tempDir, err := os.MkdirTemp(cwd, "test_install_deps_with_azure_yaml")
+		require.NoError(t, err)
+		defer os.RemoveAll(tempDir) //nolint:errcheck
+
+		err = os.WriteFile(filepath.Join(tempDir, "azure.yaml"), []byte("name: test-project\n"), 0o644)
+		require.NoError(t, err)
+
+		args := testToolArgs(map[string]any{"projectDir": tempDir})
+		result, err := handleInstallDependencies(ctx, args)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		// The azure.yaml gate must pass. If execution fails afterward (azd binary
+		// unavailable in test env), the error must NOT be about azure.yaml.
+		if result.IsError && len(result.Content) > 0 {
+			if textContent, ok := result.Content[0].(mcp.TextContent); ok {
+				require.False(t, containsSubstr(textContent.Text, "requires an azure.yaml"),
+					"azure.yaml gate must not fire when azure.yaml is present, got: %s", textContent.Text)
+			}
+		}
+	})
 }
 
 // TestContextCancellation tests that handlers respect context cancellation

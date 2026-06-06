@@ -20,7 +20,7 @@
  * below. Do NOT cache the client at module scope — the caller (typically
  * a hook with a stable transport reference) is responsible for memoising.
  */
-import { createClient, type Client, type Interceptor, type Transport } from '@connectrpc/connect'
+import { createClient, type Client, type Transport } from '@connectrpc/connect'
 import { createConnectTransport } from '@connectrpc/connect-web'
 
 import { LifecycleService } from '@/gen/proto/azdapp/v1/lifecycle_pb.js'
@@ -55,39 +55,38 @@ function defaultBaseUrl(): string {
 }
 
 let cachedDefaultTransport: Transport | null = null
-let cachedSessionToken: string | null = null
 
 /**
- * Fetch the session token from the server. Called once and cached.
- * The token is used to authenticate all RPC requests.
+ * Build a Connect transport whose session token is read once at construction
+ * time and captured in the interceptor's closure (CWE-525 mitigation).
+ *
+ * The token is read from the `<meta name="azd-session-token">` tag that the
+ * Go server injects into index.html on every page load. That tag is written
+ * exactly once and never mutated, so reading it at transport-construction time
+ * is sufficient and avoids a redundant DOM query on every RPC call.
+ *
+ * Keeping the value inside a closure — rather than a module-level variable —
+ * prevents it from being visible via `window` inspection in browser DevTools
+ * or becoming reachable through any future module-scope leak.
  */
-async function getSessionToken(): Promise<string> {
-  if (cachedSessionToken !== null) {
-    return cachedSessionToken
-  }
-  try {
-    const resp = await fetch('/api/session-token')
-    if (resp.ok) {
-      cachedSessionToken = await resp.text()
-    }
-  } catch {
-    // Server may not support session tokens (e.g., test environments)
-  }
-  return cachedSessionToken ?? ''
-}
-
-/**
- * Connect interceptor that attaches the session token to every outbound
- * request. The token is fetched lazily on first use.
- */
-function sessionTokenInterceptor(): Interceptor {
-  return (next) => async (req) => {
-    const token = await getSessionToken()
-    if (token) {
-      req.header.set('X-Session-Token', token)
-    }
-    return next(req)
-  }
+function createAuthenticatedTransport(): Transport {
+  const token =
+    document.querySelector('meta[name="azd-session-token"]')?.getAttribute('content') ?? ''
+  return createConnectTransport({
+    baseUrl: defaultBaseUrl(),
+    // JSON over HTTP/1.1 by default. Matches the server-side Connect
+    // handlers (no protobuf-binary opt-in yet) and keeps wire payloads
+    // inspectable in DevTools during the migration.
+    useBinaryFormat: false,
+    interceptors: [
+      (next) => (req) => {
+        if (token) {
+          req.header.set('X-Session-Token', token)
+        }
+        return next(req)
+      },
+    ],
+  })
 }
 
 /**
@@ -102,14 +101,7 @@ function sessionTokenInterceptor(): Interceptor {
  */
 export function getDefaultTransport(): Transport {
   if (cachedDefaultTransport === null) {
-    cachedDefaultTransport = createConnectTransport({
-      baseUrl: defaultBaseUrl(),
-      // JSON over HTTP/1.1 by default. Matches the server-side Connect
-      // handlers (no protobuf-binary opt-in yet) and keeps wire payloads
-      // inspectable in DevTools during the migration.
-      useBinaryFormat: false,
-      interceptors: [sessionTokenInterceptor()],
-    })
+    cachedDefaultTransport = createAuthenticatedTransport()
   }
   return cachedDefaultTransport
 }

@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -65,33 +66,115 @@ func (s *Server) clearPortFromConfig() {
 	removePortFile(s.projectDir)
 }
 
+// nonceDirBase is the base directory for per-project nonce state files.
+// Defaults to ~/.azd/azd-app. Override in tests to avoid touching the real home directory.
+var nonceDirBase string
+
+// nonceStateDir returns the directory that holds the nonce file for a project.
+func nonceStateDir(projectHash string) (string, error) {
+	base := nonceDirBase
+	if base == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("get home directory: %w", err)
+		}
+		base = filepath.Join(homeDir, ".azd", "azd-app")
+	}
+	return filepath.Join(base, projectHash), nil
+}
+
+// loadOrCreateNonce loads the 128-bit random nonce for a project from
+// ~/.azd/azd-app/{hash}/nonce, generating and persisting a new one if absent.
+// The nonce is a 32-character hex string (16 bytes / 128 bits of crypto/rand entropy).
+func loadOrCreateNonce(projectHash string) (string, error) {
+	dir, err := nonceStateDir(projectHash)
+	if err != nil {
+		return "", err
+	}
+	nonceFile := filepath.Join(dir, "nonce")
+
+	// Read an existing nonce.
+	if data, err := os.ReadFile(nonceFile); err == nil {
+		if nonce := strings.TrimSpace(string(data)); len(nonce) == 32 {
+			return nonce, nil
+		}
+		// Corrupt or truncated — fall through to regenerate.
+	}
+
+	// Generate 128 bits of randomness.
+	var raw [16]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", fmt.Errorf("generate nonce: %w", err)
+	}
+	nonce := hex.EncodeToString(raw[:])
+
+	// Persist the nonce: directory 0o700, file 0o600.
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("create nonce state directory: %w", err)
+	}
+	if err := os.WriteFile(nonceFile, []byte(nonce), 0o600); err != nil {
+		return "", fmt.Errorf("write nonce state file: %w", err)
+	}
+
+	return nonce, nil
+}
+
 // portFilePath returns the path to the dashboard port file for a project.
-// Uses OS temp dir keyed by project hash to avoid polluting the project directory.
-func portFilePath(projectDir string) string {
+// The file name combines the project hash with a per-project random nonce so that
+// the path is unpredictable even when the project directory is known (CWE-340).
+// The nonce is persisted in ~/.azd/azd-app/{hash}/nonce so that azd app stop
+// can rediscover the correct port file across process restarts.
+func portFilePath(projectDir string) (string, error) {
 	hash := azdconfig.ProjectHash(projectDir)
-	return filepath.Join(os.TempDir(), fmt.Sprintf(".azd-app-dashboard-%s.port", hash))
+	nonce, err := loadOrCreateNonce(hash)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(os.TempDir(), fmt.Sprintf(".azd-app-dashboard-%s-%s.port", hash, nonce)), nil
+}
+
+// cleanupLegacyPortFile removes the old predictable port file
+// (.azd-app-dashboard-{hash}.port) written before the nonce was introduced.
+// Called opportunistically on every write/remove to eliminate stale files.
+func cleanupLegacyPortFile(projectDir string) {
+	hash := azdconfig.ProjectHash(projectDir)
+	legacy := filepath.Join(os.TempDir(), fmt.Sprintf(".azd-app-dashboard-%s.port", hash))
+	_ = os.Remove(legacy)
 }
 
 // writePortFile writes the dashboard port to a file for cross-process discovery.
 func writePortFile(projectDir string, port int) {
-	path := portFilePath(projectDir)
-	if err := os.WriteFile(path, []byte(strconv.Itoa(port)), 0600); err != nil {
+	path, err := portFilePath(projectDir)
+	if err != nil {
+		slog.Debug("failed to resolve dashboard port file path", "error", err)
+		return
+	}
+	if err := os.WriteFile(path, []byte(strconv.Itoa(port)), 0o600); err != nil {
 		slog.Debug("failed to write dashboard port file", "path", path, "error", err)
 	}
+	cleanupLegacyPortFile(projectDir)
 }
 
 // removePortFile removes the dashboard port file.
 func removePortFile(projectDir string) {
-	path := portFilePath(projectDir)
+	path, err := portFilePath(projectDir)
+	if err != nil {
+		slog.Debug("failed to resolve dashboard port file path for removal", "error", err)
+		return
+	}
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		slog.Debug("failed to remove dashboard port file", "path", path, "error", err)
 	}
+	cleanupLegacyPortFile(projectDir)
 }
 
 // ReadPortFile reads the dashboard port from the port file for a project directory.
 // Returns 0 if the file doesn't exist or can't be read.
 func ReadPortFile(projectDir string) int {
-	path := portFilePath(projectDir)
+	path, err := portFilePath(projectDir)
+	if err != nil {
+		return 0
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return 0
@@ -101,6 +184,66 @@ func ReadPortFile(projectDir string) int {
 		return 0
 	}
 	return port
+}
+
+// tokenFilePath returns the path to the session-token file for a project.
+// The file lives in the same per-project nonce directory as the nonce file
+// (~/.azd/azd-app/{hash}/session-token) and is written with mode 0o600 so
+// only the owning OS user can read it.
+func tokenFilePath(projectDir string) (string, error) {
+	hash := azdconfig.ProjectHash(projectDir)
+	dir, err := nonceStateDir(hash)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "session-token"), nil
+}
+
+// writeTokenFile persists the session token for cross-process discovery by
+// azd app stop. The file is mode 0o600 (owner-read/write only).
+func writeTokenFile(projectDir, token string) {
+	path, err := tokenFilePath(projectDir)
+	if err != nil {
+		slog.Debug("failed to resolve session-token file path", "error", err)
+		return
+	}
+	// Ensure the directory exists (nonce file may have created it already, but
+	// be defensive in case tokenFilePath is called before loadOrCreateNonce).
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		slog.Debug("failed to create session-token directory", "error", err)
+		return
+	}
+	if err := os.WriteFile(path, []byte(token), 0o600); err != nil {
+		slog.Debug("failed to write session-token file", "path", path, "error", err)
+	}
+}
+
+// removeTokenFile removes the session-token file when the server shuts down,
+// so stale tokens cannot be used to reach a non-running endpoint.
+func removeTokenFile(projectDir string) {
+	path, err := tokenFilePath(projectDir)
+	if err != nil {
+		slog.Debug("failed to resolve session-token file path for removal", "error", err)
+		return
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		slog.Debug("failed to remove session-token file", "path", path, "error", err)
+	}
+}
+
+// ReadTokenFile reads the session token written by the running dashboard server.
+// Returns an empty string if the file does not exist or cannot be read.
+// Used by azd app stop to authenticate the POST /api/shutdown request.
+func ReadTokenFile(projectDir string) string {
+	path, err := tokenFilePath(projectDir)
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }
 
 // generatePreferredPort returns a preferred port for the dashboard server.
@@ -154,7 +297,7 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		s.port = port
 		s.server = &http.Server{
 			Addr:              fmt.Sprintf("127.0.0.1:%d", port),
-			Handler:           s.mux,
+			Handler:           s.buildHandler(),
 			ReadHeaderTimeout: 10 * time.Second,
 		}
 
@@ -195,6 +338,8 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		default:
 			// Successfully started - register the new port in azdconfig
 			s.registerPortInConfig(port)
+			// Persist the session token so azd app stop can authenticate.
+			writeTokenFile(s.projectDir, s.sessionToken)
 			fmt.Fprintf(os.Stderr, "✓ Dashboard started on alternative port %d\n\n", port)
 			return port, nil
 		}

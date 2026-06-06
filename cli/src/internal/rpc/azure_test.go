@@ -451,7 +451,7 @@ func newAzureTestServer(t *testing.T, funcs AzureStoreFuncs) (azdappv1connect.Az
 	t.Helper()
 	mgr := broadcast.New()
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{Broadcast: mgr, Azure: funcs})
+	Mount(mux, Dependencies{Broadcast: mgr, Azure: funcs, AllowUnauthenticated: true}) //nolint:errcheck // test helper
 	srv := httptest.NewServer(mux)
 	client := azdappv1connect.NewAzureServiceClient(srv.Client(), srv.URL)
 	return client, func() {
@@ -1095,12 +1095,12 @@ func TestE2E_SaveAzureLogConfig_TablesHappyPath(t *testing.T) {
 		connect.NewRequest(&v1.SaveAzureLogConfigRequest{
 			Service: "api",
 			Mode:    v1.AzureLogConfigMode_AZURE_LOG_CONFIG_MODE_TABLES,
-			Tables:  []string{"AppRequests"},
+			Tables:  []string{"ContainerAppConsoleLogs_CL"},
 		}))
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	if gotName != "api" || !equalStrings(gotTables, []string{"AppRequests"}) || gotQuery != "" {
+	if gotName != "api" || !equalStrings(gotTables, []string{"ContainerAppConsoleLogs_CL"}) || gotQuery != "" {
 		t.Errorf("store got name=%q tables=%v query=%q", gotName, gotTables, gotQuery)
 	}
 	if resp.Msg.Service != "api" || resp.Msg.Mode != v1.AzureLogConfigMode_AZURE_LOG_CONFIG_MODE_TABLES {
@@ -1146,7 +1146,7 @@ func TestE2E_SaveAzureLogConfig_StoreErrorMaps(t *testing.T) {
 		connect.NewRequest(&v1.SaveAzureLogConfigRequest{
 			Service: "api",
 			Mode:    v1.AzureLogConfigMode_AZURE_LOG_CONFIG_MODE_TABLES,
-			Tables:  []string{"X"},
+			Tables:  []string{"ContainerAppConsoleLogs_CL"},
 		}))
 	if err == nil || connect.CodeOf(err) != connect.CodeInternal {
 		t.Fatalf("code=%v want Internal", connect.CodeOf(err))
@@ -1997,7 +1997,7 @@ func TestSendWithBackpressure_TimesOutOnSlowClient(t *testing.T) {
 	funcs.FetchLogsFn = func(context.Context, azure.StandaloneLogsConfig) ([]azure.LogEntry, error) {
 		return []azure.LogEntry{makeAzureLogEntry("api", "x", t0)}, nil
 	}
-	Mount(mux, Dependencies{Broadcast: mgr, Azure: funcs})
+	Mount(mux, Dependencies{Broadcast: mgr, Azure: funcs, AllowUnauthenticated: true}) //nolint:errcheck // test helper
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 	defer mgr.StopAll()

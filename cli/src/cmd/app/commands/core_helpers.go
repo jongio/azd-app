@@ -10,6 +10,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/cache"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
+	internalsec "github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/cliout"
 	types "github.com/jongio/azd-core/projecttype"
@@ -53,8 +54,9 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 		return "", nil, fmt.Errorf("no azure.yaml found in current directory or parents - run 'azd app reqs --generate' to create one")
 	}
 
-	// Validate path to azure.yaml
-	if err := security.ValidatePath(azureYamlPath); err != nil {
+	// Validate path to azure.yaml — enforce containment within cwd so a
+	// crafted detector result cannot point outside the project tree (CWE-22).
+	if _, err := internalsec.ValidatePathContainment(azureYamlPath, cwd); err != nil {
 		return "", nil, fmt.Errorf("invalid path: %w", err)
 	}
 
@@ -72,7 +74,7 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 		}
 	}
 
-	// #nosec G304 -- Path validated by security.ValidatePath above
+	// #nosec G304 -- Path validated by internalsec.ValidatePathContainment above
 	data, err := os.ReadFile(azureYamlPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to read azure.yaml: %w", err)
@@ -549,7 +551,7 @@ func handleNoProjectsCase(searchRoot string, serviceFilter []string) error {
 // Values with 4 or fewer characters are fully masked.
 func redactSecretValue(key, value string) string {
 	upper := strings.ToUpper(key)
-	sensitivePatterns := []string{"PASSWORD", "SECRET", "TOKEN", "KEY", "CONNECTION_STRING", "CONNECTIONSTRING"}
+	sensitivePatterns := []string{"PASSWORD", "SECRET", "TOKEN", "KEY", "CREDENTIAL", "CONNECTION_STRING", "CONNECTIONSTRING"}
 	for _, pattern := range sensitivePatterns {
 		if strings.Contains(upper, pattern) {
 			if len(value) <= 4 {

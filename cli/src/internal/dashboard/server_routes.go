@@ -1,9 +1,11 @@
 package dashboard
 
 import (
+	"bytes"
 	"context"
 	"crypto/subtle"
 	"embed"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -19,6 +21,55 @@ import (
 //go:embed dist
 var staticFiles embed.FS
 
+// sessionTokenPlaceholder is the verbatim string present in index.html.
+// The server replaces it (with injectSessionToken) before every HTML response,
+// injecting the real per-session token into the page it serves.
+const sessionTokenPlaceholder = `<meta name="azd-session-token" content="">`
+
+// injectSessionToken returns a copy of indexHTML with the placeholder
+// meta-tag content attribute set to token.
+//
+// Safety: rpc.GenerateSessionToken returns a hex-encoded random string
+// (characters 0-9 and a-f only). Those characters are unconditionally safe
+// inside an HTML attribute value — no further encoding is needed. If the
+// placeholder is absent the original slice is returned unchanged; the client
+// will read an empty string and every RPC call will be rejected by the
+// server-side auth interceptor, which is the safe failure mode (CWE-306).
+func injectSessionToken(indexHTML []byte, token string) []byte {
+	replacement := []byte(`<meta name="azd-session-token" content="` + token + `">`)
+	return bytes.Replace(indexHTML, []byte(sessionTokenPlaceholder), replacement, 1)
+}
+
+// shutdownOriginAllowed reports whether r carries sufficient same-origin proof
+// for the POST /api/shutdown endpoint (CWE-352 defence).
+//
+// Decision matrix:
+//
+//	Sec-Fetch-Site present → accept "same-origin" only; reject all other values
+//	                          (including "same-site", "cross-site", "none").
+//	Sec-Fetch-Site absent  → fall back to the Origin header:
+//	                          accept http://localhost:<port> and
+//	                          http://127.0.0.1:<port>; reject everything else,
+//	                          including a missing Origin.
+//
+// The absent-Sec-Fetch-Site branch exists for the `azd app stop` CLI path:
+// Go's net/http does not send Sec-Fetch-Site automatically (it is browser-UA
+// behaviour). The CLI sets it explicitly to "same-origin", which takes the
+// first branch and never reaches the Origin fallback. Browser-originated
+// requests always carry Sec-Fetch-Site injected by the UA.
+func (s *Server) shutdownOriginAllowed(r *http.Request) bool {
+	if fetchSite := r.Header.Get("Sec-Fetch-Site"); fetchSite != "" {
+		return fetchSite == "same-origin"
+	}
+	// Sec-Fetch-Site absent — fall back to the Origin header.
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return false
+	}
+	return origin == fmt.Sprintf("http://localhost:%d", s.port) ||
+		origin == fmt.Sprintf("http://127.0.0.1:%d", s.port)
+}
+
 // setupRoutes configures HTTP routes.
 func (s *Server) setupRoutes() {
 	// Serve static files from embedded FS first (before catch-all patterns)
@@ -32,7 +83,7 @@ func (s *Server) setupRoutes() {
 	// Connect-RPC handlers own the entire API surface post-PR4.
 	// All legacy /api/* REST handlers and /api/ws WebSocket have been
 	// removed; dashboard clients use the azdapp.v1.* Connect services.
-	rpc.Mount(s.mux, rpc.Dependencies{
+	if err := rpc.Mount(s.mux, rpc.Dependencies{
 		Broadcast:    s.broadcast,
 		Version:      version.Version,
 		SessionToken: s.sessionToken,
@@ -81,19 +132,28 @@ func (s *Server) setupRoutes() {
 		// rpc_azure_adapter.go. Closures over s.azureYamlMu serialise
 		// azure.yaml writes with the parallel REST handlers.
 		Azure: newAzureStoreFuncs(s),
-	})
-
-	// Serve session token for dashboard authentication.
-	// The React app fetches this on startup and includes it in all RPC calls.
-	s.mux.HandleFunc("/api/session-token", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.Header().Set("Cache-Control", "no-store")
-		_, _ = w.Write([]byte(s.sessionToken))
-	})
+	}); err != nil {
+		// An empty SessionToken is a programming error — the server always
+		// generates one at startup. Panicking here surfaces the misconfiguration
+		// immediately rather than serving every request unauthenticated.
+		panic("rpc.Mount: " + err.Error())
+	}
 
 	// Shutdown endpoint: signals the run process to initiate graceful teardown.
 	// Used by `azd app stop` from a separate terminal.
+	//
+	// Two-factor check (CWE-352):
+	//   1. Origin proof  — shutdownOriginAllowed rejects cross-origin callers.
+	//   2. Session token — ConstantTimeCompare rejects unauthenticated callers.
+	//
+	// Origin proof is evaluated first so that cross-origin requests are rejected
+	// even if the attacker somehow obtains a valid token (e.g. via MITM on the
+	// loopback — mitigated by hostAllow, but defence-in-depth applies).
 	s.mux.HandleFunc("POST /api/shutdown", func(w http.ResponseWriter, r *http.Request) {
+		if !s.shutdownOriginAllowed(r) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 		token := r.Header.Get("X-Session-Token")
 		if subtle.ConstantTimeCompare([]byte(token), []byte(s.sessionToken)) != 1 {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -104,8 +164,24 @@ func (s *Server) setupRoutes() {
 		_, _ = w.Write([]byte(`{"status":"shutting_down"}`))
 	})
 
-	// Pre-read index.html once for SPA client-side routing fallback
+	// Pre-read index.html once. Pre-compute the token-injected variant used for
+	// all HTML responses. The /api/session-token HTTP endpoint has been removed
+	// (CWE-306/419/352): the token is now delivered exclusively via this meta
+	// tag, which is only accessible to same-origin page loads and is invisible
+	// to DNS-rebinding or same-machine HTTP sniffing attacks.
 	indexContent, indexReadErr := fs.ReadFile(distFS, "index.html")
+	var tokenizedIndex []byte
+	if indexReadErr == nil {
+		tokenizedIndex = injectSessionToken(indexContent, s.sessionToken)
+	}
+
+	// serveIndex writes the tokenized index.html with headers that prevent
+	// the token-carrying HTML from being stored by browser or proxy caches.
+	serveIndex := func(w http.ResponseWriter) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(tokenizedIndex)
+	}
 
 	// Serve static files
 	fileServer := http.FileServer(http.FS(distFS))
@@ -116,23 +192,32 @@ func (s *Server) setupRoutes() {
 			path = "/index.html"
 		}
 
-		// Try to open the file
-		f, err := distFS.Open(strings.TrimPrefix(path, "/"))
-		if err != nil {
-			// File doesn't exist - serve index.html for client-side routing
-			// This handles routes like /console, /services, /environment, /metrics
+		// Root and /index.html always serve the token-injected page so the
+		// SPA receives its auth credential on the initial load.
+		if path == "/index.html" {
 			if indexReadErr != nil {
 				http.NotFound(w, r)
 				return
 			}
+			serveIndex(w)
+			return
+		}
 
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write(indexContent)
+		// Try to open the file from the embedded FS.
+		f, err := distFS.Open(strings.TrimPrefix(path, "/"))
+		if err != nil {
+			// File doesn't exist — serve index.html for client-side routing.
+			// This handles routes like /console, /services, /environment, /metrics.
+			if indexReadErr != nil {
+				http.NotFound(w, r)
+				return
+			}
+			serveIndex(w)
 			return
 		}
 		_ = f.Close()
 
-		// File exists, serve it normally
+		// File exists; serve it normally (static assets can be cached freely).
 		fileServer.ServeHTTP(w, r)
 	})
 }

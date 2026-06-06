@@ -79,9 +79,9 @@ func Save(config *Config) error {
 		return err
 	}
 
-	// Ensure directory exists with restrictive permissions (owner + group only)
+	// Ensure directory exists with owner-only permissions (config may contain secrets)
 	configDir := filepath.Dir(configPath)
-	if err := os.MkdirAll(configDir, 0o750); err != nil {
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 

@@ -95,18 +95,26 @@ export interface EffectiveAzureUrl {
 // =============================================================================
 
 /**
- * Validates if a string is a well-formed URL
+ * Validates if a string is a well-formed URL with an allowed scheme.
+ *
+ * Only `http:` and `https:` are accepted. This intentionally blocks
+ * `javascript:`, `data:`, `vbscript:`, and any other scheme that could
+ * execute code or load arbitrary content when used as an `href`.
+ *
+ * CWE-79 mitigation: prevents XSS via attacker-controlled URL fields
+ * (e.g. `customUrl` in azure.yaml) from executing in the browser.
+ *
  * @param url - String to validate
- * @returns true if valid URL, false otherwise
+ * @returns true if the URL is well-formed and has an http/https scheme
  */
-function isValidUrl(url: string | undefined | null): url is string {
+export function isValidUrl(url: string | undefined | null): url is string {
   if (!url || typeof url !== 'string' || url.trim() === '') {
     return false
   }
-  
+
   try {
-    new URL(url)
-    return true
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
   } catch {
     return false
   }

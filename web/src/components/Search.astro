@@ -321,38 +321,73 @@
     function closeSearch() {
       modal.classList.remove('open');
       input.value = '';
-      results.innerHTML = '';
+      results.replaceChildren();
       selectedIndex = -1;
       document.body.style.overflow = '';
+    }
+
+    /**
+     * Appends text to `container`, wrapping Pagefind <mark>…</mark> highlight
+     * tokens in real <mark> elements.  Only <mark> is handled; every other
+     * character is treated as plain text (textContent), so no arbitrary HTML
+     * from the search index can reach the DOM.
+     */
+    function appendHighlightedText(container: HTMLElement, text: string): void {
+      // Split on <mark>…</mark> tokens (captured so they appear in the array)
+      const parts = text.split(/(<mark>.*?<\/mark>)/g);
+      for (const part of parts) {
+        if (part.startsWith('<mark>') && part.endsWith('</mark>')) {
+          const mark = document.createElement('mark');
+          mark.textContent = part.slice(6, -7); // strip the literal tag wrappers
+          container.appendChild(mark);
+        } else {
+          container.appendChild(document.createTextNode(part));
+        }
+      }
     }
 
     async function search(query: string) {
       const pf = await loadPagefind();
       if (!pf || !query.trim()) {
-        results.innerHTML = '';
+        results.replaceChildren();
         return;
       }
 
       const searchResults = await pf.search(query);
-      
+
       if (searchResults.results.length === 0) {
-        results.innerHTML = '<div class="search-no-results">No results found</div>';
+        const noResults = document.createElement('div');
+        noResults.className = 'search-no-results';
+        noResults.textContent = 'No results found';
+        results.replaceChildren(noResults);
         return;
       }
 
-      const items = await Promise.all(
+      // Build DOM nodes for each result — no innerHTML, no string interpolation
+      const anchors = await Promise.all(
         searchResults.results.slice(0, 10).map(async (r: any) => {
           const data = await r.data();
-          return `
-            <a href="${data.url}" class="search-result" role="option">
-              <div class="search-result-title">${data.meta?.title || 'Untitled'}</div>
-              <div class="search-result-excerpt">${data.excerpt || ''}</div>
-            </a>
-          `;
+
+          const anchor = document.createElement('a');
+          anchor.href = data.url;          // URL from trusted build-time index
+          anchor.className = 'search-result';
+          anchor.setAttribute('role', 'option');
+
+          const titleEl = document.createElement('div');
+          titleEl.className = 'search-result-title';
+          titleEl.textContent = data.meta?.title || 'Untitled';
+
+          const excerptEl = document.createElement('div');
+          excerptEl.className = 'search-result-excerpt';
+          appendHighlightedText(excerptEl, data.excerpt || '');
+
+          anchor.appendChild(titleEl);
+          anchor.appendChild(excerptEl);
+          return anchor;
         })
       );
 
-      results.innerHTML = items.join('');
+      results.replaceChildren(...anchors);
       selectedIndex = -1;
     }
 

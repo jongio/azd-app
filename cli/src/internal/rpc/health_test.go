@@ -147,11 +147,14 @@ func newHealthTestServer(t *testing.T, hs HealthSource, ts StateTransitionSource
 	mgr := broadcast.New()
 
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{
-		Broadcast:        mgr,
-		Health:           hs,
-		StateTransitions: ts,
-	})
+	if err := Mount(mux, Dependencies{
+		Broadcast:            mgr,
+		Health:               hs,
+		StateTransitions:     ts,
+		AllowUnauthenticated: true,
+	}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 
 	srv := httptest.NewServer(mux)
 	client := azdappv1connect.NewHealthServiceClient(srv.Client(), srv.URL)
@@ -253,7 +256,9 @@ func TestHealthServiceNotMountedWithoutHealthSource(t *testing.T) {
 	defer mgr.StopAll()
 
 	mux := http.NewServeMux()
-	Mount(mux, Dependencies{Broadcast: mgr})
+	if err := Mount(mux, Dependencies{Broadcast: mgr, AllowUnauthenticated: true}); err != nil {
+		t.Fatalf("Mount: %v", err)
+	}
 
 	srv := httptest.NewServer(mux)
 	defer srv.Close()

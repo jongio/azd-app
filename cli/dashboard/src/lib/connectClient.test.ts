@@ -6,7 +6,7 @@
  * is verified end-to-end in per-hook tests against `createRouterTransport`.
  */
 import { createRouterTransport, type ConnectRouter } from '@connectrpc/connect'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   __setDefaultTransportForTesting,
@@ -87,5 +87,52 @@ describe('connectClient factories', () => {
     __setDefaultTransportForTesting(null)
     const fresh = getDefaultTransport()
     expect(fresh).not.toBe(stub)
+  })
+
+  // ── SEC-023: closure-scoped session token ──────────────────────────────────
+
+  it('reads the session-token meta tag exactly once at transport construction, not per request', () => {
+    // Insert a real meta tag so jsdom's querySelector finds it.
+    const meta = document.createElement('meta')
+    meta.setAttribute('name', 'azd-session-token')
+    meta.setAttribute('content', 'sec023-closure-test-token')
+    document.head.appendChild(meta)
+
+    const querySpy = vi.spyOn(document, 'querySelector')
+    try {
+      __setDefaultTransportForTesting(null) // ensure fresh construction
+      getDefaultTransport()
+
+      // The token selector must have been queried exactly once — at
+      // construction time — and must not be re-queried per request.
+      const tokenQueryCount = querySpy.mock.calls.filter(
+        ([selector]) => selector === 'meta[name="azd-session-token"]'
+      ).length
+      expect(tokenQueryCount).toBe(1)
+    } finally {
+      querySpy.mockRestore()
+      document.head.removeChild(meta)
+    }
+  })
+
+  it('does not expose the session token value via the window object', () => {
+    // Use a canary string that would be conspicuous if it leaked to window.
+    const canary = 'sec023-canary-should-not-appear-on-window'
+    const meta = document.createElement('meta')
+    meta.setAttribute('name', 'azd-session-token')
+    meta.setAttribute('content', canary)
+    document.head.appendChild(meta)
+
+    try {
+      __setDefaultTransportForTesting(null)
+      getDefaultTransport()
+
+      // The raw token string must not be reachable as a window property.
+      expect((window as unknown as Record<string, unknown>)[canary]).toBeUndefined()
+      // Nor should there be an 'azd-session-token' key on window.
+      expect((window as unknown as Record<string, unknown>)['azd-session-token']).toBeUndefined()
+    } finally {
+      document.head.removeChild(meta)
+    }
   })
 })

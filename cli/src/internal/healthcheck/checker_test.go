@@ -717,7 +717,7 @@ func TestParseErrorDetailsFromBody(t *testing.T) {
 		{
 			name: "Long plain text body (truncated)",
 			body: []byte(strings.Repeat("x", 250)),
-			want: strings.Repeat("x", 200) + "...",
+			want: strings.Repeat("x", 200) + "... (truncated)",
 		},
 		{
 			name: "Empty body",
@@ -741,7 +741,177 @@ func TestParseErrorDetailsFromBody(t *testing.T) {
 	}
 }
 
-// TestSuggestTCPErrorAction tests TCP error suggestions
+// TestSanitizeResponseBody_TruncatesLargeBody verifies that bodies larger than maxLen
+// are truncated and suffixed with "... (truncated)" (acceptance criterion 3).
+func TestSanitizeResponseBody_TruncatesLargeBody(t *testing.T) {
+	tests := []struct {
+		name   string
+		body   string
+		maxLen int
+		want   string
+	}{
+		{
+			name:   "body exactly at limit is kept intact",
+			body:   strings.Repeat("a", 200),
+			maxLen: 200,
+			want:   strings.Repeat("a", 200),
+		},
+		{
+			name:   "body one rune over limit is truncated",
+			body:   strings.Repeat("a", 201),
+			maxLen: 200,
+			want:   strings.Repeat("a", 200) + "... (truncated)",
+		},
+		{
+			name:   "body well over limit is truncated to maxLen",
+			body:   strings.Repeat("z", 1000),
+			maxLen: 200,
+			want:   strings.Repeat("z", 200) + "... (truncated)",
+		},
+		{
+			name:   "empty body is returned unchanged",
+			body:   "",
+			maxLen: 200,
+			want:   "",
+		},
+		{
+			name:   "short body under limit is returned unchanged",
+			body:   "hello",
+			maxLen: 200,
+			want:   "hello",
+		},
+		{
+			name:   "multibyte runes are truncated on rune boundary, not byte boundary",
+			body:   strings.Repeat("é", 201), // 'é' is 2 bytes; naive byte slice would mis-truncate
+			maxLen: 200,
+			want:   strings.Repeat("é", 200) + "... (truncated)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeResponseBody(tt.body, tt.maxLen)
+			if got != tt.want {
+				t.Errorf("sanitizeResponseBody() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSanitizeResponseBody_StripsANSI verifies that ANSI escape sequences are stripped
+// from response bodies before they appear in error messages or logs (acceptance criterion 4).
+func TestSanitizeResponseBody_StripsANSI(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "SGR colour reset",
+			body: "\x1b[0mhello\x1b[0m",
+			want: "hello",
+		},
+		{
+			name: "SGR bold red text",
+			body: "\x1b[1;31mERROR: database down\x1b[0m",
+			want: "ERROR: database down",
+		},
+		{
+			name: "cursor movement sequences",
+			body: "\x1b[2J\x1b[H injected content",
+			want: " injected content",
+		},
+		{
+			name: "mixed ANSI and plain text",
+			body: "status: \x1b[32mOK\x1b[0m, uptime: 42s",
+			want: "status: OK, uptime: 42s",
+		},
+		{
+			name: "no ANSI sequences passes through unchanged",
+			body: "plain error message",
+			want: "plain error message",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeResponseBody(tt.body, 200)
+			if got != tt.want {
+				t.Errorf("sanitizeResponseBody() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSanitizeResponseBody_StripsControlChars verifies that C0 and C1 control characters
+// (other than tab, newline, and carriage-return) are removed to prevent log injection.
+func TestSanitizeResponseBody_StripsControlChars(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "null byte stripped",
+			body: "hello\x00world",
+			want: "helloworld",
+		},
+		{
+			name: "BEL and BS stripped",
+			body: "\x07alert\x08back",
+			want: "alertback",
+		},
+		{
+			name: "tab, newline, and CR are preserved",
+			body: "line1\nline2\r\ncol1\tcol2",
+			want: "line1\nline2\r\ncol1\tcol2",
+		},
+		{
+			name: "C1 control chars stripped",
+			body: "before\u0085after", // U+0085 NEXT LINE (C1, valid UTF-8: \xc2\x85)
+			want: "beforeafter",
+		},
+		{
+			name: "C1 range upper bound stripped",
+			body: "x\u009fy", // U+009F APPLICATION PROGRAM COMMAND (C1, valid UTF-8: \xc2\x9f)
+			want: "xy",
+		},
+		{
+			name: "log injection attempt with carriage return",
+			// A CR followed by a fake log line should not strip the CR (it's preserved),
+			// but the null and other C0 chars around it ARE stripped.
+			body: "real error\x00\x01fake-injection",
+			want: "real errorfake-injection",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeResponseBody(tt.body, 200)
+			if got != tt.want {
+				t.Errorf("sanitizeResponseBody() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSanitizeResponseBody_CombinedSanitizationAndTruncation verifies that sanitization
+// and truncation are applied together and in the correct order (sanitize first, then truncate).
+func TestSanitizeResponseBody_CombinedSanitizationAndTruncation(t *testing.T) {
+	// Body is 210 'a' chars prefixed by a long ANSI sequence.
+	// After stripping ANSI the body is 210 'a's, which exceeds maxLen=200.
+	ansiPrefix := "\x1b[1;32m"
+	ansiSuffix := "\x1b[0m"
+	body := ansiPrefix + strings.Repeat("a", 210) + ansiSuffix
+
+	got := sanitizeResponseBody(body, 200)
+	want := strings.Repeat("a", 200) + "... (truncated)"
+
+	if got != want {
+		t.Errorf("sanitizeResponseBody() = %q, want %q", got, want)
+	}
+}
+
 func TestSuggestTCPErrorAction(t *testing.T) {
 	tests := []struct {
 		name string

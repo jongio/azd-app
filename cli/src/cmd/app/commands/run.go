@@ -1,7 +1,9 @@
 package commands
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +14,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
+	"github.com/jongio/azd-app/cli/src/internal/trust"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/yamlutil"
 
@@ -32,6 +35,7 @@ var (
 	runWeb               bool
 	runRestartContainers bool
 	runForce             bool
+	runTrust             bool
 )
 
 // NewRunCommand creates the run command.
@@ -57,6 +61,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&runWeb, "web", "w", false, "Open dashboard in browser")
 	cmd.Flags().BoolVar(&runRestartContainers, "restart-containers", false, "Restart containers even if they are already running")
 	cmd.Flags().BoolVar(&runForce, "force", false, "Force clean dependency reinstall (passes --force to deps)")
+	cmd.Flags().BoolVar(&runTrust, "trust", false, "Trust this workspace for code execution and remember the decision")
 
 	return cmd
 }
@@ -65,6 +70,20 @@ func NewRunCommand() *cobra.Command {
 func runWithServices(ctx context.Context, commandOrchestrator *orchestrator.Orchestrator, _ *cobra.Command, _ []string) error {
 	cliout.CommandHeader("run", "Run the development environment")
 	if err := validateRuntimeMode(runRuntime); err != nil {
+		return err
+	}
+
+	// Locate azure.yaml before spawning any subprocesses so we can compute
+	// the project root for the trust check (CWE-78/94).
+	azureYamlPath, err := findAzureYaml()
+	if err != nil {
+		return err
+	}
+
+	// Trust gate: user must explicitly consent before any command defined in
+	// azure.yaml is allowed to execute on the host.  This must happen before
+	// commandOrchestrator.Run (which installs deps) and before service startup.
+	if err := ensureWorkspaceTrusted(azureYamlPath); err != nil {
 		return err
 	}
 
@@ -81,12 +100,98 @@ func runWithServices(ctx context.Context, commandOrchestrator *orchestrator.Orch
 		return fmt.Errorf("failed to execute command dependencies: %w", err)
 	}
 
-	azureYamlPath, err := findAzureYaml()
+	return runServicesFromAzureYaml(ctx, azureYamlPath, runRuntime)
+}
+
+// ensureWorkspaceTrusted enforces the workspace trust gate before any
+// subprocess spawning.  It short-circuits when the --trust flag or the
+// AZD_APP_TRUST=1 environment variable is set (CI / scripted use-cases).
+// In an interactive terminal the user is prompted for consent.  In a
+// non-interactive environment (pipes, MCP, CI without the flag) an error
+// is returned so callers can surface a clear message.
+func ensureWorkspaceTrusted(azureYamlPath string) error {
+	projectDir := filepath.Dir(azureYamlPath)
+
+	store, err := trust.NewTrustStore()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialise trust store: %w", err)
 	}
 
-	return runServicesFromAzureYaml(ctx, azureYamlPath, runRuntime)
+	// --trust flag or AZD_APP_TRUST=1 → record trust and proceed.
+	if runTrust || os.Getenv("AZD_APP_TRUST") == "1" {
+		if err := store.TrustWorkspace(projectDir); err != nil {
+			return fmt.Errorf("failed to record workspace trust: %w", err)
+		}
+		return nil
+	}
+
+	trusted, trustErr := store.IsWorkspaceTrusted(projectDir)
+	if trusted {
+		return nil
+	}
+
+	// Propagate internal errors (I/O failures, parse errors) immediately.
+	if trustErr != nil && !errors.Is(trustErr, trust.ErrHashChanged) {
+		return fmt.Errorf("failed to check workspace trust: %w", trustErr)
+	}
+
+	// Non-interactive: require explicit opt-in rather than trying to prompt.
+	if !isInteractiveTerminal() {
+		if errors.Is(trustErr, trust.ErrHashChanged) {
+			return fmt.Errorf(
+				"workspace at %s is no longer trusted: azure.yaml has changed; "+
+					"re-run with --trust flag or set AZD_APP_TRUST=1 to trust the updated file",
+				projectDir,
+			)
+		}
+		return fmt.Errorf(
+			"workspace at %s is not trusted; "+
+				"re-run with --trust flag or set AZD_APP_TRUST=1 to trust this workspace",
+			projectDir,
+		)
+	}
+
+	// Interactive: present the security notice and prompt for consent.
+	fmt.Fprintf(os.Stderr, "\n")
+	fmt.Fprintf(os.Stderr, "  ⚠️  Security Notice\n")
+	fmt.Fprintf(os.Stderr, "  Running 'azd app run' will execute commands defined in:\n")
+	fmt.Fprintf(os.Stderr, "    %s\n", azureYamlPath)
+	fmt.Fprintf(os.Stderr, "  Only trust workspaces you own or have reviewed.\n\n")
+
+	if errors.Is(trustErr, trust.ErrHashChanged) {
+		fmt.Fprintf(os.Stderr, "  azure.yaml has changed since this workspace was last trusted.\n\n")
+	}
+
+	fmt.Fprintf(os.Stderr, "  Trust workspace at %s for code execution? (yes/no): ", projectDir)
+
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read user response: %w", err)
+	}
+
+	response = strings.ToLower(strings.TrimSpace(response))
+	if response != "yes" && response != "y" {
+		return fmt.Errorf("workspace not trusted — exiting without executing any commands")
+	}
+
+	if err := store.TrustWorkspace(projectDir); err != nil {
+		return fmt.Errorf("failed to record workspace trust: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "  ✓ Workspace trusted\n\n")
+	return nil
+}
+
+// isInteractiveTerminal reports whether os.Stdin is connected to a character
+// device (i.e., an interactive terminal as opposed to a pipe or file).
+// Returns false on any error so callers fall back to non-interactive behaviour.
+func isInteractiveTerminal() bool {
+	fi, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
 // validateRuntimeMode validates the runtime mode parameter.

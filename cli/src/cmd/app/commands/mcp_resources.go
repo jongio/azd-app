@@ -67,7 +67,7 @@ func newAzureYamlResource() server.ServerResource {
 			return []mcp.ResourceContents{
 				&mcp.TextResourceContents{
 					URI:      request.Params.URI,
-					Text:     string(content),
+					Text:     sanitizeForLLM(string(content)),
 					MIMEType: "application/x-yaml",
 				},
 			}, nil
@@ -129,7 +129,7 @@ func newServiceConfigResource() server.ServerResource {
 			return []mcp.ResourceContents{
 				&mcp.TextResourceContents{
 					URI:      request.Params.URI,
-					Text:     string(jsonBytes),
+					Text:     sanitizeForLLM(string(jsonBytes)),
 					MIMEType: "application/json",
 				},
 			}, nil
