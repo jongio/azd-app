@@ -1,3 +1,8 @@
+## [0.19.0] - 2026-06-06
+
+- fix: security remediation - 29 findings across 7 workstreams (#319) (b35edd13)
+- chore: update registry for v0.18.0 (1e5245d7)
+
 ## [0.18.0] - 2026-06-03
 
 - fix: address release preflight failures (cb5e9431)
