@@ -27,6 +27,64 @@ func TestPortConflictAction_Constants(t *testing.T) {
 	}
 }
 
+func TestHandlePortConflict_ForceMode(t *testing.T) {
+	pm := &PortManager{forceMode: true}
+
+	action, err := handlePortConflict(pm, 8080, "web", " by node (PID 1234)", false)
+	if err != nil {
+		t.Fatalf("handlePortConflict() error = %v", err)
+	}
+	if action != ActionKill {
+		t.Errorf("handlePortConflict() = %d, want ActionKill (%d)", action, ActionKill)
+	}
+}
+
+func TestHandlePortConflict_ForceMode_Explicit(t *testing.T) {
+	pm := &PortManager{forceMode: true}
+
+	action, err := handlePortConflict(pm, 3000, "api", " by python (PID 5678)", true)
+	if err != nil {
+		t.Fatalf("handlePortConflict() error = %v", err)
+	}
+	if action != ActionKill {
+		t.Errorf("handlePortConflict() = %d, want ActionKill (%d)", action, ActionKill)
+	}
+}
+
+func TestHandlePortConflict_ForceTakesPriorityOverAlwaysKill(t *testing.T) {
+	pm := &PortManager{
+		forceMode:         true,
+		sessionAlwaysKill: true,
+	}
+
+	// Force mode should be checked first
+	action, err := handlePortConflict(pm, 8080, "web", "", false)
+	if err != nil {
+		t.Fatalf("handlePortConflict() error = %v", err)
+	}
+	if action != ActionKill {
+		t.Errorf("handlePortConflict() = %d, want ActionKill (%d)", action, ActionKill)
+	}
+}
+
+func TestSetForceMode(t *testing.T) {
+	pm := &PortManager{}
+
+	if pm.forceMode {
+		t.Error("forceMode should be false by default")
+	}
+
+	pm.SetForceMode(true)
+	if !pm.forceMode {
+		t.Error("forceMode should be true after SetForceMode(true)")
+	}
+
+	pm.SetForceMode(false)
+	if pm.forceMode {
+		t.Error("forceMode should be false after SetForceMode(false)")
+	}
+}
+
 func TestGetProcessInfoString(t *testing.T) {
 	// This function calls getProcessInfoOnPort which is a method, not mockable easily
 	// We'll test with a real PortManager instance
@@ -119,6 +177,30 @@ func TestPrintFunctions(t *testing.T) {
 			name: "printAutoAssignedMessage",
 			fn: func() {
 				printAutoAssignedMessage("test-service", 8080)
+			},
+		},
+		{
+			name: "printForceKillMessage explicit",
+			fn: func() {
+				printForceKillMessage("test-service", 8080, " by node (PID 1234)", true)
+			},
+		},
+		{
+			name: "printForceKillMessage non-explicit",
+			fn: func() {
+				printForceKillMessage("test-service", 8080, " by node (PID 1234)", false)
+			},
+		},
+		{
+			name: "printNonInteractiveKillMessage explicit",
+			fn: func() {
+				printNonInteractiveKillMessage("test-service", 8080, " by node (PID 1234)", true)
+			},
+		},
+		{
+			name: "printNonInteractiveKillMessage non-explicit",
+			fn: func() {
+				printNonInteractiveKillMessage("test-service", 8080, " by node (PID 1234)", false)
 			},
 		},
 	}

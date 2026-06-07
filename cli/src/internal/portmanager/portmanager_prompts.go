@@ -24,10 +24,12 @@ const (
 )
 
 // handlePortConflict prompts the user to resolve a port conflict and returns the chosen action.
-// It checks the always-kill preference first and returns ActionKill if enabled.
+// It checks force mode and always-kill preference first, returning ActionKill without
+// prompting when either is enabled. In non-interactive environments (piped stdin),
+// it auto-kills with a warning instead of crashing with EOF.
 //
 // Parameters:
-//   - pm: The port manager instance (used for preferences)
+//   - pm: The port manager instance (used for preferences and force mode)
 //   - port: The conflicting port number
 //   - serviceName: The name of the service requiring the port
 //   - processInfo: Human-readable info about the process using the port (e.g., " by nginx (PID 1234)")
@@ -40,10 +42,24 @@ const (
 // IMPORTANT: The caller MUST release the mutex before calling this function
 // and re-acquire it after, as this function blocks on user input.
 func handlePortConflict(pm *PortManager, port int, serviceName string, processInfo string, isExplicit bool) (PortConflictAction, error) {
+	// Check force mode first (--force flag)
+	if pm.forceMode {
+		slog.Info("auto-killing process on port due to --force flag", "port", port, "service", serviceName)
+		printForceKillMessage(serviceName, port, processInfo, isExplicit)
+		return ActionKill, nil
+	}
+
 	// Check if user has set preference to always kill
 	if pm.getAlwaysKillPreference() {
 		slog.Info("auto-killing process on port due to always-kill preference", "port", port, "service", serviceName)
 		printAutoKillMessage(serviceName, port, processInfo, isExplicit)
+		return ActionKill, nil
+	}
+
+	// Non-interactive stdin: auto-kill instead of crashing with EOF
+	if !isStdinInteractive() {
+		slog.Warn("non-interactive stdin detected, auto-killing process on port", "port", port, "service", serviceName)
+		printNonInteractiveKillMessage(serviceName, port, processInfo, isExplicit)
 		return ActionKill, nil
 	}
 
@@ -100,10 +116,16 @@ func printConflictMessage(serviceName string, port int, processInfo string, isEx
 
 // promptUpdateAzureYaml prompts the user to update azure.yaml with a new port.
 // Returns true if user wants to update, false otherwise.
+// In force mode or non-interactive environments, returns false without prompting.
 //
 // IMPORTANT: The caller MUST release the mutex before calling this function
 // and re-acquire it after, as this function blocks on user input.
-func promptUpdateAzureYaml(port int) bool {
+func promptUpdateAzureYaml(pm *PortManager, port int) bool {
+	// Skip prompt in force mode or non-interactive environments
+	if pm.forceMode || !isStdinInteractive() {
+		return false
+	}
+
 	fmt.Fprintf(os.Stderr, "\n⚠️  IMPORTANT: Update your application code to use port %d\n", port)
 	fmt.Fprintf(os.Stderr, "Would you like to update azure.yaml to use port %d for future runs? (y/N): ", port)
 
@@ -169,4 +191,33 @@ func printPortStillInUseMessage(port int) {
 // printAutoAssignedMessage prints a message when a port is auto-assigned.
 func printAutoAssignedMessage(serviceName string, port int) {
 	fmt.Fprintf(os.Stderr, "✓ Auto-assigned port %d to service '%s'\n\n", port, serviceName)
+}
+
+// printForceKillMessage prints the message shown when --force flag triggers auto-kill.
+func printForceKillMessage(serviceName string, port int, processInfo string, isExplicit bool) {
+	if isExplicit {
+		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' requires port %d%s - auto-killing (--force)\n", serviceName, port, processInfo)
+	} else {
+		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' port %d is in use%s - auto-killing (--force)\n", serviceName, port, processInfo)
+	}
+}
+
+// printNonInteractiveKillMessage prints the message shown when non-interactive stdin triggers auto-kill.
+func printNonInteractiveKillMessage(serviceName string, port int, processInfo string, isExplicit bool) {
+	if isExplicit {
+		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' requires port %d%s - auto-killing (non-interactive mode)\n", serviceName, port, processInfo)
+	} else {
+		fmt.Fprintf(os.Stderr, "\n⚠️  Service '%s' port %d is in use%s - auto-killing (non-interactive mode)\n", serviceName, port, processInfo)
+	}
+}
+
+// isStdinInteractive reports whether os.Stdin is connected to a terminal
+// (as opposed to a pipe, file, or /dev/null). Returns false on any error
+// so callers default to non-interactive behavior.
+func isStdinInteractive() bool {
+	fi, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
 }
