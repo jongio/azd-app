@@ -1,0 +1,408 @@
+# Vally eval suite — azd-app-onboard skill
+# Validates that the onboarding skill is correctly invoked and produces
+# quality guidance for various project onboarding scenarios.
+
+name: azd-app-onboard-eval
+description: |
+  Evaluation suite for the azd-app-onboard skill. Tests skill routing
+  (does the agent pick this skill for onboarding prompts?), azure.yaml
+  generation quality, step-by-step guidance completeness, error handling,
+  and multi-service detection.
+
+tags:
+  skill: azd-app-onboard
+
+environment:
+  skills:
+    - ../../src/internal/skills/azd-app-onboard
+
+config:
+  runs: 5
+  timeout: "10m"
+  model: claude-sonnet-4.6
+
+scoring:
+  threshold: 0.8
+
+stimuli:
+  # ═══════════════════════════════════════════════════════════
+  # ROUTING — Does the agent invoke this skill for onboarding?
+  # ═══════════════════════════════════════════════════════════
+
+  - name: "New project onboarding request"
+    prompt: "I have a Node.js API and a React frontend. How do I set up azd app to run both services locally?"
+    tags:
+      type: routing
+      tier: smoke
+      cost: llm
+      area: routing
+      earlyTerminate: '[{"type":"skill-call","skill":"azd-app-onboard"},{"type":"tool-call-count","count":3}]'
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+
+  - name: "Configure azure.yaml request"
+    prompt: "Help me create an azure.yaml file for my Python Flask API project"
+    tags:
+      type: routing
+      tier: smoke
+      cost: llm
+      area: routing
+      earlyTerminate: '[{"type":"skill-call","skill":"azd-app-onboard"},{"type":"tool-call-count","count":3}]'
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+
+  - name: "Get started with azd app"
+    prompt: "I want to get started with azd app in my existing monorepo"
+    tags:
+      type: routing
+      tier: smoke
+      cost: llm
+      area: routing
+      earlyTerminate: '[{"type":"skill-call","skill":"azd-app-onboard"},{"type":"tool-call-count","count":3}]'
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+
+  - name: "Negative routing — running services (should NOT invoke onboard)"
+    prompt: "Run my services with azd app"
+    tags:
+      type: routing
+      tier: smoke
+      cost: llm
+      area: routing
+      earlyTerminate: '[{"type":"skill-call","skill":"azd-app"},{"type":"tool-call-count","count":3}]'
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app
+          excluded:
+            - azd-app-onboard
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+
+  # ═══════════════════════════════════════════════════════════
+  # GENERATION — Correct azure.yaml output for common projects
+  # ═══════════════════════════════════════════════════════════
+
+  - name: "Node.js Express API azure.yaml generation"
+    prompt: |
+      I have a Node.js Express API in the ./api directory with a package.json that
+      has a "start" script. Help me create an azure.yaml for azd app.
+    tags:
+      type: integration
+      tier: full
+      cost: llm
+      area: generation
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      - type: output-matches
+        config:
+          pattern: "(?i)azure\\.yaml"
+      - type: output-matches
+        config:
+          pattern: "(?i)services:"
+      - type: output-matches
+        config:
+          pattern: "(?i)language:\\s*(js|javascript|node)"
+      - type: output-matches
+        config:
+          pattern: "(?i)project:\\s*\\./api"
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+
+  - name: "Python FastAPI azure.yaml generation"
+    prompt: |
+      My project has a Python FastAPI app at ./backend with a requirements.txt.
+      The main file is main.py with uvicorn. Generate an azure.yaml for azd app.
+    tags:
+      type: integration
+      tier: full
+      cost: llm
+      area: generation
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      - type: output-matches
+        config:
+          pattern: "(?i)azure\\.yaml"
+      - type: output-matches
+        config:
+          pattern: "(?i)language:\\s*python"
+      - type: output-matches
+        config:
+          pattern: "(?i)uvicorn"
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+
+  - name: "Multi-service monorepo generation"
+    prompt: |
+      I have a monorepo with:
+      - ./services/api (Go with gin framework, go.mod present)
+      - ./services/worker (Python celery worker)
+      - ./apps/web (Next.js frontend)
+      - ./infra/redis (needs Redis container)
+      Create an azure.yaml for azd app to orchestrate all of these.
+    tags:
+      type: integration
+      tier: full
+      cost: llm
+      area: generation
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      - type: output-matches
+        config:
+          pattern: "(?i)services:"
+      # Should mention all 4 services
+      - type: output-matches
+        config:
+          pattern: "(?i)api"
+      - type: output-matches
+        config:
+          pattern: "(?i)worker"
+      - type: output-matches
+        config:
+          pattern: "(?i)web"
+      - type: output-matches
+        config:
+          pattern: "(?i)redis"
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+
+  # ═══════════════════════════════════════════════════════════
+  # GUIDANCE — Step-by-step quality
+  # ═══════════════════════════════════════════════════════════
+
+  - name: "Complete onboarding guidance includes verification steps"
+    prompt: |
+      Walk me through the complete process of onboarding my .NET Web API project
+      (in ./src/MyApi) to use azd app. I need health checks and environment variables.
+    tags:
+      type: integration
+      tier: full
+      cost: llm
+      area: guidance
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      # Should mention the init command
+      - type: output-matches
+        config:
+          pattern: "(?i)azd app init"
+      # Should include health check config
+      - type: output-matches
+        config:
+          pattern: "(?i)healthcheck|health.check|health_check"
+      # Should include env var configuration
+      - type: output-matches
+        config:
+          pattern: "(?i)env:|environment"
+      # Should include verification step
+      - type: output-matches
+        config:
+          pattern: "(?i)(azd app (run|reqs|deps|health))"
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+
+  - name: "Hooks configuration guidance"
+    prompt: |
+      I need to run database migrations before my services start and clean up
+      temp files after they stop. How do I configure hooks in azd app?
+    tags:
+      type: integration
+      tier: full
+      cost: llm
+      area: guidance
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      - type: output-matches
+        config:
+          pattern: "(?i)prerun"
+      - type: output-matches
+        config:
+          pattern: "(?i)poststop|post.stop"
+      - type: output-matches
+        config:
+          pattern: "(?i)hooks:"
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+
+  - name: "MCP server setup guidance"
+    prompt: "How do I set up the MCP server in azd app so my AI coding assistant can manage my services?"
+    tags:
+      type: integration
+      tier: full
+      cost: llm
+      area: guidance
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      - type: output-matches
+        config:
+          pattern: "(?i)azd app mcp serve"
+      - type: output-matches
+        config:
+          pattern: "(?i)mcp\\.json|vscode|settings"
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+
+  # ═══════════════════════════════════════════════════════════
+  # ERROR HANDLING — Invalid project structures
+  # ═══════════════════════════════════════════════════════════
+
+  - name: "Handles empty project gracefully"
+    prompt: |
+      I have an empty directory with no code yet. Can I still use azd app?
+      What do I need to set up?
+    tags:
+      type: integration
+      tier: full
+      cost: llm
+      area: error-handling
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      # Should NOT crash or error out
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace|cannot proceed"
+      # Should provide guidance on what's needed
+      - type: output-matches
+        config:
+          pattern: "(?i)(need|require|create|add|first|before)"
+
+  - name: "Handles unsupported language gracefully"
+    prompt: |
+      I have a Haskell project. Can I use azd app to run it?
+    tags:
+      type: integration
+      tier: full
+      cost: llm
+      area: error-handling
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+      # Should mention custom command as workaround or mention Docker
+      - type: output-matches
+        config:
+          pattern: "(?i)(custom|command|docker|run\\.command|manual)"
+
+  # ═══════════════════════════════════════════════════════════
+  # COMPLETENESS — All services detected
+  # ═══════════════════════════════════════════════════════════
+
+  - name: "Detects all services in complex project"
+    prompt: |
+      My project structure:
+      - ./api (Python Django, manage.py present)
+      - ./frontend (React app with package.json, vite.config.ts)
+      - ./auth (Node.js Express, package.json with "main": "index.js")
+      - ./docs (Astro site, astro.config.mjs present)
+      - docker-compose.yml with postgres and redis
+
+      Help me onboard this to azd app. Make sure all services are included.
+    tags:
+      type: integration
+      tier: full
+      cost: llm
+      area: completeness
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      # All services should appear
+      - type: output-matches
+        config:
+          pattern: "(?i)api"
+      - type: output-matches
+        config:
+          pattern: "(?i)frontend"
+      - type: output-matches
+        config:
+          pattern: "(?i)auth"
+      - type: output-matches
+        config:
+          pattern: "(?i)docs"
+      - type: output-matches
+        config:
+          pattern: "(?i)(postgres|redis|docker)"
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"
+
+  - name: "Docker-only services included correctly"
+    prompt: |
+      I need to add a PostgreSQL database and a Redis cache as Docker containers
+      to my existing azd app project. How do I configure them in azure.yaml?
+    tags:
+      type: integration
+      tier: full
+      cost: llm
+      area: completeness
+    graders:
+      - type: skill-invocation
+        config:
+          required:
+            - azd-app-onboard
+      - type: output-matches
+        config:
+          pattern: "(?i)docker|container"
+      - type: output-matches
+        config:
+          pattern: "(?i)postgres"
+      - type: output-matches
+        config:
+          pattern: "(?i)redis"
+      - type: output-matches
+        config:
+          pattern: "(?i)(azd app add|language:\\s*docker|image:)"
+      - type: output-not-matches
+        config:
+          pattern: "(?i)fatal error|unhandled exception|stack trace"

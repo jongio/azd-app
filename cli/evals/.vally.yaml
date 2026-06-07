@@ -1,0 +1,34 @@
+# Vally eval configuration for azd-app skills
+# Docs: https://aka.ms/vally
+
+paths:
+  skills:
+    - ../src/internal/skills
+  evals:
+    - .
+  results: results
+
+suites:
+  smoke:
+    description: "Quick routing checks — 1 stimulus per skill, runs: 1"
+    filter:
+      tier: smoke
+
+  pr:
+    description: "PR gate — smoke routing + basic generation"
+    filter:
+      tier: smoke
+
+  routing:
+    description: "All routing/trigger evals"
+    filter:
+      type: routing
+
+  integration:
+    description: "Full behavior/integration evals (LLM-backed)"
+    filter:
+      type: integration
+
+  full:
+    description: "All evals — nightly"
+    filter: {}
