@@ -1,3 +1,9 @@
+## [0.19.1] - 2026-06-07
+
+- fix: auto-resolve port conflicts with --force and in non-interactive mode (#324) (cdda8ad9)
+- fix: update dependencies (#323) (f8c7438d)
+- chore: update registry for v0.19.0 (4d7d3a4f)
+
 ## [0.19.0] - 2026-06-06
 
 - fix: security remediation - 29 findings across 7 workstreams (#319) (b35edd13)
