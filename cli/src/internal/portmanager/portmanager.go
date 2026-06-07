@@ -32,6 +32,9 @@ type PortManager struct {
 	// sessionAlwaysKill tracks if user selected "always kill" during this session.
 	// This ensures the preference is honored immediately without waiting for config reload.
 	sessionAlwaysKill bool
+	// forceMode when true auto-kills conflicting processes without prompting.
+	// Set via SetForceMode when --force is passed to azd app run.
+	forceMode bool
 }
 
 // cacheEntry holds a port manager with LRU tracking
@@ -426,7 +429,7 @@ func (pm *PortManager) reassignPort(serviceName string, _ int, isExplicit bool) 
 	if isExplicit {
 		// Release mutex before blocking on user input
 		pm.mu.Unlock()
-		wantsUpdate := promptUpdateAzureYaml(port)
+		wantsUpdate := promptUpdateAzureYaml(pm, port)
 		pm.mu.Lock()
 
 		if wantsUpdate {
@@ -537,6 +540,13 @@ func (pm *PortManager) getConfigClient() (azdconfig.ConfigClient, error) { //nol
 // SetConfigClient sets a custom config client for testing purposes.
 func (pm *PortManager) SetConfigClient(client azdconfig.ConfigClient) {
 	pm.configClient = client
+}
+
+// SetForceMode enables or disables force mode. When enabled, port conflicts are
+// auto-resolved by killing the conflicting process without prompting the user.
+// This is used when --force is passed to azd app run.
+func (pm *PortManager) SetForceMode(force bool) {
+	pm.forceMode = force
 }
 
 // getAlwaysKillPreference returns true if the user has set the preference to always kill

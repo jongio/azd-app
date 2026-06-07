@@ -12,6 +12,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
+	"github.com/jongio/azd-app/cli/src/internal/portmanager"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/jongio/azd-app/cli/src/internal/trust"
@@ -60,7 +61,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().StringVar(&runRuntime, "runtime", runtimeModeAzd, "Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run)")
 	cmd.Flags().BoolVarP(&runWeb, "web", "w", false, "Open dashboard in browser")
 	cmd.Flags().BoolVar(&runRestartContainers, "restart-containers", false, "Restart containers even if they are already running")
-	cmd.Flags().BoolVar(&runForce, "force", false, "Force clean dependency reinstall (passes --force to deps)")
+	cmd.Flags().BoolVar(&runForce, "force", false, "Force clean dependency reinstall and auto-resolve port conflicts without prompting")
 	cmd.Flags().BoolVar(&runTrust, "trust", false, "Trust this workspace for code execution and remember the decision")
 
 	return cmd
@@ -264,6 +265,11 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	services := filterServices(azureYaml)
 	if len(services) == 0 {
 		return fmt.Errorf("no services match filter: %s", runServiceFilter)
+	}
+
+	// Propagate --force to port manager so port conflicts auto-resolve without prompting
+	if runForce {
+		portmanager.GetPortManager(azureYamlDir).SetForceMode(true)
 	}
 
 	runtimes, err := detectServiceRuntimes(services, azureYamlDir, runtimeModeAzd)
