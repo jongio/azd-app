@@ -32,6 +32,7 @@ azd app run [flags]
 | `--dry-run` | | bool | `false` | Show execution plan without starting services |
 | `--restart-containers` | | bool | `false` | Restart containers even if they are already running |
 | `--force` | | bool | `false` | Force clean dependency reinstall (passes --force to deps) |
+| `--trust` | `-y` | bool | `false` | Trust this workspace for code execution and remember the decision |
 | `--web` | `-w` | bool | `false` | Open dashboard in browser |
 
 ## Dashboard Browser Launch
@@ -1173,9 +1174,35 @@ dotnet workload list
 
 ## Security Considerations
 
+### Workspace Trust Gate
+
+The `run` command enforces a workspace trust gate before executing any commands defined in `azure.yaml`. This prevents untrusted repositories from running arbitrary code on your machine without consent.
+
+**First run in a new workspace:**
+```
+  ⚠️  Security Notice
+  Running 'azd app run' will execute commands defined in:
+    /path/to/azure.yaml
+  Only trust workspaces you own or have reviewed.
+
+  Trust workspace at /path/to/project for code execution? (Y/n):
+```
+
+Press **Enter** or type **y/yes** to trust. Type **n/no** to abort. Once trusted, the decision is remembered in `~/.azd/trusted-workspaces.json` and you won't be asked again unless `azure.yaml` changes.
+
+**Bypassing the prompt:**
+
+```bash
+# CLI flag (also available as -y)
+azd app run --trust
+
+# Environment variable (for CI/scripts)
+AZD_APP_TRUST=1 azd app run
+```
+
 ### Trust Model
 
-The `run` command executes commands defined in `azure.yaml` with your user permissions. When you run `azd app run`, you implicitly trust:
+The `run` command executes commands defined in `azure.yaml` with your user permissions. When you trust a workspace, you authorize execution of:
 
 - **Hook scripts** (prerun/postrun)
 - **Service commands** (command, entrypoint)
