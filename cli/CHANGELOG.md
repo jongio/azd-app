@@ -1,3 +1,14 @@
+## [0.19.2] - 2026-06-08
+
+- chore: update Go version refs to 1.26.4 and refresh docs (e9a79bb5)
+- fix: downgrade rpc auth rejection log to debug level (8a7ca619)
+- fix: resolve pnpm v11 build script approval for dashboard (bd4da633)
+- revert: remove env var filtering for child processes (28b3bd7b)
+- feat(trust): default trust prompt to Yes and add -y shorthand (#328) (130ff751)
+- fix(dashboard): disable WriteTimeout to fix streaming RPC disconnects (#327) (40dd1afd)
+- feat: add azd-app-onboard copilot skill with Vally evals and CI (#326) (26a15f6c)
+- chore: update registry for v0.19.1 (a4db01a1)
+
 ## [0.19.1] - 2026-06-07
 
 - fix: auto-resolve port conflicts with --force and in non-interactive mode (#324) (cdda8ad9)
