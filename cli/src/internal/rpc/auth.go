@@ -66,6 +66,6 @@ func (a *authInterceptor) validate(token, procedure string) error {
 	if subtle.ConstantTimeCompare([]byte(token), []byte(a.token)) == 1 {
 		return nil
 	}
-	slog.Warn("rpc auth rejected", "procedure", procedure, "reason", "invalid or missing session token")
+	slog.Debug("rpc auth rejected", "procedure", procedure, "reason", "invalid or missing session token")
 	return connect.NewError(connect.CodeUnauthenticated, nil)
 }
