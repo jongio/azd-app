@@ -9,76 +9,12 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"os"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/cmdutil"
 )
-
-// executorSensitiveSuffixes mirrors service.sensitiveDenylistSuffixes.
-// Kept in sync manually — cannot import service package to avoid circular dependency.
-var executorSensitiveSuffixes = []string{"_TOKEN", "_SECRET", "_KEY", "_PASSWORD"}
-
-// executorSensitivePrefixes mirrors service.sensitiveDenylistPrefixes.
-var executorSensitivePrefixes = []string{"AWS_", "AZURE_"}
-
-// executorAllowlist mirrors service.sensitiveAllowlist (uppercased keys).
-var executorAllowlist = map[string]bool{
-	"AZD_ACCESS_TOKEN":      true,
-	"AZURE_SUBSCRIPTION_ID": true,
-	"AZURE_TENANT_ID":       true,
-	"AZURE_LOCATION":        true,
-	"AZURE_RESOURCE_GROUP":  true,
-	"AZURE_ENVIRONMENT":     true,
-}
-
-// isExecutorSensitiveVar reports whether an env var name should be filtered from child
-// processes spawned by the executor. Mirrors service.isSensitiveEnvVar.
-func isExecutorSensitiveVar(key string) bool {
-	upper := strings.ToUpper(key)
-	if executorAllowlist[upper] {
-		return false
-	}
-	for _, suffix := range executorSensitiveSuffixes {
-		if strings.HasSuffix(upper, suffix) {
-			return true
-		}
-	}
-	for _, prefix := range executorSensitivePrefixes {
-		if strings.HasPrefix(upper, prefix) {
-			return true
-		}
-	}
-	return false
-}
-
-// filterSensitiveEnvVarsSlice removes sensitive env vars from a KEY=VALUE slice.
-// This is the executor-local implementation; it mirrors service.FilterSensitiveEnvVars
-// to avoid a circular import between the executor and service packages.
-func filterSensitiveEnvVarsSlice(env []string) []string {
-	result := make([]string, 0, len(env))
-	filteredCount := 0
-	for _, kv := range env {
-		parts := strings.SplitN(kv, "=", 2)
-		if len(parts) != 2 {
-			result = append(result, kv)
-			continue
-		}
-		if isExecutorSensitiveVar(parts[0]) {
-			filteredCount++
-			continue
-		}
-		result = append(result, kv)
-	}
-	if filteredCount > 0 {
-		slog.Debug("executor: filtered sensitive environment variables from child process",
-			slog.Int("count", filteredCount))
-	}
-	return result
-}
 
 // RunWithContext executes a command with context for cancellation and timeout.
 // The command inherits all environment variables from the parent process, including
@@ -91,8 +27,7 @@ func RunWithContext(ctx context.Context, name string, args []string, dir string)
 		cmd.Stdout = io.Discard
 		cmd.Stderr = io.Discard
 		cmd.Stdin = nil
-		// Filter sensitive credentials before passing env to child process (CWE-200/526).
-		cmd.Env = filterSensitiveEnvVarsSlice(os.Environ())
+		// cmd.Env is nil — child inherits full parent environment (including azd env values)
 		return cmd.Run()
 	}
 
