@@ -18,7 +18,7 @@ cli/evals/
 ```bash
 cd cli/evals
 
-# Install Vally
+# Install Vally CLI
 npm install
 
 # Run smoke suite (fast — routing checks only)

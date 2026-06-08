@@ -58,12 +58,12 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install Vally CLI
-        run: npm install -g @microsoft/vally
+      - name: Install dependencies
+        run: npm install
 
       - name: Run eval suite
         run: |
-          npx @microsoft/vally eval \
+          npx @microsoft/vally-cli eval \
             --suite ${{ matrix.suite }} \
             --output-dir ./results \
             --output jsonl
