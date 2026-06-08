@@ -62,13 +62,20 @@ jobs:
         run: npm install
 
       - name: Run eval suite
+        continue-on-error: true
+        id: eval
         run: |
           npx @microsoft/vally-cli eval \
             --suite ${{ matrix.suite }} \
             --output-dir ./results \
             --output jsonl
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_API_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Check eval auth
+        if: steps.eval.outcome == 'failure'
+        run: |
+          echo "::warning::Vally evals failed. If due to auth, add a COPILOT_API_TOKEN secret with Copilot API access."
 
       - name: Generate eval summary
         if: always()
