@@ -62,7 +62,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&runWeb, "web", "w", false, "Open dashboard in browser")
 	cmd.Flags().BoolVar(&runRestartContainers, "restart-containers", false, "Restart containers even if they are already running")
 	cmd.Flags().BoolVar(&runForce, "force", false, "Force clean dependency reinstall and auto-resolve port conflicts without prompting")
-	cmd.Flags().BoolVar(&runTrust, "trust", false, "Trust this workspace for code execution and remember the decision")
+	cmd.Flags().BoolVarP(&runTrust, "trust", "y", false, "Trust this workspace for code execution and remember the decision")
 
 	return cmd
 }
@@ -163,7 +163,7 @@ func ensureWorkspaceTrusted(azureYamlPath string) error {
 		fmt.Fprintf(os.Stderr, "  azure.yaml has changed since this workspace was last trusted.\n\n")
 	}
 
-	fmt.Fprintf(os.Stderr, "  Trust workspace at %s for code execution? (yes/no): ", projectDir)
+	fmt.Fprintf(os.Stderr, "  Trust workspace at %s for code execution? (Y/n): ", projectDir)
 
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
@@ -172,7 +172,7 @@ func ensureWorkspaceTrusted(azureYamlPath string) error {
 	}
 
 	response = strings.ToLower(strings.TrimSpace(response))
-	if response != "yes" && response != "y" {
+	if response == "n" || response == "no" {
 		return fmt.Errorf("workspace not trusted — exiting without executing any commands")
 	}
 
