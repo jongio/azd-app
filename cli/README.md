@@ -47,22 +47,16 @@ Access the guide by clicking the **Azure** button in the dashboard when logs are
 
 ### For End Users
 
-First, add the extension registry:
+First, add the extension source:
 
 ```bash
-azd config set extension.registry https://raw.githubusercontent.com/jongio/azd-app/main/registry.json
+azd extension source add -n jongio -t url -l https://jongio.github.io/azd-extensions/registry.json
 ```
 
 Then install the extension:
 
 ```bash
 azd extension install jongio.azd.app
-```
-
-Or install from a specific version:
-
-```bash
-azd extension install jongio.azd.app --version 0.1.0
 ```
 
 To uninstall:
@@ -136,8 +130,8 @@ See [.devcontainer/README.md](.devcontainer/README.md) for details.
 ### Prerequisites
 
 - [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) installed
-- Go 1.25 or later (for building from source)
-- Node.js 20.0.0 or later (for building dashboard)
+- Go 1.26.4 or later (for building from source)
+- Node.js 22.0.0 or later (for building dashboard)
 - npm 10.0.0 or later (for building dashboard)
 - PowerShell 7.4 or later (recommended: 7.5.4 for full compatibility with build scripts)
 - TypeScript 5.9.3 (installed via npm, required for dashboard)
@@ -387,6 +381,7 @@ azd app test --environment staging      # Target a deployed environment
 |---------|-------------|
 | `azd app add` | Add a service to your azure.yaml |
 | `azd app deps` | Install dependencies for all services |
+| `azd app init` | Initialize azure.yaml by scanning your project |
 | `azd app health` | Monitor service health with streaming updates |
 | `azd app info` | Display service URLs, status, and metadata |
 | `azd app listen` | Listen for service lifecycle events |

@@ -15,7 +15,7 @@ Monorepo with three major components:
 ### CLI (Go)
 
 - **Module**: `github.com/jongio/azd-app/cli`
-- **Go version**: 1.26.3 (pinned in go.mod and CI)
+- **Go version**: 1.26.4 (pinned in go.mod and CI)
 - **Framework**: Cobra (CLI), Connect-RPC (dashboard ↔ CLI transport)
 - **Core dependency**: `github.com/jongio/azd-core` (shared extension SDK)
 - **Build tool**: Mage (`magefile.go` at `cli/magefile.go`)
@@ -75,7 +75,7 @@ Conventional Commits strictly enforced:
 ## CI/CD
 
 - **Main CI**: `.github/workflows/ci.yml` — preflight, lint, test on ubuntu/windows/macos matrix
-- **Go version**: 1.26.3, Node: 22, pnpm: 9
+- **Go version**: 1.26.4, Node: 22, pnpm: 9
 - **Race detector**: Enabled on Linux/Windows, disabled on macOS
 - **Coverage**: codecov integration with threshold enforcement
 - **Security**: CodeQL + govulncheck (push/PR/weekly schedule)
@@ -92,7 +92,7 @@ Conventional Commits strictly enforced:
 
 ## Dev Environment
 
-- **Devcontainer**: Go 1.25.5 base, Node LTS, Python 3.12, .NET 8, Docker-in-Docker
+- **Devcontainer**: Go 1.26.4 base, Node LTS, Python 3.12, .NET 8, Docker-in-Docker
 - **IDE**: VS Code with golang.go, Copilot, Azure Dev extensions
 - **Gopls settings**: nilness, shadow, ST1003, unusedparams, unusedwrite, useany, staticcheck
 

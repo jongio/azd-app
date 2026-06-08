@@ -29,6 +29,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive CORS configuration guide: `docs/guides/cors-with-alternate-urls.md`
   - Multi-language CORS examples (Node.js, Python, .NET, ASP.NET Core)
 
+- **Trust prompt defaults to Yes** with `-y` shorthand for non-interactive confirmation
+- **azd-app-onboard Copilot skill** with Vally evals and CI integration
+
+### Fixed
+- Dashboard streaming RPC disconnects caused by WriteTimeout
+- Auto-resolve port conflicts with `--force` and in non-interactive mode
+- Security remediation — 29 findings across 7 workstreams
+
+### Changed
+- Updated dependencies
+
 ## [0.6.0] - 2025-11-08
 
 ### Added

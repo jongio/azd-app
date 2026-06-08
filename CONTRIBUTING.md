@@ -8,8 +8,8 @@ Thank you for your interest in contributing to azd-app! This document provides g
 
 Before contributing, ensure you have the following installed:
 
-- **Go**: 1.26.3 or later
-- **Node.js**: 20.0.0 or later
+- **Go**: 1.26.4 or later
+- **Node.js**: 22.0.0 or later
 - **pnpm**: 9.0.0 or later  
 - **PowerShell**: 7.4 or later (recommended: 7.5.4 for full compatibility)
 - **TypeScript**: 5.9.3 (installed via npm when building dashboard)
@@ -17,8 +17,8 @@ Before contributing, ensure you have the following installed:
 
 You can verify your versions:
 ```bash
-go version                  # Should be 1.26.3+
-node --version             # Should be v20.0.0+
+go version                  # Should be 1.26.4+
+node --version             # Should be v22.0.0+
 pnpm --version             # Should be 9.0.0+
 pwsh --version            # Should be 7.4+ or 7.5.4
 tsc --version             # Should be 5.9.3 (after pnpm install in dashboard/)
@@ -192,8 +192,12 @@ cli/
 ├── src/
 │   ├── cmd/app/commands/   # CLI command implementations
 │   └── internal/
+│       ├── azdconfig/      # Azure Developer CLI configuration
 │       ├── azure/          # Azure integration (credentials, logs)
+│       ├── cache/          # Caching layer
+│       ├── common/         # Shared utilities
 │       ├── config/         # Configuration loading
+│       ├── constants/      # Shared constants
 │       ├── dashboard/      # Web dashboard server
 │       ├── detector/       # Project detection logic
 │       ├── docker/         # Docker/container support
@@ -205,8 +209,17 @@ cli/
 │       ├── notifications/  # Desktop notifications
 │       ├── orchestrator/   # Service lifecycle orchestration
 │       ├── portmanager/    # Port allocation
+│       ├── rpc/            # Connect-RPC server
 │       ├── runner/         # Project execution
+│       ├── security/       # Security utilities
 │       ├── service/        # Service management core
+│       ├── serviceinfo/    # Service metadata
+│       ├── servicetarget/  # Service target resolution
+│       ├── skills/         # Copilot skill installation
+│       ├── testing/        # Test framework support
+│       ├── trust/          # Trust prompts and verification
+│       ├── version/        # Version information
+│       ├── wellknown/      # Well-known service definitions
 │       └── workspace/      # Workspace utilities
 ├── dashboard/              # React dashboard (Vite)
 ├── tests/projects/         # Test fixture projects

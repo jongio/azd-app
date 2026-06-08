@@ -15,7 +15,7 @@ One command starts all services, manages dependencies, and provides real-time mo
 [![Go Reference](https://pkg.go.dev/badge/github.com/jongio/azd-app/cli.svg)](https://pkg.go.dev/github.com/jongio/azd-app/cli)
 [![govulncheck](https://img.shields.io/badge/govulncheck-passing-brightgreen)](https://github.com/jongio/azd-app/actions/workflows/govulncheck.yml)
 [![golangci-lint](https://img.shields.io/badge/golangci--lint-enabled-blue)](https://github.com/jongio/azd-app/actions/workflows/ci.yml)
-[![Go Version](https://img.shields.io/badge/go-1.26.3-blue)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/go-1.26.4-blue)](https://go.dev/)
 [![Platform Support](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey)](https://github.com/jongio/azd-app)
 
 <br />
@@ -209,7 +209,7 @@ Ask Copilot things like:
 | | |
 |:---:|:---:|
 | [**🚀 Quick Start**](https://jongio.github.io/azd-app/quick-start/) | Get running in under 5 minutes |
-| [**🎯 Guided Tour**](https://jongio.github.io/azd-app/tour/1-introduction/) | Step-by-step walkthrough |
+| [**🎯 Guided Tour**](https://jongio.github.io/azd-app/tour/1-install/) | Step-by-step walkthrough |
 | [**📚 CLI Reference**](https://jongio.github.io/azd-app/reference/cli/) | All commands documented |
 | [**🤖 MCP Guide**](https://jongio.github.io/azd-app/mcp/) | AI integration setup |
 
