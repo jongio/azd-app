@@ -151,8 +151,16 @@ func (s *Server) Start() (string, error) {
 		Addr:              fmt.Sprintf("127.0.0.1:%d", port),
 		Handler:           s.buildHandler(),
 		ReadHeaderTimeout: 10 * time.Second,
-		WriteTimeout:      60 * time.Second,
-		IdleTimeout:       120 * time.Second,
+		// WriteTimeout must be 0 (disabled) because Connect-RPC server-streaming
+		// handlers (StreamHealth, StreamLocalLogs, StreamBroadcast) are long-lived.
+		// Go's WriteTimeout is an absolute deadline from request header read — not
+		// a per-write idle timeout — so any non-zero value kills streams after that
+		// duration, causing ERR_INCOMPLETE_CHUNKED_ENCODING on the client.
+		// Security: this server binds to 127.0.0.1 only (not internet-facing).
+		// ReadHeaderTimeout guards against slowloris; IdleTimeout reclaims idle
+		// keep-alive connections.
+		WriteTimeout: 0,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	// Start server in background
