@@ -66,6 +66,23 @@ func newLogsStoreFuncs(s *Server) rpc.LogsStoreFuncs {
 			}
 			buf.Unsubscribe(ch)
 		},
+		OnBufferAddedFn: func() <-chan string {
+			lm := service.GetLogManager(s.projectDir)
+			if lm == nil {
+				// No manager: return nil so the stream's select never
+				// fires on this channel. The stream still serves
+				// already-registered services.
+				return nil
+			}
+			return lm.OnBufferAdded()
+		},
+		RemoveBufferListenerFn: func(ch <-chan string) {
+			lm := service.GetLogManager(s.projectDir)
+			if lm == nil {
+				return
+			}
+			lm.RemoveBufferListener(ch)
+		},
 
 		LoadClassificationsFn: func() ([]service.LogClassification, error) {
 			classificationsMu.RLock()

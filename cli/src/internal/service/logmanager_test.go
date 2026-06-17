@@ -352,3 +352,80 @@ func TestLogManagerConcurrency(t *testing.T) {
 		t.Errorf("concurrent CreateBuffer should create only 1 buffer, got %d", len(buffers))
 	}
 }
+
+func TestLogManagerOnBufferAdded(t *testing.T) {
+	lm, err := NewLogManager(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewLogManager() error = %v", err)
+	}
+
+	// Register a listener before creating any buffers.
+	ch := lm.OnBufferAdded()
+	defer lm.RemoveBufferListener(ch)
+
+	// Create a buffer — the listener should receive the service name.
+	_, err = lm.CreateBuffer("svc-alpha", 100, false)
+	if err != nil {
+		t.Fatalf("CreateBuffer() error = %v", err)
+	}
+
+	select {
+	case name := <-ch:
+		if name != "svc-alpha" {
+			t.Errorf("OnBufferAdded got %q, want %q", name, "svc-alpha")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("OnBufferAdded: timed out waiting for notification")
+	}
+
+	// Creating the same buffer again should NOT notify (it's a no-op).
+	_, _ = lm.CreateBuffer("svc-alpha", 100, false)
+	select {
+	case name := <-ch:
+		t.Errorf("OnBufferAdded fired for duplicate CreateBuffer: %q", name)
+	case <-time.After(50 * time.Millisecond):
+		// expected: no notification
+	}
+
+	// Create a second buffer — should notify.
+	_, err = lm.CreateBuffer("svc-beta", 100, false)
+	if err != nil {
+		t.Fatalf("CreateBuffer() error = %v", err)
+	}
+
+	select {
+	case name := <-ch:
+		if name != "svc-beta" {
+			t.Errorf("OnBufferAdded got %q, want %q", name, "svc-beta")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("OnBufferAdded: timed out waiting for second notification")
+	}
+}
+
+func TestLogManagerRemoveBufferListener(t *testing.T) {
+	lm, err := NewLogManager(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewLogManager() error = %v", err)
+	}
+
+	ch := lm.OnBufferAdded()
+
+	// Remove listener, then create a buffer — should NOT receive.
+	lm.RemoveBufferListener(ch)
+
+	_, _ = lm.CreateBuffer("orphan-svc", 100, false)
+
+	// Channel should be closed by RemoveBufferListener.
+	select {
+	case _, ok := <-ch:
+		if ok {
+			t.Error("expected channel to be closed after RemoveBufferListener")
+		}
+	case <-time.After(50 * time.Millisecond):
+		t.Error("channel should be closed and readable immediately")
+	}
+
+	// Calling RemoveBufferListener again should not panic.
+	lm.RemoveBufferListener(ch)
+}

@@ -417,13 +417,26 @@ export function useLogsStream(
     connected && 
     (logMode === 'local' || (logMode === 'azure' && azureRealtime))
 
-  const { droppedCount } = useSharedLogStream({
+  const { droppedCount, reconnectGeneration } = useSharedLogStream({
     serviceName,
     enabled: shouldUseSharedStream,
     mode: logMode === 'azure' ? 'azure' : 'local',
     onLogEntry: handleSharedLogEntry,
     transport,
   })
+
+  // When the stream reconnects, reset fetch state so the initial unary
+  // fetch re-fires. This closes the gap between the last received entry
+  // before disconnect and the new stream's first live entry.
+  const prevReconnectGenRef = useRef(reconnectGeneration)
+  useEffect(() => {
+    if (reconnectGeneration > prevReconnectGenRef.current) {
+      prevReconnectGenRef.current = reconnectGeneration
+      // Reset fetch counters to trigger a fresh initial fetch
+      fetchCountForKeyRef.current = 0
+      emptyResultCountRef.current = 0
+    }
+  }, [reconnectGeneration])
 
   return { retry, droppedCount }
 }
