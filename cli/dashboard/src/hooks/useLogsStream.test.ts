@@ -40,8 +40,12 @@ import {
 } from '@/gen/proto/azdapp/v1/azure_pb.js'
 import { create } from '@bufbuild/protobuf'
 
+const { mockBackend } = vi.hoisted(() => ({
+  mockBackend: { connected: true },
+}))
+
 vi.mock('@/hooks/useBackendConnection', () => ({
-  useBackendConnection: () => ({ connected: true }),
+  useBackendConnection: () => ({ connected: mockBackend.connected }),
 }))
 
 type SharedLogStreamArgs = {
@@ -124,6 +128,7 @@ function makeTransport(overrides: TransportOverrides = {}): Transport {
 describe('useLogsStream (orchestration)', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    mockBackend.connected = true
     sharedLogStreamMock.mockClear()
     sharedLogStreamMock.mockImplementation(() => ({
       connectionState: 'disconnected',
@@ -200,6 +205,37 @@ describe('useLogsStream (orchestration)', () => {
         ),
       )
       const arg = lastSharedCall()
+      expect(arg.enabled).toBe(false)
+    })
+
+    it('enables the local stream even when the backend health is not yet connected', () => {
+      // Regression: live local logs were gated on the health stream's
+      // `connected` signal, so a still-starting service delayed all live
+      // logs until the first health probe finished. Local logs run against
+      // the same local server that served the page and must stream
+      // immediately, independent of health.
+      mockBackend.connected = false
+      renderHook(() => useLogsStream(createParams()))
+      const arg = lastSharedCall()
+      expect(arg.mode).toBe('local')
+      expect(arg.enabled).toBe(true)
+    })
+
+    it('does not enable the azure realtime stream until the backend is connected', () => {
+      // Azure realtime stays gated on `connected` because Log Analytics
+      // genuinely needs the backend reachable; only local is decoupled.
+      mockBackend.connected = false
+      renderHook(() =>
+        useLogsStream(
+          createParams({
+            logMode: 'azure',
+            azureRealtime: true,
+            fetchKey: 'azure:15m::realtime',
+          }),
+        ),
+      )
+      const arg = lastSharedCall()
+      expect(arg.mode).toBe('azure')
       expect(arg.enabled).toBe(false)
     })
 

@@ -27,6 +27,8 @@ dropped.
   gap between disconnect and new stream
 - Pump goroutines start draining subscriber channels immediately upon subscribe
   (before backfill I/O)
+- Live local logs stream the instant a pane mounts, without waiting on the health
+  stream to connect
 
 ## Non-Goals
 
@@ -62,6 +64,19 @@ triggering a fresh `GetLogs` unary call to fill the gap.
 
 Fix misleading comment about defer LIFO ordering and restructure the cleanup path
 with explicit, correctly-documented defers.
+
+### 5. Decouple local live logs from the health stream (frontend)
+
+The grid view's per-service panes drove live logs through `useLogsStream`, which
+gated `shouldUseSharedStream` on the health stream's `connected` signal. That
+signal only flips true after the server's first health probe of ALL services
+completes, and a still-starting service blocks that probe for the full timeout.
+The result: live local logs were delayed for every service until the slowest
+health probe finished, even though the `StreamLocalLogs` RPC was ready
+immediately. Local logs now stream as soon as the pane mounts, matching the
+unified view (`LogsView`), which never had the health gate. Azure realtime stays
+gated on `connected` because Log Analytics genuinely needs the backend reachable.
+
 
 ## Alternatives Considered
 

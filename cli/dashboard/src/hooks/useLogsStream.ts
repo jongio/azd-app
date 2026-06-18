@@ -413,9 +413,16 @@ export function useLogsStream(
     })
   }, [isPausedRef, lastClearTimeRef, setLogs])
 
-  const shouldUseSharedStream = 
-    connected && 
-    (logMode === 'local' || (logMode === 'azure' && azureRealtime))
+  // Local logs stream from the same local server that served this page,
+  // so they don't wait on the health stream's `connected` signal - that
+  // coupling delayed live local logs until the first health probe of all
+  // services finished (a still-starting service blocks it for the full
+  // timeout). Azure realtime stays gated on `connected` because Log
+  // Analytics genuinely needs the backend reachable. Matches LogsView,
+  // which already streams local logs without the health gate.
+  const shouldUseSharedStream =
+    logMode === 'local' ||
+    (connected && logMode === 'azure' && azureRealtime)
 
   const { droppedCount, reconnectGeneration } = useSharedLogStream({
     serviceName,
