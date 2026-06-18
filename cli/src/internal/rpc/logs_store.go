@@ -1,6 +1,11 @@
 package rpc
 
-import "github.com/jongio/azd-app/cli/src/internal/service"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/jongio/azd-app/cli/src/internal/service"
+)
 
 // LogSource is the narrow read/subscribe slice of service.LogManager that
 // LogsHandler needs. Production wires it to a per-call LogManager
@@ -30,6 +35,13 @@ type LogSource interface {
 	// MUST be safe to call with a channel from a now-removed service
 	// (idempotent / no panic on missing buffer).
 	Unsubscribe(serviceName string, ch chan service.LogEntry)
+	// OnBufferAdded returns a channel that receives the service name
+	// each time a new log buffer is created. Used by StreamLocalLogs
+	// to dynamically subscribe to services that start after the stream
+	// opens. Callers MUST call RemoveBufferListener when done.
+	OnBufferAdded() <-chan string
+	// RemoveBufferListener deregisters a listener returned by OnBufferAdded.
+	RemoveBufferListener(ch <-chan string)
 }
 
 // ClassificationStore is the read/write slice of azure.yaml-stored log
@@ -89,15 +101,44 @@ type LogsStore interface {
 // values cause LogsHandler RPCs to panic at call time, which is the
 // fail-loud signal we want for a misconfigured wiring.
 type LogsStoreFuncs struct {
-	GetRecentFn           func(serviceName string, tail int) ([]service.LogEntry, bool)
-	GetAllFn              func(tail int) []service.LogEntry
-	ServiceNamesFn        func() []string
-	SubscribeFn           func(serviceName string) (chan service.LogEntry, bool)
-	UnsubscribeFn         func(serviceName string, ch chan service.LogEntry)
-	LoadClassificationsFn func() ([]service.LogClassification, error)
-	SaveClassificationsFn func(classifications []service.LogClassification) error
-	LoadPreferencesFn     func() ([]byte, error)
-	SavePreferencesFn     func(data []byte) error
+	GetRecentFn            func(serviceName string, tail int) ([]service.LogEntry, bool)
+	GetAllFn               func(tail int) []service.LogEntry
+	ServiceNamesFn         func() []string
+	SubscribeFn            func(serviceName string) (chan service.LogEntry, bool)
+	UnsubscribeFn          func(serviceName string, ch chan service.LogEntry)
+	OnBufferAddedFn        func() <-chan string
+	RemoveBufferListenerFn func(ch <-chan string)
+	LoadClassificationsFn  func() ([]service.LogClassification, error)
+	SaveClassificationsFn  func(classifications []service.LogClassification) error
+	LoadPreferencesFn      func() ([]byte, error)
+	SavePreferencesFn      func(data []byte) error
+}
+
+// validate reports an error if any function field is nil. Co-located with
+// the struct so a new field added above is validated here in the same edit,
+// avoiding the silent-pass failure mode of a remote nil-check list.
+func (f LogsStoreFuncs) validate() error {
+	missing := []string{}
+	check := func(isNil bool, name string) {
+		if isNil {
+			missing = append(missing, name)
+		}
+	}
+	check(f.GetRecentFn == nil, "GetRecentFn")
+	check(f.GetAllFn == nil, "GetAllFn")
+	check(f.ServiceNamesFn == nil, "ServiceNamesFn")
+	check(f.SubscribeFn == nil, "SubscribeFn")
+	check(f.UnsubscribeFn == nil, "UnsubscribeFn")
+	check(f.OnBufferAddedFn == nil, "OnBufferAddedFn")
+	check(f.RemoveBufferListenerFn == nil, "RemoveBufferListenerFn")
+	check(f.LoadClassificationsFn == nil, "LoadClassificationsFn")
+	check(f.SaveClassificationsFn == nil, "SaveClassificationsFn")
+	check(f.LoadPreferencesFn == nil, "LoadPreferencesFn")
+	check(f.SavePreferencesFn == nil, "SavePreferencesFn")
+	if len(missing) > 0 {
+		return fmt.Errorf("LogsStoreFuncs has nil function field(s): %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 // GetRecent implements LogSource.
@@ -120,6 +161,12 @@ func (f LogsStoreFuncs) Subscribe(serviceName string) (chan service.LogEntry, bo
 func (f LogsStoreFuncs) Unsubscribe(serviceName string, ch chan service.LogEntry) {
 	f.UnsubscribeFn(serviceName, ch)
 }
+
+// OnBufferAdded implements LogSource.
+func (f LogsStoreFuncs) OnBufferAdded() <-chan string { return f.OnBufferAddedFn() }
+
+// RemoveBufferListener implements LogSource.
+func (f LogsStoreFuncs) RemoveBufferListener(ch <-chan string) { f.RemoveBufferListenerFn(ch) }
 
 // LoadClassifications implements ClassificationStore.
 func (f LogsStoreFuncs) LoadClassifications() ([]service.LogClassification, error) {

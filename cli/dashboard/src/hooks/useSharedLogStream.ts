@@ -111,6 +111,14 @@ interface LogStreamManager {
   subscribeToStreamStatus(callback: StreamStatusCallback): () => void
   getState(): ConnectionState
   getDroppedCount(): number
+  /**
+   * Monotonically increasing counter that advances each time the stream
+   * successfully reconnects (transitions disconnected/error → connected).
+   * Consumers can incorporate this into a fetch key to trigger re-fetching
+   * initial history after a reconnect, closing the gap between the last
+   * received entry and the new stream.
+   */
+  getReconnectGeneration(): number
   destroy(): void
   resetReconnectionState(): void
 }
@@ -135,6 +143,7 @@ class SubscriberRegistry {
   private readonly streamStatusSubscribers = new Set<StreamStatusCallback>()
   private currentState: ConnectionState = 'disconnected'
   private droppedCount = 0
+  private reconnectGeneration = 0
   private latestStreamStatus: StreamStatus | null = null
   // Keep the last MAX_BUFFER_SIZE entries so a late-mounting subscriber
   // immediately sees recent activity instead of staring at an empty
@@ -238,7 +247,17 @@ class SubscriberRegistry {
 
   setState(newState: ConnectionState): void {
     if (this.currentState === newState) return
+    // Track reconnections: any transition into 'connected' after the
+    // initial connect (generation > 0 means we've been connected before)
+    // constitutes a reconnect that may have missed entries.
+    const wasConnectedBefore = this.reconnectGeneration > 0 || this.currentState !== 'disconnected'
     this.currentState = newState
+    if (newState === 'connected' && wasConnectedBefore) {
+      this.reconnectGeneration++
+    } else if (newState === 'connected') {
+      // First-ever connection: set to 1 so subsequent transitions increment
+      this.reconnectGeneration = 1
+    }
     // Iterate via a snapshot so a subscriber that synchronously
     // unsubscribes from inside its own callback can't mutate the set
     // mid-iteration.
@@ -256,6 +275,10 @@ class SubscriberRegistry {
 
   getState(): ConnectionState {
     return this.currentState
+  }
+
+  getReconnectGeneration(): number {
+    return this.reconnectGeneration
   }
 
   getDroppedCount(): number {
@@ -517,6 +540,10 @@ class ConnectLocalLogStreamManager implements LogStreamManager {
 
   getDroppedCount(): number {
     return this.registry.getDroppedCount()
+  }
+
+  getReconnectGeneration(): number {
+    return this.registry.getReconnectGeneration()
   }
 
   resetReconnectionState(): void {
@@ -846,6 +873,10 @@ class ConnectAzureLogStreamManager implements LogStreamManager {
     return this.registry.getDroppedCount()
   }
 
+  getReconnectGeneration(): number {
+    return this.registry.getReconnectGeneration()
+  }
+
   resetReconnectionState(): void {
     this.streams.forEach((state) => {
       state.reconnectAttempts = 0
@@ -1074,6 +1105,12 @@ export interface UseSharedLogStreamReturn {
    */
   droppedCount: number
   /**
+   * Monotonically increasing counter that advances each time the stream
+   * successfully reconnects. Consumers can incorporate this into a fetch
+   * key to trigger re-fetching initial history after a reconnect.
+   */
+  reconnectGeneration: number
+  /**
    * Latest server-emitted stream status, or `null` if none received
    * yet (or in local mode, which has no equivalent signal). Azure
    * surfaces this so the LogsView can render polling health and
@@ -1125,6 +1162,7 @@ export function useSharedLogStream({
 
   const [connectionState, setConnectionState] = useState<ConnectionState>(() => manager.getState())
   const [droppedCount, setDroppedCount] = useState<number>(() => manager.getDroppedCount())
+  const [reconnectGeneration, setReconnectGeneration] = useState<number>(() => manager.getReconnectGeneration())
   const [streamStatus, setStreamStatus] = useState<StreamStatus | null>(null)
 
   useEffect(() => {
@@ -1149,6 +1187,9 @@ export function useSharedLogStream({
       // Mirror the legacy hook: when disabled, the consumer wants to
       // see "disconnected" regardless of underlying transport activity.
       setConnectionState(enabledRef.current ? state : 'disconnected')
+      // Update reconnect generation when state changes (the registry
+      // increments it on each successful reconnection).
+      setReconnectGeneration(manager.getReconnectGeneration())
     })
   }, [manager])
 
@@ -1195,7 +1236,7 @@ export function useSharedLogStream({
     }
   }, [manager, transport])
 
-  return { connectionState, droppedCount, streamStatus }
+  return { connectionState, droppedCount, reconnectGeneration, streamStatus }
 }
 
 // =============================================================================

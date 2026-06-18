@@ -41,12 +41,19 @@ type fakeLogsStore struct {
 	prefs    []byte
 	prefsErr error
 	saveErr  error
+
+	// bufferAdded fires the service name when addService is called,
+	// simulating a service buffer created after a stream has opened.
+	// OnBufferAdded returns this channel so StreamLocalLogs can pick up
+	// new services mid-stream. nil until newFakeStore initialises it.
+	bufferAdded chan string
 }
 
 func newFakeStore() *fakeLogsStore {
 	return &fakeLogsStore{
-		buffers: map[string][]service.LogEntry{},
-		subs:    map[string][]chan service.LogEntry{},
+		buffers:     map[string][]service.LogEntry{},
+		subs:        map[string][]chan service.LogEntry{},
+		bufferAdded: make(chan string, 16),
 	}
 }
 
@@ -54,6 +61,17 @@ func (f *fakeLogsStore) addBuffer(name string, entries ...service.LogEntry) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.buffers[name] = append(f.buffers[name], entries...)
+}
+
+// addService registers a new (empty) buffer and fires the buffer-added
+// notification, simulating a service that starts after a stream is already
+// open. Used to exercise StreamLocalLogs' dynamic subscription path.
+func (f *fakeLogsStore) addService(name string) {
+	f.addBuffer(name)
+	select {
+	case f.bufferAdded <- name:
+	default:
+	}
 }
 
 // broadcast pushes entry to every active subscriber for service `name`.
@@ -137,6 +155,14 @@ func (f *fakeLogsStore) Unsubscribe(serviceName string, ch chan service.LogEntry
 			return
 		}
 	}
+}
+
+func (f *fakeLogsStore) OnBufferAdded() <-chan string {
+	return f.bufferAdded
+}
+
+func (f *fakeLogsStore) RemoveBufferListener(_ <-chan string) {
+	// No-op for tests; the channel is GC'd with the store.
 }
 
 func (f *fakeLogsStore) LoadClassifications() ([]service.LogClassification, error) {
@@ -751,6 +777,77 @@ func TestStreamLocalLogsReceivesEntries(t *testing.T) {
 	}
 	if got.GetMessage() != "hello" {
 		t.Errorf("message=%q want hello", got.GetMessage())
+	}
+}
+
+// TestStreamLocalLogsDynamicallySubscribesToNewService validates that a
+// service whose buffer is created AFTER an all-services stream opens is
+// picked up dynamically (via the OnBufferAdded notification) without a
+// reconnect. This is the headline fix for the "logs don't stream" bug.
+func TestStreamLocalLogsDynamicallySubscribesToNewService(t *testing.T) {
+	store := newFakeStore()
+	store.addBuffer("api") // one service exists at stream-open time
+	client, cleanup := newLogsTestServer(t, store)
+	defer cleanup()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		// Wait for the all-services stream to subscribe to "api".
+		deadline := time.Now().Add(3 * time.Second)
+		waitForSub := func(name string) bool {
+			for time.Now().Before(deadline) {
+				store.mu.Lock()
+				n := len(store.subs[name])
+				store.mu.Unlock()
+				if n > 0 {
+					return true
+				}
+				time.Sleep(5 * time.Millisecond)
+			}
+			return false
+		}
+		if !waitForSub("api") {
+			return
+		}
+		// A new service starts mid-stream: register its buffer and fire
+		// the buffer-added notification.
+		store.addService("worker")
+		// The stream should dynamically subscribe to "worker"; wait for
+		// that before broadcasting so the entry isn't dropped.
+		if !waitForSub("worker") {
+			return
+		}
+		store.broadcast("worker", service.LogEntry{
+			Service:   "worker",
+			Message:   "from-new-service",
+			Level:     service.LogLevelInfo,
+			Timestamp: time.Now(),
+		})
+	}()
+
+	// All-services mode (empty ServiceName) is the path that listens for
+	// new-buffer notifications.
+	stream, err := client.StreamLocalLogs(ctx, connect.NewRequest(&v1.StreamLocalLogsRequest{
+		ServiceName: "",
+	}))
+	if err != nil {
+		t.Fatalf("StreamLocalLogs: %v", err)
+	}
+
+	if !stream.Receive() {
+		t.Fatalf("Receive: %v", stream.Err())
+	}
+	got := stream.Msg().GetEntry()
+	if got == nil {
+		t.Fatalf("expected entry, got %+v", stream.Msg())
+	}
+	if got.GetService() != "worker" {
+		t.Errorf("service=%q want worker", got.GetService())
+	}
+	if got.GetMessage() != "from-new-service" {
+		t.Errorf("message=%q want from-new-service", got.GetMessage())
 	}
 }
 

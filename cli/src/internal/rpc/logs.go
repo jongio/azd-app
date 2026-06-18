@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -64,13 +63,12 @@ func NewLogsHandler(store LogsStore) *LogsHandler {
 	if store == nil {
 		panic("rpc: NewLogsHandler called with nil LogsStore")
 	}
-	// Validate LogsStoreFuncs fields to fail at wiring time, not at request time
+	// Validate LogsStoreFuncs fields to fail at wiring time, not at
+	// request time. The check lives next to the struct (logs_store.go)
+	// so new fields are validated where they're declared.
 	if f, ok := store.(LogsStoreFuncs); ok {
-		if f.GetRecentFn == nil || f.GetAllFn == nil || f.ServiceNamesFn == nil ||
-			f.SubscribeFn == nil || f.UnsubscribeFn == nil ||
-			f.LoadClassificationsFn == nil || f.SaveClassificationsFn == nil ||
-			f.LoadPreferencesFn == nil || f.SavePreferencesFn == nil {
-			panic("rpc: LogsStoreFuncs has nil function field(s) - all fields must be set")
+		if err := f.validate(); err != nil {
+			panic("rpc: " + err.Error())
 		}
 	}
 	return &LogsHandler{store: store}
@@ -112,16 +110,16 @@ func (h *LogsHandler) GetLogs(
 // localLogRing type below.
 //
 // Lifecycle:
-//  1. Resolve subscriptions (one channel per service).
-//  2. Spawn one pump goroutine per source channel; each pump pushes
-//     incoming entries into the per-stream ring (drop-OLDEST if full).
-//  3. Optionally backfill the most-recent N buffered entries before
-//     live tail begins (so reconnects don't blank the dashboard).
-//  4. Main loop selects on ctx.Done and the ring's notify channel;
-//     drains entries per notify, emitting a DroppedNotice ahead of the
-//     next entry whenever the ring's drop counter advanced.
-//  5. On return, deferred Unsubscribe closes each source channel; pump
-//     goroutines see the closed channel and exit.
+//  1. Resolve subscriptions via streamSubscriptions (one pump per service).
+//     Pumps start immediately so subscriber channels drain while backfill
+//     is being sent (prevents channel overflow).
+//  2. Optionally backfill the most-recent N buffered entries.
+//  3. Main loop selects on ctx.Done, the ring's notify channel, and
+//     (for all-services mode) new-buffer notifications; drains entries
+//     per notify, emitting a DroppedNotice ahead of the next entry
+//     whenever the ring's drop counter advanced.
+//  4. On return, deferred cleanup cancels pumps, unsubscribes, and
+//     removes the new-buffer listener.
 func (h *LogsHandler) StreamLocalLogs(
 	ctx context.Context,
 	req *connect.Request[v1.StreamLocalLogsRequest],
@@ -136,50 +134,45 @@ func (h *LogsHandler) StreamLocalLogs(
 		backfill = maxLocalLogBackfill
 	}
 
-	// Resolve subscriptions. Single-service: one channel; all-services:
-	// one channel per registered buffer at the moment of subscribe.
-	// New buffers created mid-stream will not appear (matches the legacy
-	// WebSocket behaviour - reconnect to pick up new services).
-	subs := make(map[string]chan service.LogEntry)
+	// Per-stream ring: bounded, drop-oldest, drop-counter wakes main loop.
+	ring := newLocalLogRing(localLogRingBufferSize)
+
+	// Subscription set: owns the pump goroutines, per-stream context, and
+	// cleanup. close() (deferred below) cancels pumps then unsubscribes.
+	subs := newStreamSubscriptions(ctx, h.store, ring)
+	defer subs.close()
+
+	// Register for new-buffer notifications BEFORE enumerating services so
+	// there's no window where a buffer created between ServiceNames() and
+	// OnBufferAdded() is missed. The dedup guard in subs.add prevents
+	// double-subscription for services that appear in both the initial
+	// list AND the notification channel. All-services mode only. A nil
+	// channel (no manager, or single-service mode) never fires in the
+	// select below, which is the intended "no dynamic subscription" path.
+	var bufferAdded <-chan string
+	if serviceName == "" {
+		bufferAdded = h.store.OnBufferAdded()
+		defer h.store.RemoveBufferListener(bufferAdded)
+	}
+
+	// Resolve initial subscriptions and start pumps immediately so the
+	// subscriber channels drain while we send backfill below.
 	if serviceName != "" {
-		ch, exists := h.store.Subscribe(serviceName)
-		if !exists {
+		if !subs.add(serviceName) {
 			return connect.NewError(
 				connect.CodeNotFound,
 				fmt.Errorf("service %q not found", serviceName),
 			)
 		}
-		subs[serviceName] = ch
 	} else {
 		for _, name := range h.store.ServiceNames() {
-			if ch, exists := h.store.Subscribe(name); exists {
-				subs[name] = ch
-			}
+			subs.add(name)
 		}
 	}
 
-	// Always release every subscription even on early-return paths.
-	defer func() {
-		for name, ch := range subs {
-			h.store.Unsubscribe(name, ch)
-		}
-	}()
-
-	// Per-stream ring: bounded, drop-oldest, drop-counter wakes main loop.
-	ring := newLocalLogRing(localLogRingBufferSize)
-
-	// Per-stream context so pump goroutines exit cleanly when the
-	// outer ctx is cancelled OR when this function returns for any
-	// other reason (e.g. send error). Defer ordering: streamCancel
-	// fires LAST (after Unsubscribe closes the source channels), so a
-	// pump goroutine that's blocked on ring.push gets woken either by
-	// the ring draining or by the cancel.
-	streamCtx, streamCancel := context.WithCancel(ctx)
-	defer streamCancel()
-
 	// Optional backfill: the most-recent N buffered entries before live
-	// tail begins. Resolved once at stream start so we don't race with
-	// concurrent buffer rotation.
+	// tail begins. Pumps are already draining subscriber channels into
+	// the ring so we won't lose entries that arrive during backfill send.
 	if backfill > 0 {
 		var seed []service.LogEntry
 		if serviceName != "" {
@@ -200,41 +193,20 @@ func (h *LogsHandler) StreamLocalLogs(
 		}
 	}
 
-	// Spawn one pump goroutine per subscription. Pumps exit when their
-	// source channel closes (Unsubscribe path) or the stream context is
-	// cancelled. They never block indefinitely on ring.push because
-	// drop-oldest semantics mean ring.push always returns immediately.
-	var pumpWg sync.WaitGroup
-	for _, ch := range subs {
-		pumpWg.Add(1)
-		go func(src chan service.LogEntry) {
-			defer pumpWg.Done()
-			for {
-				select {
-				case <-streamCtx.Done():
-					return
-				case entry, ok := <-src:
-					if !ok {
-						return
-					}
-					ring.push(toProtoLogEntry(entry))
-				}
-			}
-		}(ch)
-	}
-
 	// Main loop: drain ring on notify, emit dropped-notice when the
-	// drop counter advanced since the last drain.
+	// drop counter advanced, and subscribe to new services dynamically.
+	// bufferAdded is nil in single-service mode, so its select case
+	// never fires there.
 	var lastDropped int64
+
 	for {
 		select {
 		case <-ctx.Done():
-			// Wait for pumps to wind down so any in-flight ring.push
-			// completes before the function returns. Bounded by the
-			// per-pump select on streamCtx so this can't hang.
-			streamCancel()
-			pumpWg.Wait()
 			return nil
+
+		case newService := <-bufferAdded:
+			// A new service buffer was created; subscribe (add dedups).
+			subs.add(newService)
 
 		case <-ring.notify:
 			entries, dropped := ring.drain()

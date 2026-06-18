@@ -17,10 +17,25 @@ type LogManager struct {
 	buffers    map[string]*LogBuffer // key: serviceName
 	logFilter  *LogFilter            // Optional log filter for all buffers
 	mu         sync.RWMutex
+
+	// bufferAdded is a broadcast mechanism for notifying subscribers when
+	// new service buffers are created. Each listener registered via
+	// OnBufferAdded receives the service name on its channel. Channels
+	// are buffered (bufferAddedListenerCap) so a slow consumer doesn't
+	// block CreateBuffer; if a listener falls behind, the notification is
+	// dropped (the listener can poll ServiceNames to catch up).
+	listenersMu sync.Mutex
+	listeners   []chan string
 }
 
 // Compile-time interface compliance checks.
 var _ LogProvider = (*LogManager)(nil)
+
+// bufferAddedListenerCap bounds each OnBufferAdded listener channel. New
+// buffer notifications are sent non-blocking; if a listener falls behind
+// by more than this many service names, further notifications are
+// dropped (the listener can poll ServiceNames to catch up).
+const bufferAddedListenerCap = 16
 
 var (
 	logManagers   = make(map[string]*LogManager)
@@ -117,20 +132,27 @@ func loadLogFilterForProject(projectDir string) *LogFilter {
 // CreateBuffer creates a log buffer for a service.
 func (lm *LogManager) CreateBuffer(serviceName string, maxSize int, enableFileLogging bool) (*LogBuffer, error) {
 	lm.mu.Lock()
-	defer lm.mu.Unlock()
 
 	// Return existing buffer if already created
 	if buffer, exists := lm.buffers[serviceName]; exists {
+		lm.mu.Unlock()
 		return buffer, nil
 	}
 
 	// Create new buffer with the log filter
 	buffer, err := NewLogBufferWithFilter(serviceName, maxSize, enableFileLogging, lm.projectDir, lm.logFilter)
 	if err != nil {
+		lm.mu.Unlock()
 		return nil, fmt.Errorf("failed to create log buffer for %s: %w", serviceName, err)
 	}
 
 	lm.buffers[serviceName] = buffer
+	lm.mu.Unlock()
+
+	// Notify listeners outside of the main lock to avoid holding it
+	// while potentially slow consumers process the notification.
+	lm.notifyBufferAdded(serviceName)
+
 	return buffer, nil
 }
 
@@ -293,6 +315,48 @@ func (lm *LogManager) GetServiceNames() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// OnBufferAdded registers a listener that receives the service name each
+// time a new buffer is created. The returned channel is buffered;
+// notifications are dropped (non-blocking send) if the listener doesn't
+// drain promptly. Callers MUST eventually call RemoveBufferListener to
+// prevent resource leaks.
+func (lm *LogManager) OnBufferAdded() <-chan string {
+	ch := make(chan string, bufferAddedListenerCap)
+	lm.listenersMu.Lock()
+	lm.listeners = append(lm.listeners, ch)
+	lm.listenersMu.Unlock()
+	return ch
+}
+
+// RemoveBufferListener removes a previously registered listener and
+// closes its channel. The channel must be one returned by OnBufferAdded.
+// Safe to call with a channel that was already removed.
+func (lm *LogManager) RemoveBufferListener(ch <-chan string) {
+	lm.listenersMu.Lock()
+	defer lm.listenersMu.Unlock()
+	for i, listener := range lm.listeners {
+		if listener == ch {
+			lm.listeners = append(lm.listeners[:i], lm.listeners[i+1:]...)
+			close(listener)
+			return
+		}
+	}
+}
+
+// notifyBufferAdded sends the service name to all registered listeners.
+// Non-blocking: slow listeners miss the notification (they can poll
+// ServiceNames to discover the new buffer).
+func (lm *LogManager) notifyBufferAdded(serviceName string) {
+	lm.listenersMu.Lock()
+	defer lm.listenersMu.Unlock()
+	for _, ch := range lm.listeners {
+		select {
+		case ch <- serviceName:
+		default:
+		}
+	}
 }
 
 // RemoveBuffer removes a log buffer for a service.
