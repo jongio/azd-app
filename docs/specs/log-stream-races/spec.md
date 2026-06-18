@@ -1,6 +1,7 @@
 ---
+issue: https://github.com/jongio/azd-app/pull/340
 author: "@jongio"
-status: draft
+status: shipped
 ---
 
 # Fix Log Streaming Race Conditions
@@ -99,13 +100,3 @@ gated on `connected` because Log Analytics genuinely needs the backend reachable
   entries that arrive between subscribe and backfill-snapshot. The ring buffer's
   drop-oldest semantics and the dashboard's append-only log list mean duplicates
   are visually harmless. A future enhancement could add sequence-based dedup.
-
-<!-- Pipeline tracking (auto-managed, not part of product spec) -->
-## Pipeline Status
-Phase: SHIPPING
-Completed: Phase 1-4 (scope, build, verify, certify)
-Worktree: .worktrees/go-log-stream-races
-Branch: fix/log-stream-race-conditions
-Quality gates: golangci-lint 0 issues, gosec/staticcheck no new findings, go test -race clean,
-  vitest 1421 pass, tsc clean, full CLI build clean
-Remaining: Phase 5 (rebase, commit, PR — human-gated)
