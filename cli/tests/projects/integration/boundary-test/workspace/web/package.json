@@ -6,6 +6,6 @@
     "dev": "vite"
   },
   "dependencies": {
-    "vite": "^5.0.0"
+    "vite": "^8.0.16"
   }
 }

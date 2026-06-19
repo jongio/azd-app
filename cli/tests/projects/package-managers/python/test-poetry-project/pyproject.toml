@@ -6,7 +6,7 @@ authors = ["Test <test@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-six = "^1.16.0"
+six = "^1.17.0"
 
 [build-system]
 requires = ["poetry-core"]

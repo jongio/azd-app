@@ -9,6 +9,6 @@
     "test": "echo 'No tests configured'"
   },
   "devDependencies": {
-    "typescript": "^5.3.0"
+    "typescript": "^6.0.3"
   }
 }

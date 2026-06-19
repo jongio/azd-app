@@ -11,11 +11,11 @@
     "start": "node dist/cli.js"
   },
   "devDependencies": {
-    "nodemon": "^3.0.0",
-    "ts-node": "^10.9.0",
-    "typescript": "^5.0.0"
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
   },
   "dependencies": {
-    "commander": "^11.0.0"
+    "commander": "^15.0.0"
   }
 }

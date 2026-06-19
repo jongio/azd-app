@@ -10,9 +10,9 @@
     "test:coverage": "c8 npm test"
   },
   "devDependencies": {
-    "chai": "^5.1.0",
-    "mocha": "^10.7.0",
-    "jasmine": "^5.4.0",
-    "c8": "^10.1.0"
+    "chai": "^6.2.2",
+    "mocha": "^11.7.6",
+    "jasmine": "^6.3.0",
+    "c8": "^11.0.0"
   }
 }
