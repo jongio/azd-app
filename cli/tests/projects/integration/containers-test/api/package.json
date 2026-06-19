@@ -9,9 +9,9 @@
   "keywords": ["test", "containers", "azurite", "cosmos", "redis", "postgres"],
   "license": "MIT",
   "dependencies": {
-    "@azure/storage-blob": "^12.17.0",
-    "@azure/cosmos": "^4.0.0",
-    "redis": "^4.6.12",
-    "pg": "^8.11.3"
+    "@azure/storage-blob": "^12.32.0",
+    "@azure/cosmos": "^4.9.3",
+    "redis": "^6.0.0",
+    "pg": "^8.22.0"
   }
 }
