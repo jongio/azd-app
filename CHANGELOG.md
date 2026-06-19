@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Updated dependencies
+- Updated all dependencies to their latest versions: Go modules (`cli/`), web and dashboard pnpm packages, sample/fixture project manifests, and the `cli/demo/api` sample
+- Bumped CI actions: `actions/checkout` to v6.0.3 and `codecov/codecov-action` to v7.0.0 (migrated deprecated `file:` input to `files:`)
 
 ## [0.6.0] - 2025-11-08
 
