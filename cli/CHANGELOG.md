@@ -1,3 +1,13 @@
+## [0.19.4] - 2026-06-19
+
+- docs: add CHANGELOG entry for dependency update sweep (3fb070c9)
+- deps: update sample, fixture, and ancillary project dependencies (2766f868)
+- ci: bump actions/checkout to v6.0.3 and codecov-action to v7.0.0 (e93643b9)
+- deps: update pnpm dependencies in cli/dashboard/ (0edea683)
+- deps: update pnpm dependencies in web/ (cefe1f51)
+- deps: update Go dependencies in cli/ (1d7474e4)
+- chore: update registry for v0.19.3 (6b04785b)
+
 ## [0.19.3] - 2026-06-19
 
 - test(runner): fix flaky Windows temp-dir cleanup in TestRunPython_ValidEntrypoints (#341) (c23b4abc)
