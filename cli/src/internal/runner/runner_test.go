@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	types "github.com/jongio/azd-core/projecttype"
 )
@@ -599,6 +600,30 @@ func TestRunPython_LeadingDashEntrypoint(t *testing.T) {
 func TestRunPython_ValidEntrypoints(t *testing.T) {
 	tmpDir := t.TempDir()
 
+	// RunPython starts a fire-and-forget child process whose working
+	// directory is tmpDir. On Windows that process holds a handle on
+	// tmpDir, which races with the RemoveAll that t.TempDir() registered
+	// above ("The process cannot access the file because it is being used
+	// by another process"). Drive every RunPython call off a cancellable
+	// context and, in a cleanup that runs BEFORE t.TempDir()'s (t.Cleanup
+	// is LIFO), cancel the context and poll-remove tmpDir until Windows
+	// releases the handles. Once tmpDir is gone, t.TempDir()'s own
+	// RemoveAll is a no-op and can't fail.
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(func() {
+		cancel()
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			if err := os.RemoveAll(tmpDir); err == nil {
+				return
+			}
+			if time.Now().After(deadline) {
+				return // let t.TempDir()'s cleanup surface any residual error
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	})
+
 	validEntrypoints := []string{
 		"main.py",
 		"src/main.py",
@@ -626,7 +651,7 @@ func TestRunPython_ValidEntrypoints(t *testing.T) {
 
 			// The call may fail because python/venv is absent in CI, but it must NOT fail
 			// with an argv injection error.
-			err := RunPython(context.Background(), project)
+			err := RunPython(ctx, project)
 			if err != nil {
 				// An error is acceptable here (missing python binary, missing venv, etc.)
 				// but it must not be the argv injection guard.
