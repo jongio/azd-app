@@ -1,3 +1,9 @@
+## [0.19.3] - 2026-06-19
+
+- test(runner): fix flaky Windows temp-dir cleanup in TestRunPython_ValidEntrypoints (#341) (c23b4abc)
+- fix(logging): fix log streaming reliability and latency to dashboard (#340) (8b0ed539)
+- chore: update registry for v0.19.2 (70800f23)
+
 ## [0.19.2] - 2026-06-08
 
 - chore: update Go version refs to 1.26.4 and refresh docs (e9a79bb5)
