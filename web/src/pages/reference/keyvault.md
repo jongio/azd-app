@@ -1,4 +1,5 @@
 ---
+layout: ../../components/Layout.astro
 title: "Azure Key Vault Integration"
 description: "Automatically resolve Azure Key Vault secrets in environment variables across all azd app commands"
 ---

@@ -12,10 +12,10 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@azure/functions": "^4.0.0"
+    "@azure/functions": "^4.16.1"
   },
   "devDependencies": {
     "typescript": "^6.0.3",
-    "@types/node": "^26.0.0"
+    "@types/node": "^26.0.1"
   }
 }

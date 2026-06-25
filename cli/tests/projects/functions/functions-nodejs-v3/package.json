@@ -8,6 +8,6 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "azure-functions-core-tools": "^4.0.0"
+    "azure-functions-core-tools": "^4.12.1"
   }
 }
