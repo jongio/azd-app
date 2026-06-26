@@ -1,3 +1,9 @@
+## [0.19.5] - 2026-06-26
+
+- chore(deps): upgrade all dependencies to latest (#353) (04ee089b)
+- deps: dependency update sweep (resolves #345, #346, #347) (#348) (bf85d52e)
+- chore: update registry for v0.19.4 (98195f6e)
+
 ## [0.19.4] - 2026-06-19
 
 - docs: add CHANGELOG entry for dependency update sweep (3fb070c9)
