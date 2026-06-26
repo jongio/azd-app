@@ -100,6 +100,7 @@ func main() {
 		commands.NewRestartCommand(),
 		commands.NewAddCommand(),
 		commands.NewSupportBundleCommand(),
+		commands.NewGraphCommand(),
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
 	)
 
