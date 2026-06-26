@@ -153,6 +153,7 @@ type logsOptions struct {
 	noBuiltins   bool
 	contextLines int    // Number of context lines before/after matching entries (0-10)
 	source       string // Log source: "local", "azure", or "all"
+	redact       bool
 }
 
 // logsExecutor encapsulates the logs command execution with injectable dependencies.
@@ -292,6 +293,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.noBuiltins, "no-builtins", false, "Disable built-in filter patterns")
 	cmd.Flags().IntVar(&opts.contextLines, "context", 0, "Number of context lines before/after matching entries (0-10, requires --level)")
 	cmd.Flags().StringVar(&opts.source, "source", "local", "Log source: 'local' (default), 'azure', or 'all'")
+	cmd.Flags().BoolVar(&opts.redact, "redact", false, "Redact secret-shaped values before printing logs")
 
 	return cmd
 }
@@ -335,6 +337,9 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	// Emit any warnings collected during log retrieval
 	for _, w := range collected.Warnings {
 		cliout.Warning("%s", w)
+	}
+	if e.opts.redact {
+		redactCollectedLogs(collected)
 	}
 
 	if e.opts.source == string(LogSourceAzure) && !e.opts.follow {
@@ -805,6 +810,27 @@ func (e *logsExecutor) getOrCreateSignalChan() (chan os.Signal, func()) {
 	}
 
 	return sigChan, cleanup
+}
+
+func redactCollectedLogs(collected *CollectedLogs) {
+	if collected == nil {
+		return
+	}
+	for i := range collected.Entries {
+		collected.Entries[i].Message = service.MaskSecretsInLogLine(collected.Entries[i].Message)
+	}
+	for i := range collected.EntriesWithContext {
+		collected.EntriesWithContext[i].Message = service.MaskSecretsInLogLine(collected.EntriesWithContext[i].Message)
+		if collected.EntriesWithContext[i].Context == nil {
+			continue
+		}
+		for j := range collected.EntriesWithContext[i].Context.Before {
+			collected.EntriesWithContext[i].Context.Before[j] = service.MaskSecretsInLogLine(collected.EntriesWithContext[i].Context.Before[j])
+		}
+		for j := range collected.EntriesWithContext[i].Context.After {
+			collected.EntriesWithContext[i].Context.After[j] = service.MaskSecretsInLogLine(collected.EntriesWithContext[i].Context.After[j])
+		}
+	}
 }
 
 // shouldDisplayEntry checks if a log entry should be displayed based on filters.

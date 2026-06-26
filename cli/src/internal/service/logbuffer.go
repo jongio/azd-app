@@ -129,8 +129,8 @@ var sensitivePatterns = regexp.MustCompile(
 		`(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})`,
 )
 
-// maskSecretsInLogLine redacts sensitive values from a log message before writing to file.
-func maskSecretsInLogLine(message string) string {
+// MaskSecretsInLogLine redacts sensitive values from a log message.
+func MaskSecretsInLogLine(message string) string {
 	return sensitivePatterns.ReplaceAllStringFunc(message, func(match string) string {
 		// For key=value patterns, keep the key and mask the value
 		if idx := strings.IndexAny(match, "=:"); idx >= 0 {
@@ -155,7 +155,7 @@ func (lb *LogBuffer) writeToFile(entry LogEntry) {
 		stream = "ERR"
 	}
 
-	line := fmt.Sprintf("[%s] [%s] [%s] %s\n", timestamp, level, stream, maskSecretsInLogLine(entry.Message))
+	line := fmt.Sprintf("[%s] [%s] [%s] %s\n", timestamp, level, stream, MaskSecretsInLogLine(entry.Message))
 	n, err := lb.fileWriter.WriteString(line)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to write log entry: %v\n", err)
