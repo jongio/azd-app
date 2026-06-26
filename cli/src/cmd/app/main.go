@@ -98,6 +98,7 @@ func main() {
 		commands.NewStopCommand(),
 		commands.NewRestartCommand(),
 		commands.NewAddCommand(),
+		commands.NewSupportBundleCommand(),
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
 	)
 
