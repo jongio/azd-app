@@ -4,7 +4,7 @@
   "description": "Alternative Node.js testing frameworks - Mocha and Jasmine",
   "type": "module",
   "scripts": {
-    "test:mocha": "mocha 'mocha/**/*.test.js'",
+    "test:mocha": "mocha \"mocha/**/*.test.js\"",
     "test:jasmine": "cd jasmine && jasmine --config=jasmine.json",
     "test": "npm run test:mocha && npm run test:jasmine",
     "test:coverage": "c8 npm test"
