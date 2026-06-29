@@ -60,7 +60,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.7 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
 	github.com/charmbracelet/x/exp/golden v0.0.0-20260622092256-25656177ba8e // indirect
-	github.com/charmbracelet/x/exp/slice v0.0.0-20260628005914-6eb80f72a239 // indirect
+	github.com/charmbracelet/x/exp/slice v0.0.0-20260629091435-9c70f75e26a4 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/cli/browser v1.3.0 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
