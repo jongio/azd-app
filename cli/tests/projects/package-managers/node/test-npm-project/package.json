@@ -2,7 +2,7 @@
   "name": "test-npm-project",
   "version": "1.0.0",
   "description": "Test npm project",
-  "packageManager": "npm@11.17.0",
+  "packageManager": "npm@11.18.0",
   "scripts": {
     "start": "node index.js"
   },
