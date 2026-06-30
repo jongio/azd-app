@@ -480,11 +480,13 @@ func TestRunFunctionApp_WithHostJson(t *testing.T) {
 				Language: "test",
 			}
 
-			// Validation passes but execution fails without `func` CLI - that's expected.
-			// Verify we get a non-nil error about func not being found (not a validation error).
-			err := RunFunctionApp(context.Background(), project, 7071)
+			// Validation passes, then execution stops on the canceled context before
+			// launching a long-running func process when Core Tools is installed.
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			err := RunFunctionApp(ctx, project, 7071)
 			if err == nil {
-				t.Log("RunFunctionApp succeeded - func CLI must be installed")
+				t.Error("expected canceled context error")
 			}
 		})
 	}
@@ -515,10 +517,13 @@ func TestRunFunctionApp_LogicAppsWithWorkflows(t *testing.T) {
 		Language: "Logic Apps",
 	}
 
-	// Validation passes (host.json + workflows exist) but execution fails without `func` CLI.
-	err := RunFunctionApp(context.Background(), project, 7071)
+	// Validation passes (host.json + workflows exist), then execution stops on
+	// the canceled context before launching a long-running func process.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := RunFunctionApp(ctx, project, 7071)
 	if err == nil {
-		t.Log("RunFunctionApp succeeded - func CLI must be installed")
+		t.Error("expected canceled context error")
 	}
 }
 
