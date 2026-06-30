@@ -136,25 +136,55 @@ func StopServiceGraceful(process *ServiceProcess, timeout time.Duration) error {
 			slog.String("service", process.Name),
 			slog.Int("pid", process.Process.Pid))
 
+		taskkillTimeout := timeout
+		if taskkillTimeout < 2*time.Second {
+			taskkillTimeout = 2 * time.Second
+		}
+		if taskkillTimeout > 5*time.Second {
+			taskkillTimeout = 5 * time.Second
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), taskkillTimeout)
+		defer cancel()
+
 		// Use taskkill /F /T to force kill entire process tree
 		// /F = Force termination
 		// /T = Kill child processes (tree kill)
 		// /PID = Target process ID
 		// #nosec G204 -- PID is from os.Process which is a validated integer
-		cmd := exec.CommandContext(context.Background(), "taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", process.Process.Pid))
+		cmd := exec.CommandContext(ctx, "taskkill", "/F", "/T", "/PID", fmt.Sprintf("%d", process.Process.Pid))
 		if err := cmd.Run(); err != nil {
 			// taskkill returns error if process already exited, which is fine
 			slog.Debug("taskkill completed with error (process may have already exited)",
 				slog.String("service", process.Name),
 				slog.String("error", err.Error()))
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				slog.Warn("taskkill timed out, falling back to direct process kill",
+					slog.String("service", process.Name),
+					slog.Duration("timeout", taskkillTimeout))
+				if killErr := process.Process.Kill(); killErr != nil && !isAccessDeniedError(killErr) {
+					return fmt.Errorf("failed to kill process after taskkill timeout: %w", killErr)
+				}
+			}
 		}
 
-		// Wait for process to exit - this may fail if taskkill already cleaned up
-		_, waitErr := process.Process.Wait()
-		// Ignore "Access is denied" - process already exited on Windows
-		if waitErr != nil && !isAccessDeniedError(waitErr) {
-			slog.Debug("wait completed with error (expected if taskkill succeeded)",
-				slog.String("error", waitErr.Error()))
+		done := make(chan error, 1)
+		go func() {
+			_, waitErr := process.Process.Wait()
+			done <- waitErr
+		}()
+
+		waitTimeout := 500 * time.Millisecond
+		select {
+		case waitErr := <-done:
+			// Ignore "Access is denied" - process already exited on Windows
+			if waitErr != nil && !isAccessDeniedError(waitErr) {
+				slog.Debug("wait completed with error (expected if taskkill succeeded)",
+					slog.String("error", waitErr.Error()))
+			}
+		case <-time.After(waitTimeout):
+			slog.Debug("process wait did not complete before timeout; returning after kill request",
+				slog.String("service", process.Name),
+				slog.Duration("timeout", waitTimeout))
 		}
 		slog.Info("service stopped",
 			slog.String("service", process.Name))
