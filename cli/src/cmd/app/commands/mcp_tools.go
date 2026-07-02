@@ -348,7 +348,7 @@ func addRunServicesTool(b *azdext.MCPServerBuilder) {
 		"run_services", handleRunServices,
 		azdext.MCPToolOptions{
 			Title:       "Run Development Services",
-			Description: "Start development services defined in azure.yaml, Aspire, or docker compose. This command will start the application in the background and return information about the started services.",
+			Description: "Start development services defined in azure.yaml, Aspire, or docker compose. By default this starts the application in the background and returns immediately. Set wait=true to block until every service is ready (or timeoutSeconds elapses) and get each service's final state back.",
 		},
 		mcp.WithString(
 			"projectDir",
@@ -357,6 +357,14 @@ func addRunServicesTool(b *azdext.MCPServerBuilder) {
 		mcp.WithString(
 			"runtime",
 			mcp.Description("Optional runtime mode: 'azd' (default), 'aspire', 'pnpm', or 'docker-compose'."),
+		),
+		mcp.WithBoolean(
+			"wait",
+			mcp.Description("If true, block until all services are ready or timeoutSeconds elapses before returning. Default false (returns immediately after starting)."),
+		),
+		mcp.WithNumber(
+			"timeoutSeconds",
+			mcp.Description("Maximum seconds to wait for readiness when wait is true. Default 120."),
 		),
 	)
 }
@@ -372,6 +380,26 @@ func handleRunServices(ctx context.Context, args azdext.ToolArgs) (*mcp.CallTool
 			return mcpErrorResult("%s", valErr.Error()), nil
 		}
 		cmdArgs = append(cmdArgs, "--runtime", runtime)
+	}
+
+	wait := args.OptionalBool("wait", false)
+	timeoutSeconds := args.OptionalInt("timeoutSeconds", defaultRunWaitTimeoutSeconds)
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = defaultRunWaitTimeoutSeconds
+	}
+	if timeoutSeconds > maxRunWaitTimeoutSeconds {
+		timeoutSeconds = maxRunWaitTimeoutSeconds
+	}
+
+	// Resolve the directory used for readiness polling up front so an invalid
+	// path fails before we start the process.
+	pollDir := ""
+	if wait {
+		pd, pdErr := extractValidatedProjectDir(args)
+		if pdErr != nil {
+			return mcpErrorResult("Invalid project directory: %v", pdErr), nil
+		}
+		pollDir = pd
 	}
 
 	// Note: azd app run is interactive and long-running, so we run it in a non-blocking way
@@ -428,6 +456,27 @@ func handleRunServices(ctx context.Context, args azdext.ToolArgs) (*mcp.CallTool
 		_ = cmd.Wait()
 	}()
 
+	if wait {
+		waitRes := waitForServicesReady(ctx, pollDir, time.Duration(timeoutSeconds)*time.Second, runWaitPollInterval)
+		result := map[string]any{
+			"ready":    waitRes.Ready,
+			"services": waitRes.Services,
+		}
+		if pid > 0 {
+			result["pid"] = pid
+		}
+		if waitRes.TimedOut {
+			result["status"] = "timeout"
+			result["message"] = fmt.Sprintf(
+				"Timed out after %ds waiting for services to become ready. See services for the current state of each one.",
+				timeoutSeconds)
+		} else {
+			result["status"] = "ready"
+			result["message"] = "All services are ready."
+		}
+		return marshalToolResult(result)
+	}
+
 	result := map[string]any{
 		"status":  "started",
 		"message": "Services are starting in the background. Use get_services to check their status.",
@@ -437,6 +486,102 @@ func handleRunServices(ctx context.Context, args azdext.ToolArgs) (*mcp.CallTool
 	}
 
 	return marshalToolResult(result)
+}
+
+// Readiness constants and helpers backing the run_services wait behavior.
+const (
+	defaultRunWaitTimeoutSeconds = 120
+	maxRunWaitTimeoutSeconds     = 900
+	runWaitPollInterval          = 1 * time.Second
+
+	serviceStatusRunning   = "running"
+	serviceHealthUnhealthy = "unhealthy"
+)
+
+// serviceReadiness is the per-service state reported by the wait behavior.
+type serviceReadiness struct {
+	Name   string `json:"name"`
+	Status string `json:"status,omitempty"`
+	Health string `json:"health,omitempty"`
+	Ready  bool   `json:"ready"`
+}
+
+// runWaitResult is the structured result returned when run_services waits for
+// readiness. TimedOut distinguishes a timeout from a clean all-ready return so
+// the caller can tell why it stopped waiting.
+type runWaitResult struct {
+	Ready    bool               `json:"ready"`
+	TimedOut bool               `json:"timedOut"`
+	Services []serviceReadiness `json:"services"`
+}
+
+// pollServicesReadiness reads the current readiness of every service. It is a
+// package var so tests can stub the services source without a live dashboard.
+var pollServicesReadiness = collectServiceReadiness
+
+// collectServiceReadiness reuses the same service source as get_services and
+// info, then derives a ready flag per service. A service is ready once it is
+// running and not explicitly unhealthy; a running service without a health
+// probe reports "unknown" and counts as ready.
+func collectServiceReadiness(ctx context.Context, projectDir string) ([]serviceReadiness, error) {
+	services, err := collectServiceInfoForMCP(ctx, projectDir)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]serviceReadiness, 0, len(services))
+	for _, svc := range services {
+		if svc == nil {
+			continue
+		}
+		r := serviceReadiness{Name: svc.Name}
+		if svc.Local != nil {
+			r.Status = svc.Local.Status
+			r.Health = svc.Local.Health
+			r.Ready = svc.Local.Status == serviceStatusRunning && svc.Local.Health != serviceHealthUnhealthy
+		}
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+// allServicesReady reports whether every service is ready. An empty set is not
+// ready: it means no service state is available yet, so waiting should continue.
+func allServicesReady(rs []serviceReadiness) bool {
+	if len(rs) == 0 {
+		return false
+	}
+	for _, r := range rs {
+		if !r.Ready {
+			return false
+		}
+	}
+	return true
+}
+
+// waitForServicesReady polls readiness until every service is ready, the
+// timeout elapses, or the context is cancelled. On timeout or cancellation it
+// returns the last observed state with TimedOut set, never a bare error, so the
+// caller can report which services did and did not come up.
+func waitForServicesReady(ctx context.Context, projectDir string, timeout, interval time.Duration) runWaitResult {
+	deadline := time.Now().Add(timeout)
+	var last []serviceReadiness
+	for {
+		readiness, err := pollServicesReadiness(ctx, projectDir)
+		if err == nil {
+			last = readiness
+			if allServicesReady(readiness) {
+				return runWaitResult{Ready: true, Services: readiness}
+			}
+		}
+		if !time.Now().Before(deadline) {
+			return runWaitResult{Ready: false, TimedOut: true, Services: last}
+		}
+		select {
+		case <-ctx.Done():
+			return runWaitResult{Ready: false, TimedOut: true, Services: last}
+		case <-time.After(interval):
+		}
+	}
 }
 
 // --- stop_services ---
