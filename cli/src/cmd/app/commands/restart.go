@@ -48,6 +48,8 @@ Examples:
 	cmd.Flags().BoolVar(&restartAll, "all", false, "Restart all services")
 	cmd.Flags().BoolVarP(&restartYes, "yes", "y", false, "Skip confirmation prompt for --all")
 
+	registerServiceFlagCompletion(cmd, "service")
+
 	return cmd
 }
 

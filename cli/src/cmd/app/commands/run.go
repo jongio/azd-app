@@ -64,6 +64,8 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&runForce, "force", false, "Force clean dependency reinstall and auto-resolve port conflicts without prompting")
 	cmd.Flags().BoolVarP(&runTrust, "trust", "y", false, "Trust this workspace for code execution and remember the decision")
 
+	registerServiceFlagCompletion(cmd, "service")
+
 	return cmd
 }
 
