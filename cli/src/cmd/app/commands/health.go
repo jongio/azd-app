@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/healthcheck"
+	"github.com/jongio/azd-app/cli/src/internal/service"
 
 	"github.com/spf13/cobra"
 )
@@ -247,6 +249,23 @@ func runHealth(cmd *cobra.Command, args []string) error {
 
 	// Parse service filter
 	serviceFilter := parseServiceFilter(healthService)
+
+	// Validate requested service names against azure.yaml so an unknown name
+	// produces a helpful "did you mean" error instead of an empty report.
+	if len(serviceFilter) > 0 {
+		if azureYaml, yamlErr := service.ParseAzureYaml(projectDir); yamlErr == nil {
+			names := make([]string, 0, len(azureYaml.Services))
+			for name := range azureYaml.Services {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			for _, requested := range serviceFilter {
+				if _, resolveErr := resolveServiceName(requested, names); resolveErr != nil {
+					return resolveErr
+				}
+			}
+		}
+	}
 
 	// Handle interrupt signals for graceful shutdown
 	setupSignalHandler(ctx, cancel)

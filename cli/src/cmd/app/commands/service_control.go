@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -122,10 +123,28 @@ func (c *ServiceController) validateAndGetService(serviceName string) (*registry
 
 	entry, exists := c.registry.GetService(serviceName)
 	if !exists {
-		return nil, newErrorResult(serviceName, fmt.Sprintf("service '%s' not found", serviceName))
+		return nil, newErrorResult(serviceName, serviceNotFoundError(serviceName, c.availableServiceNames()).Error())
 	}
 
 	return entry, nil
+}
+
+// availableServiceNames returns the names of the services defined for this
+// project. It prefers the service definitions in azure.yaml (the source of
+// truth, available even before anything has been started) and falls back to
+// the runtime registry when azure.yaml cannot be parsed.
+func (c *ServiceController) availableServiceNames() []string {
+	if azureYaml, err := service.ParseAzureYaml(c.projectDir); err == nil {
+		names := make([]string, 0, len(azureYaml.Services))
+		for name := range azureYaml.Services {
+			names = append(names, name)
+		}
+		if len(names) > 0 {
+			sort.Strings(names)
+			return names
+		}
+	}
+	return c.GetAllServices()
 }
 
 // isRunning returns true if the service status indicates it's running.
@@ -313,7 +332,12 @@ func (c *ServiceController) performStart(ctx context.Context, entry *registry.Se
 
 	svcDef, exists := azureYaml.Services[serviceName]
 	if !exists {
-		return fmt.Errorf("service '%s' not found in azure.yaml", serviceName)
+		names := make([]string, 0, len(azureYaml.Services))
+		for name := range azureYaml.Services {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		return serviceNotFoundError(serviceName, names)
 	}
 
 	// Detect runtime
