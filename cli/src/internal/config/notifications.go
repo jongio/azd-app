@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -34,6 +35,15 @@ type NotificationPreferences struct {
 	// RateLimitWindow defines the deduplication window (default: 5 minutes)
 	// Format: "5m", "10s", etc. (parsed via time.ParseDuration)
 	RateLimitWindow string `json:"rateLimitWindow,omitempty"`
+
+	// WebhookEnabled controls whether qualifying events are POSTed to WebhookURL.
+	WebhookEnabled bool `json:"webhookEnabled,omitempty"`
+
+	// WebhookURL is the http(s) endpoint that receives event JSON when WebhookEnabled is true.
+	WebhookURL string `json:"webhookUrl,omitempty"`
+
+	// WebhookHeaders are optional headers added to each webhook request (e.g. an auth token).
+	WebhookHeaders map[string]string `json:"webhookHeaders,omitempty"`
 
 	mu sync.RWMutex `json:"-"`
 }
@@ -240,6 +250,17 @@ func (p *NotificationPreferences) Validate() error {
 		}
 	}
 
+	// Validate webhook URL when webhook delivery is enabled
+	if p.WebhookEnabled {
+		if p.WebhookURL == "" {
+			return errors.New("webhook is enabled but webhookUrl is empty")
+		}
+		u, err := url.Parse(p.WebhookURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return fmt.Errorf("invalid webhook URL %q: must be an absolute http or https URL", p.WebhookURL)
+		}
+	}
+
 	return nil
 }
 
@@ -362,6 +383,35 @@ func (p *NotificationPreferences) GetRateLimitDuration() time.Duration {
 		return 5 * time.Minute // Default: 5 minutes
 	}
 	return duration
+}
+
+// WebhookConfigured reports whether webhook delivery is enabled with a URL set.
+func (p *NotificationPreferences) WebhookConfigured() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.WebhookEnabled && p.WebhookURL != ""
+}
+
+// GetWebhookURL returns the configured webhook URL.
+func (p *NotificationPreferences) GetWebhookURL() string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.WebhookURL
+}
+
+// GetWebhookHeaders returns a copy of the configured webhook headers, or nil
+// when none are set. The copy prevents callers from mutating shared state.
+func (p *NotificationPreferences) GetWebhookHeaders() map[string]string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if len(p.WebhookHeaders) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(p.WebhookHeaders))
+	for k, v := range p.WebhookHeaders {
+		out[k] = v
+	}
+	return out
 }
 
 // isValidTimeFormat checks if a time string is in HH:MM format (24-hour).
