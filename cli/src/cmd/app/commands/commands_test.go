@@ -135,8 +135,8 @@ func TestNewInfoCommand(t *testing.T) {
 		t.Fatal("NewInfoCommand() returned nil")
 	}
 
-	if cmd.Use != "info" {
-		t.Errorf("Use = %q, want %q", cmd.Use, "info")
+	if cmd.Use != "info [service...]" {
+		t.Errorf("Use = %q, want %q", cmd.Use, "info [service...]")
 	}
 
 	if cmd.Short == "" {

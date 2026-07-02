@@ -617,8 +617,7 @@ func (e *logsExecutor) validateServiceFilter(serviceFilter, serviceNames []strin
 	// Validate each filter service
 	for _, filterName := range serviceFilter {
 		if _, ok := serviceSet[filterName]; !ok {
-			return fmt.Errorf("service '%s' not found (available: %s)",
-				filterName, strings.Join(serviceNames, ", "))
+			return serviceNotFoundError(filterName, serviceNames)
 		}
 	}
 	return nil

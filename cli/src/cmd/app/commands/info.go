@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -26,9 +27,9 @@ const (
 // NewInfoCommand creates the info command.
 func NewInfoCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "info",
+		Use:          "info [service...]",
 		Short:        "Show information about running services",
-		Long:         `Displays comprehensive information about all running services including URLs, status, health, and metadata`,
+		Long:         `Displays comprehensive information about all running services including URLs, status, health, and metadata. Pass one or more service names to show only those services.`,
 		SilenceUsage: true,
 		RunE:         runInfo,
 	}
@@ -75,6 +76,14 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	// Get Azure environment values for environment variable display
 	azureEnv := getAzureEnvironmentValues()
 
+	// Filter to the requested services when names are passed as arguments.
+	if len(args) > 0 {
+		allServices, err = filterServicesByName(allServices, args)
+		if err != nil {
+			return err
+		}
+	}
+
 	// For JSON output
 	if cliout.IsJSON() {
 		return printInfoJSON(cwd, allServices, azureEnv)
@@ -83,6 +92,29 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	// Default output
 	printInfoDefault(cwd, allServices, azureEnv)
 	return nil
+}
+
+// filterServicesByName returns only the services whose names are in the
+// requested list. Each requested name is validated against the available
+// services, returning a helpful "did you mean" error when a name is unknown.
+func filterServicesByName(services []*serviceinfo.ServiceInfo, requested []string) ([]*serviceinfo.ServiceInfo, error) {
+	available := make([]string, 0, len(services))
+	byName := make(map[string]*serviceinfo.ServiceInfo, len(services))
+	for _, svc := range services {
+		available = append(available, svc.Name)
+		byName[svc.Name] = svc
+	}
+	sort.Strings(available)
+
+	filtered := make([]*serviceinfo.ServiceInfo, 0, len(requested))
+	for _, name := range requested {
+		resolved, err := resolveServiceName(name, available)
+		if err != nil {
+			return nil, err
+		}
+		filtered = append(filtered, byName[resolved])
+	}
+	return filtered, nil
 }
 
 // printInfoJSON outputs service information in JSON format.
