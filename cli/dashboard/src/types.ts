@@ -132,6 +132,10 @@ export interface LocalServiceInfo {
   healthDetails?: HealthDetails
   serviceType?: ServiceType
   serviceMode?: ServiceMode
+  /** CPU usage of the running process tree, as a percentage of one core */
+  cpuPercent?: number
+  /** Resident memory of the running process tree, in bytes */
+  memoryBytes?: number
 }
 
 export interface AzureServiceInfo {

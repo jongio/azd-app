@@ -180,6 +180,10 @@ export function protoServiceToService(info: ServiceInfo): Service {
     if (lastChecked) local.lastChecked = lastChecked
     if (serviceType) local.serviceType = serviceType as LocalServiceInfo['serviceType']
     if (serviceMode) local.serviceMode = serviceMode as LocalServiceInfo['serviceMode']
+    if (info.cpuPercent !== 0) local.cpuPercent = info.cpuPercent
+    // memoryBytes arrives as a bigint (proto int64). RSS comfortably fits in a
+    // JS number, so narrow it for the existing number-typed UI helpers.
+    if (info.memoryBytes !== 0n) local.memoryBytes = Number(info.memoryBytes)
   }
 
   const service: Service = {

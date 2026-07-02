@@ -671,3 +671,81 @@ func TestPrintInfoDefault_WithAltURL(t *testing.T) {
 
 	printInfoDefault(tmpDir, services, azureEnv)
 }
+
+func TestFormatCPUPercent(t *testing.T) {
+	tests := []struct {
+		name     string
+		pct      float64
+		expected string
+	}{
+		{name: "zero", pct: 0, expected: "0.0%"},
+		{name: "fractional rounds to one decimal", pct: 12.34, expected: "12.3%"},
+		{name: "above one core", pct: 150, expected: "150.0%"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if result := formatCPUPercent(tt.pct); result != tt.expected {
+				t.Errorf("formatCPUPercent(%v) = %q, want %q", tt.pct, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFormatMemoryBytes(t *testing.T) {
+	tests := []struct {
+		name     string
+		bytes    uint64
+		expected string
+	}{
+		{name: "bytes", bytes: 512, expected: "512 B"},
+		{name: "kibibytes", bytes: 2048, expected: "2.0 KiB"},
+		{name: "mebibytes", bytes: 5 * 1024 * 1024, expected: "5.0 MiB"},
+		{name: "gibibytes", bytes: 3 * 1024 * 1024 * 1024, expected: "3.0 GiB"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if result := formatMemoryBytes(tt.bytes); result != tt.expected {
+				t.Errorf("formatMemoryBytes(%d) = %q, want %q", tt.bytes, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPrintInfoDefault_WithResourceMetrics(t *testing.T) {
+	// Ensure the runtime block renders (and does not panic) whether or not a
+	// running service carries CPU/memory metrics.
+	tmpDir := t.TempDir()
+
+	services := []*serviceinfo.ServiceInfo{
+		{
+			Name: "with-metrics",
+			Local: &serviceinfo.LocalServiceInfo{
+				Status:      "running",
+				Health:      "healthy",
+				Port:        3000,
+				PID:         4242,
+				CPUPercent:  23.5,
+				MemoryBytes: 128 * 1024 * 1024,
+			},
+		},
+		{
+			Name: "without-metrics",
+			Local: &serviceinfo.LocalServiceInfo{
+				Status: "running",
+				Health: "healthy",
+				Port:   3001,
+				PID:    4243,
+			},
+		},
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("printInfoDefault panicked with resource metrics: %v", r)
+		}
+	}()
+
+	printInfoDefault(tmpDir, services, map[string]string{})
+}

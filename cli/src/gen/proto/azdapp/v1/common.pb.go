@@ -511,7 +511,14 @@ type ServiceInfo struct {
 	// worker, db, container, ...).
 	Kind string `protobuf:"bytes,13,opt,name=kind,proto3" json:"kind,omitempty"`
 	// Free-form metadata that did not warrant a typed field. Kept narrow.
-	Metadata      *structpb.Struct `protobuf:"bytes,14,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	Metadata *structpb.Struct `protobuf:"bytes,14,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	// Recent CPU usage for the running process tree, as a percentage of one
+	// core (can exceed 100 on multi-core workloads). Zero when the service is
+	// not running or sampling failed.
+	CpuPercent float64 `protobuf:"fixed64,15,opt,name=cpu_percent,json=cpuPercent,proto3" json:"cpu_percent,omitempty"`
+	// Resident memory for the running process tree in bytes. Zero when the
+	// service is not running or sampling failed.
+	MemoryBytes   int64 `protobuf:"varint,16,opt,name=memory_bytes,json=memoryBytes,proto3" json:"memory_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -642,6 +649,20 @@ func (x *ServiceInfo) GetMetadata() *structpb.Struct {
 		return x.Metadata
 	}
 	return nil
+}
+
+func (x *ServiceInfo) GetCpuPercent() float64 {
+	if x != nil {
+		return x.CpuPercent
+	}
+	return 0
+}
+
+func (x *ServiceInfo) GetMemoryBytes() int64 {
+	if x != nil {
+		return x.MemoryBytes
+	}
+	return 0
 }
 
 // AzureDeploymentInfo describes the Azure-side resource backing a service.
@@ -875,7 +896,7 @@ const file_azdapp_v1_common_proto_rawDesc = "" +
 	"\x06stream\x18\x05 \x01(\x0e2\x14.azdapp.v1.LogStreamR\x06stream\x12,\n" +
 	"\x06source\x18\x06 \x01(\x0e2\x14.azdapp.v1.LogSourceR\x06source\x12\x18\n" +
 	"\amessage\x18\a \x01(\tR\amessage\x12/\n" +
-	"\x06fields\x18\b \x01(\v2\x17.google.protobuf.StructR\x06fields\"\xdb\x04\n" +
+	"\x06fields\x18\b \x01(\v2\x17.google.protobuf.StructR\x06fields\"\x9f\x05\n" +
 	"\vServiceInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tframework\x18\x02 \x01(\tR\tframework\x12\x1a\n" +
@@ -893,7 +914,10 @@ const file_azdapp_v1_common_proto_rawDesc = "" +
 	"\venvironment\x18\v \x03(\v2'.azdapp.v1.ServiceInfo.EnvironmentEntryR\venvironment\x124\n" +
 	"\x05azure\x18\f \x01(\v2\x1e.azdapp.v1.AzureDeploymentInfoR\x05azure\x12\x12\n" +
 	"\x04kind\x18\r \x01(\tR\x04kind\x123\n" +
-	"\bmetadata\x18\x0e \x01(\v2\x17.google.protobuf.StructR\bmetadata\x1a>\n" +
+	"\bmetadata\x18\x0e \x01(\v2\x17.google.protobuf.StructR\bmetadata\x12\x1f\n" +
+	"\vcpu_percent\x18\x0f \x01(\x01R\n" +
+	"cpuPercent\x12!\n" +
+	"\fmemory_bytes\x18\x10 \x01(\x03R\vmemoryBytes\x1a>\n" +
 	"\x10EnvironmentEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x85\x02\n" +

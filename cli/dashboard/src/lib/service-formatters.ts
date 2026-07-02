@@ -93,3 +93,27 @@ export function formatUptime(nanos?: number): string {
   const days = hours / 24
   return `${Math.floor(days)}d ${Math.round(hours % 24)}h`
 }
+
+/**
+ * Format CPU usage as a percentage of a single core (can exceed 100%).
+ */
+export function formatCpuPercent(percent?: number): string {
+  if (percent === undefined || percent <= 0) return '-'
+  return `${percent.toFixed(1)}%`
+}
+
+/**
+ * Format a byte count using binary units (KiB/MiB/GiB).
+ */
+export function formatMemoryBytes(bytes?: number): string {
+  if (bytes === undefined || bytes <= 0) return '-'
+  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit++
+  }
+  return unit === 0 ? `${value} ${units[unit]}` : `${value.toFixed(1)} ${units[unit]}`
+}
+

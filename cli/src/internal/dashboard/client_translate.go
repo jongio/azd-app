@@ -70,7 +70,8 @@ func buildLocalInfo(p *v1.ServiceInfo, meta map[string]*structpb.Value) *service
 
 	hasState := status != "" || health != "" || port != 0 || pid != 0 ||
 		url != "" || autoURL != "" || serviceType != "" ||
-		serviceMode != "" || lastCheckedStr != "" || p.GetStartTime() != nil
+		serviceMode != "" || lastCheckedStr != "" || p.GetStartTime() != nil ||
+		p.GetCpuPercent() != 0 || p.GetMemoryBytes() != 0
 
 	if !hasState {
 		return nil
@@ -83,6 +84,8 @@ func buildLocalInfo(p *v1.ServiceInfo, meta map[string]*structpb.Value) *service
 		PID:         pid,
 		ServiceType: serviceType,
 		ServiceMode: serviceMode,
+		CPUPercent:  p.GetCpuPercent(),
+		MemoryBytes: uint64(p.GetMemoryBytes()),
 	}
 
 	// serviceInfoToProto prefers CustomURL for the wire Url field and

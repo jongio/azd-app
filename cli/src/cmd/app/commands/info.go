@@ -243,6 +243,12 @@ func printInfoDefault(projectDir string, services []*serviceinfo.ServiceInfo, az
 			if svc.Local.LastChecked != nil {
 				cliout.Label("  Checked", formatTime(*svc.Local.LastChecked))
 			}
+			if svc.Local.CPUPercent > 0 {
+				cliout.Label("  CPU", formatCPUPercent(svc.Local.CPUPercent))
+			}
+			if svc.Local.MemoryBytes > 0 {
+				cliout.Label("  Memory", formatMemoryBytes(svc.Local.MemoryBytes))
+			}
 		}
 
 		// Status and health (from Local)
@@ -326,6 +332,25 @@ func formatHealth(health string) string {
 	default:
 		return health
 	}
+}
+
+// formatCPUPercent formats CPU usage as a percentage of a single core.
+func formatCPUPercent(pct float64) string {
+	return fmt.Sprintf("%.1f%%", pct)
+}
+
+// formatMemoryBytes formats a byte count using binary units (KiB/MiB/GiB).
+func formatMemoryBytes(b uint64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := uint64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
 // formatTime formats a time.Time for display.
