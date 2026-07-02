@@ -17,6 +17,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	stopService string
+	stopAll     bool
+	stopYes     bool
+)
+
 // NewStopCommand creates the stop command.
 func NewStopCommand() *cobra.Command {
 	cmd := &cobra.Command{
@@ -24,25 +30,90 @@ func NewStopCommand() *cobra.Command {
 		Short: "Stop running services and tear down the app",
 		Long: `Stop running services, execute lifecycle hooks, and tear down the app.
 
-Sends a shutdown signal to the running 'azd app run' process. This triggers
-graceful shutdown including prestop/poststop hooks, port release, and
-process cleanup — identical to pressing Ctrl+C in the run terminal.
+Without flags, stop sends a shutdown signal to the running 'azd app run'
+process. This triggers graceful shutdown including prestop/poststop hooks,
+port release, and process cleanup, identical to pressing Ctrl+C in the run
+terminal.
 
-Lifecycle hooks:
+Use --service to stop specific services while leaving the rest running, or
+--all to stop every running service without tearing down the app. This
+mirrors the start and restart commands.
+
+Lifecycle hooks (whole-app teardown only):
   prestop  - runs before services are stopped (e.g., drain connections)
   poststop - runs after all services are stopped (e.g., cleanup temp files)
 
 Examples:
   # Stop the running app (from any terminal in the project)
-  azd app stop`,
+  azd app stop
+
+  # Stop a specific service, leaving the rest running
+  azd app stop --service api
+
+  # Stop multiple services
+  azd app stop --service "api,web,worker"
+
+  # Stop all running services without tearing down the app
+  azd app stop --all
+
+  # JSON output
+  azd app stop --service api --output json`,
 		SilenceUsage: true,
 		RunE:         runStop,
 	}
 
+	cmd.Flags().StringVarP(&stopService, "service", "s", "", "Service name(s) to stop (comma-separated)")
+	cmd.Flags().BoolVar(&stopAll, "all", false, "Stop all running services")
+	cmd.Flags().BoolVarP(&stopYes, "yes", "y", false, "Skip confirmation prompt for --all")
+
 	return cmd
 }
 
+// runStop routes to service-scoped stop when --service or --all is set, and
+// otherwise falls back to whole-app teardown for backward compatibility.
 func runStop(cmd *cobra.Command, args []string) error {
+	if stopService != "" || stopAll {
+		return runStopServices()
+	}
+	return runStopApp()
+}
+
+// runStopServices stops specific services (or all running services) via the
+// service controller without tearing down the app, mirroring start/restart.
+func runStopServices() error {
+	cliout.CommandHeader("stop", "Stop services")
+
+	ctrl, err := NewServiceController("")
+	if err != nil {
+		return fmt.Errorf("failed to initialize: %w", err)
+	}
+
+	ctx, _, cleanup := setupContextWithSignalHandling()
+	defer cleanup()
+
+	var servicesToStop []string
+	if stopAll {
+		servicesToStop = ctrl.GetRunningServices()
+		if len(servicesToStop) == 0 {
+			handleNoServicesCase(ctrl, "running", "stop")
+			return nil
+		}
+		if !confirmBulkOperation(len(servicesToStop), "stop", stopYes) {
+			cliout.Info("Operation canceled")
+			return nil
+		}
+	} else {
+		servicesToStop, err = parseServiceList(stopService)
+		if err != nil {
+			return err
+		}
+	}
+
+	return executeServiceOperation(ctx, servicesToStop, ctrl.StopService, ctrl.BulkStop, "stop")
+}
+
+// runStopApp tears down the whole app by signaling the running dashboard.
+func runStopApp() error {
 	cliout.CommandHeader("stop", "Stop running services")
 
 	// Find project root
