@@ -45,6 +45,8 @@ Examples:
 	cmd.Flags().StringVarP(&startService, "service", "s", "", "Service name(s) to start (comma-separated)")
 	cmd.Flags().BoolVar(&startAll, "all", false, "Start all stopped services")
 
+	registerServiceFlagCompletion(cmd, "service")
+
 	return cmd
 }
 

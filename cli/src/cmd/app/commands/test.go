@@ -91,6 +91,8 @@ func NewTestCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.NoSave, "no-save", false, "Don't prompt to save auto-detected test config")
 	cmd.Flags().StringVarP(&opts.Environment, "environment", "e", "", "Target azd environment name (loads vars from .azure/<env>/.env)")
 
+	registerServiceFlagCompletion(cmd, "service")
+
 	return cmd
 }
 

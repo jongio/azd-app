@@ -295,6 +295,8 @@ Examples:
 	cmd.Flags().StringVar(&opts.source, "source", "local", "Log source: 'local' (default), 'azure', or 'all'")
 	cmd.Flags().BoolVar(&opts.redact, "redact", false, "Redact secret-shaped values before printing logs")
 
+	registerServiceFlagCompletion(cmd, "service")
+
 	return cmd
 }
 

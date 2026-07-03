@@ -125,6 +125,8 @@ Examples:
 	cmd.Flags().IntVar(&healthRateLimit, "rate-limit", 0, "Max health checks per second per service (0 = unlimited)")
 	cmd.Flags().DurationVar(&healthCacheTTL, "cache-ttl", 0, "Cache TTL for health results (0 = no caching)")
 
+	registerServiceFlagCompletion(cmd, "service")
+
 	return cmd
 }
 
