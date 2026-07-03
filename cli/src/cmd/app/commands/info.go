@@ -15,7 +15,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var infoAll bool
+var (
+	infoAll     bool
+	infoService string
+)
 
 const (
 	statusUnknown = "unknown"
@@ -27,14 +30,32 @@ const (
 // NewInfoCommand creates the info command.
 func NewInfoCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "info [service...]",
-		Short:        "Show information about running services",
-		Long:         `Displays comprehensive information about all running services including URLs, status, health, and metadata. Pass one or more service names to show only those services.`,
+		Use:   "info [service...]",
+		Short: "Show information about running services",
+		Long: `Displays comprehensive information about all running services including URLs, status, health, and metadata.
+
+Pass one or more service names as arguments, or use --service (matching the
+service-targeting flag used by health, logs, run, start, and restart), to show
+only specific services.
+
+Examples:
+  # Show information about all services
+  azd app info
+
+  # Show information about specific services (positional)
+  azd app info api web
+
+  # Show information about a specific service via flag
+  azd app info --service api
+
+  # Show information about multiple services
+  azd app info --service "api,web"`,
 		SilenceUsage: true,
 		RunE:         runInfo,
 	}
 
 	cmd.Flags().BoolVar(&infoAll, "all", false, "Show services from all projects on this machine")
+	cmd.Flags().StringVarP(&infoService, "service", "s", "", "Show info for specific service(s) (comma-separated)")
 
 	return cmd
 }
@@ -76,9 +97,17 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	// Get Azure environment values for environment variable display
 	azureEnv := getAzureEnvironmentValues()
 
-	// Filter to the requested services when names are passed as arguments.
-	if len(args) > 0 {
-		allServices, err = filterServicesByName(allServices, args)
+	// Filter to the requested services from positional args and/or --service.
+	requested := append([]string{}, args...)
+	if infoService != "" {
+		parsed, perr := parseServiceList(infoService)
+		if perr != nil {
+			return perr
+		}
+		requested = append(requested, parsed...)
+	}
+	if len(requested) > 0 {
+		allServices, err = filterServicesByName(allServices, requested)
 		if err != nil {
 			return err
 		}
