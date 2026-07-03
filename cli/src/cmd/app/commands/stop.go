@@ -12,6 +12,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/azdconfig"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
+	"github.com/jongio/azd-app/cli/src/internal/runstate"
 	"github.com/jongio/azd-core/cliout"
 
 	"github.com/spf13/cobra"
@@ -121,6 +122,9 @@ func runStopApp() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		_ = runstate.Remove(projectDir)
+	}()
 
 	// Discover the running dashboard port
 	dashboardPort, err := discoverDashboardPort(projectDir)

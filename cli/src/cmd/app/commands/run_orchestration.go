@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
+	"github.com/jongio/azd-app/cli/src/internal/runstate"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/registry"
@@ -111,6 +113,10 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	// Start service process monitors
 	startServiceMonitors(ctx, &wg, result.Processes, cwd)
 
+	if azureYaml != nil {
+		writeRunState(cwd, result, dashboardServer)
+	}
+
 	// Also cancel on remote shutdown request (from `azd app stop` in another terminal)
 	go func() {
 		select {
@@ -124,7 +130,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	wg.Wait()
 
 	// Perform cleanup shutdown with hooks
-	return performGracefulShutdown(dashboardServer, result.Processes, azureYaml, azureYamlDir)
+	return performGracefulShutdown(cwd, dashboardServer, result.Processes, azureYaml, azureYamlDir)
 }
 
 // startDashboardMonitor starts the dashboard server in a separate goroutine with panic recovery.
@@ -182,7 +188,7 @@ func startServiceMonitors(ctx context.Context, wg *sync.WaitGroup, processes map
 // performGracefulShutdown stops all services and dashboard with a timeout.
 // Runs prestop/poststop hooks around service shutdown.
 // Returns nil due to process isolation design - individual failures are logged but don't fail the command.
-func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[string]*service.ServiceProcess, azureYaml *service.AzureYaml, azureYamlDir string) error {
+func performGracefulShutdown(projectDir string, dashboardServer *dashboard.Server, processes map[string]*service.ServiceProcess, azureYaml *service.AzureYaml, azureYamlDir string) error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
@@ -207,6 +213,10 @@ func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[st
 		cliout.Warning("Some services failed to stop cleanly: %v", stopErr)
 	}
 
+	if removeErr := runstate.Remove(projectDir); removeErr != nil {
+		cliout.Warning("Failed to clear run state: %v", removeErr)
+	}
+
 	cliout.Success("All services stopped")
 
 	// Execute poststop hook
@@ -227,6 +237,71 @@ func performGracefulShutdown(dashboardServer *dashboard.Server, processes map[st
 	// Individual service crashes are logged but don't cause the run command to fail.
 	// Only return errors for infrastructure issues (dashboard, shutdown timeout, etc.)
 	return nil
+}
+
+func writeRunState(projectDir string, result *service.OrchestrationResult, dashboardServer *dashboard.Server) {
+	st := runstate.RunState{
+		PID:       os.Getpid(),
+		Services:  buildRunStateServices(result.Processes),
+		StartTime: result.StartTime,
+	}
+
+	if st.StartTime.IsZero() {
+		st.StartTime = time.Now()
+	}
+
+	st.DashboardURL = waitForDashboardURL(projectDir, dashboardServer, 10*time.Second)
+	if err := runstate.Write(projectDir, st); err != nil {
+		cliout.Warning("Failed to write run state: %v", err)
+	}
+}
+
+func buildRunStateServices(processes map[string]*service.ServiceProcess) []runstate.ServiceState {
+	names := make([]string, 0, len(processes))
+	for name := range processes {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	services := make([]runstate.ServiceState, 0, len(names))
+	for _, name := range names {
+		process := processes[name]
+		if process == nil {
+			continue
+		}
+
+		serviceState := runstate.ServiceState{
+			Name: name,
+			Port: process.Port,
+			URL:  process.URL,
+		}
+		if serviceState.URL == "" && serviceState.Port > 0 {
+			serviceState.URL = fmt.Sprintf("http://localhost:%d", serviceState.Port)
+		}
+
+		services = append(services, serviceState)
+	}
+
+	return services
+}
+
+func waitForDashboardURL(projectDir string, dashboardServer *dashboard.Server, timeout time.Duration) string {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if dashboardServer != nil {
+			if url := dashboardServer.GetURL(); url != "" {
+				return url
+			}
+		}
+
+		if port := dashboard.ReadPortFile(projectDir); port > 0 {
+			return fmt.Sprintf("http://localhost:%d", port)
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return ""
 }
 
 // executePrestopHook executes the prestop hook if configured.

@@ -156,6 +156,14 @@ func TestRunCommandFlagDefaults(t *testing.T) {
 		t.Fatal("--dry-run flag not found")
 	}
 
+	detachFlag := cmd.Flags().Lookup("detach")
+	if detachFlag == nil {
+		t.Fatal("--detach flag not found")
+	}
+	if detachFlag.DefValue != "false" {
+		t.Errorf("Expected default detach to be 'false', got %q", detachFlag.DefValue)
+	}
+
 	envFileFlag := cmd.Flags().Lookup("env-file")
 	if envFileFlag == nil {
 		t.Fatal("--env-file flag not found")

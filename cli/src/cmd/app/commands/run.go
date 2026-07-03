@@ -32,6 +32,7 @@ var (
 	runEnvFile           string
 	runVerbose           bool
 	runDryRun            bool
+	runDetach            bool
 	runRuntime           string
 	runWeb               bool
 	runRestartContainers bool
@@ -63,6 +64,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&runRestartContainers, "restart-containers", false, "Restart containers even if they are already running")
 	cmd.Flags().BoolVar(&runForce, "force", false, "Force clean dependency reinstall and auto-resolve port conflicts without prompting")
 	cmd.Flags().BoolVarP(&runTrust, "trust", "y", false, "Trust this workspace for code execution and remember the decision")
+	cmd.Flags().BoolVar(&runDetach, "detach", false, "Run the app in the background and return to the shell")
 
 	registerServiceFlagCompletion(cmd, "service")
 
@@ -88,6 +90,14 @@ func runWithServices(ctx context.Context, commandOrchestrator *orchestrator.Orch
 	// commandOrchestrator.Run (which installs deps) and before service startup.
 	if err := ensureWorkspaceTrusted(azureYamlPath); err != nil {
 		return err
+	}
+
+	detachedResult, detached, err := maybeStartDetachedRun(filepath.Dir(azureYamlPath))
+	if err != nil {
+		return err
+	}
+	if detached {
+		return printDetachedStartResult(detachedResult)
 	}
 
 	// Set deps options if --force specified
