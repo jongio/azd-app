@@ -72,6 +72,14 @@ func NewNotificationManager(cfg NotificationManagerConfig) (*NotificationManager
 		pipeline.RegisterHandler(osHandler)
 	}
 
+	// Create webhook handler if a webhook URL is configured. This forwards
+	// events to an external system (chat webhook, local listener) so state
+	// changes are visible for headless runs, shared boxes, and CI.
+	if webhookHandler := NewWebhookHandler(prefs); webhookHandler != nil {
+		pipeline.RegisterHandler(webhookHandler)
+		logging.Debug("Webhook notifications enabled")
+	}
+
 	// Create state monitor
 	monitorConfig := monitor.MonitorConfig{
 		Interval:        cfg.MonitorInterval,
