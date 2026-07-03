@@ -4,6 +4,8 @@ package service
 import (
 	"fmt"
 	"net/url"
+	"strings"
+	"time"
 
 	"github.com/jongio/azd-core/urlutil"
 )
@@ -43,6 +45,53 @@ func ValidateServiceConfig(serviceName string, svc *Service) error {
 		if err := urlutil.ValidateDomain(svc.Azure.CustomDomain); err != nil {
 			return fmt.Errorf("invalid azure.customDomain for service '%s': %w", serviceName, err)
 		}
+	}
+
+	if err := validateRestartConfig(serviceName, svc.Restart); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateRestartConfig(serviceName string, restart *RestartConfig) error {
+	if restart == nil {
+		return nil
+	}
+
+	policy := strings.ToLower(strings.TrimSpace(restart.Policy))
+	if policy == "" {
+		policy = RestartPolicyNever
+	}
+
+	switch policy {
+	case RestartPolicyNever, RestartPolicyOnFailure, RestartPolicyAlways:
+	default:
+		return fmt.Errorf(
+			"invalid restart.policy for service '%s': %q (must be one of: %s, %s, %s)",
+			serviceName,
+			restart.Policy,
+			RestartPolicyNever,
+			RestartPolicyOnFailure,
+			RestartPolicyAlways,
+		)
+	}
+
+	if restart.MaxRetries < 0 {
+		return fmt.Errorf("invalid restart.maxRetries for service '%s': must be >= 0", serviceName)
+	}
+
+	if restart.Backoff == "" {
+		return nil
+	}
+
+	duration, err := time.ParseDuration(restart.Backoff)
+	if err != nil {
+		return fmt.Errorf("invalid restart.backoff for service '%s': %w", serviceName, err)
+	}
+
+	if duration <= 0 {
+		return fmt.Errorf("invalid restart.backoff for service '%s': must be greater than 0", serviceName)
 	}
 
 	return nil
