@@ -8,6 +8,8 @@ import {
   formatLogTimestamp,
   formatResponseTime,
   formatUptime,
+  formatCpuPercent,
+  formatMemoryBytes,
   getCheckTypeDisplay,
   mergeHealthIntoService,
   getLogPaneVisualStatus,
@@ -335,6 +337,50 @@ describe('service-utils', () => {
     it('should format days and hours', () => {
       const twoDaysThreeHours = (2 * 24 + 3) * 60 * 60 * 1_000_000_000
       expect(formatUptime(twoDaysThreeHours)).toBe('2d 3h')
+    })
+  })
+
+  describe('formatCpuPercent', () => {
+    it('should return - for undefined', () => {
+      expect(formatCpuPercent()).toBe('-')
+    })
+
+    it('should return - for zero', () => {
+      expect(formatCpuPercent(0)).toBe('-')
+    })
+
+    it('should format one decimal place', () => {
+      expect(formatCpuPercent(12.34)).toBe('12.3%')
+    })
+
+    it('should allow values above 100', () => {
+      expect(formatCpuPercent(150)).toBe('150.0%')
+    })
+  })
+
+  describe('formatMemoryBytes', () => {
+    it('should return - for undefined', () => {
+      expect(formatMemoryBytes()).toBe('-')
+    })
+
+    it('should return - for zero', () => {
+      expect(formatMemoryBytes(0)).toBe('-')
+    })
+
+    it('should format bytes', () => {
+      expect(formatMemoryBytes(512)).toBe('512 B')
+    })
+
+    it('should format kibibytes', () => {
+      expect(formatMemoryBytes(2048)).toBe('2.0 KiB')
+    })
+
+    it('should format mebibytes', () => {
+      expect(formatMemoryBytes(5 * 1024 * 1024)).toBe('5.0 MiB')
+    })
+
+    it('should format gibibytes', () => {
+      expect(formatMemoryBytes(3 * 1024 * 1024 * 1024)).toBe('3.0 GiB')
     })
   })
 

@@ -28,6 +28,8 @@ import type { Service, HealthCheckResult } from '@/types'
 import { 
   formatUptime, 
   formatResponseTime,
+  formatCpuPercent,
+  formatMemoryBytes,
   getCheckTypeDisplay,
   getEffectiveStatus as getEffectiveStatusFromUtils,
   getStatusDisplay,
@@ -424,6 +426,12 @@ function LocalTab({ service, healthStatus, copiedField, onCopy, operationState }
           )}
           {service.local?.port && service.local.port > 0 && (
             <InfoRow label="Port" value={service.local.port} />
+          )}
+          {service.local?.cpuPercent !== undefined && service.local.cpuPercent > 0 && (
+            <InfoRow label="CPU" value={formatCpuPercent(service.local.cpuPercent)} />
+          )}
+          {service.local?.memoryBytes !== undefined && service.local.memoryBytes > 0 && (
+            <InfoRow label="Memory" value={formatMemoryBytes(service.local.memoryBytes)} />
           )}
         </div>
       </SectionCard>

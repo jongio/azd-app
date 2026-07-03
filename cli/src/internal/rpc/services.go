@@ -301,6 +301,10 @@ func serviceInfoToProto(info *serviceinfo.ServiceInfo, projectDir string) *v1.Se
 		if local.StartTime != nil {
 			out.StartTime = timestamppb.New(*local.StartTime)
 		}
+		// Live resource usage (zero when not sampled). MemoryBytes is uint64
+		// on the domain type; the proto carries int64 which is ample for RSS.
+		out.CpuPercent = local.CPUPercent
+		out.MemoryBytes = int64(local.MemoryBytes)
 		if local.LastChecked != nil {
 			metadata["lastChecked"] = local.LastChecked.UTC().Format("2006-01-02T15:04:05Z07:00")
 		}

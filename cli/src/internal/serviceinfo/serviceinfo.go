@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/resourcesampler"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/registry"
 )
@@ -19,6 +20,11 @@ var (
 	// This cache is refreshed when azd fires environment update events (e.g., after provision)
 	environmentCache   map[string]string
 	environmentCacheMu sync.RWMutex
+
+	// sampleResourceUsage reports CPU/memory for a running process tree. Kept
+	// as a package var so tests can exercise the merge path deterministically
+	// without depending on live process sampling.
+	sampleResourceUsage = resourcesampler.Sample
 )
 
 func init() {
@@ -95,6 +101,13 @@ type LocalServiceInfo struct {
 	LastChecked *time.Time `json:"lastChecked,omitempty"`
 	ServiceType string     `json:"serviceType,omitempty"` // "http", "tcp", "process", "container"
 	ServiceMode string     `json:"serviceMode,omitempty"` // "watch", "build", "daemon", "task" (for type=process)
+	// CPUPercent is the running process tree's CPU usage as a percentage of a
+	// single core (can exceed 100 on multi-core workloads). Zero when the
+	// service is not running or sampling failed.
+	CPUPercent float64 `json:"cpuPercent,omitempty"`
+	// MemoryBytes is the running process tree's resident memory in bytes. Zero
+	// when the service is not running or sampling failed.
+	MemoryBytes uint64 `json:"memoryBytes,omitempty"`
 }
 
 // AzureServiceInfo contains Azure-specific service information.
@@ -360,6 +373,14 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 
 			if existingCustomURL != "" {
 				existing.Local.CustomURL = existingCustomURL
+			}
+
+			// Sample live CPU/memory for services with a known PID. Fail-soft:
+			// a stale PID yields zero usage, which omitempty drops from output.
+			if runningSvc.PID > 0 {
+				usage := sampleResourceUsage(runningSvc.PID)
+				existing.Local.CPUPercent = usage.CPUPercent
+				existing.Local.MemoryBytes = usage.MemoryBytes
 			}
 		}
 	}

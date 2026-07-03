@@ -121,6 +121,13 @@ message ServiceInfo {
   string kind = 13;
   // Free-form metadata that did not warrant a typed field. Kept narrow.
   google.protobuf.Struct metadata = 14;
+  // Recent CPU usage for the running process tree, as a percentage of one
+  // core (can exceed 100 on multi-core workloads). Zero when the service is
+  // not running or sampling failed.
+  double cpu_percent = 15;
+  // Resident memory for the running process tree in bytes. Zero when the
+  // service is not running or sampling failed.
+  int64 memory_bytes = 16;
 }
 
 // AzureDeploymentInfo describes the Azure-side resource backing a service.

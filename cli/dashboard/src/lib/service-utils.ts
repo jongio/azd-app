@@ -43,6 +43,8 @@ export {
   formatLogTimestamp,
   formatResponseTime,
   formatUptime,
+  formatCpuPercent,
+  formatMemoryBytes,
 } from './service-formatters'
 
 // Re-export from service-display.ts
