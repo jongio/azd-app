@@ -89,6 +89,7 @@ func main() {
 		commands.NewTestCommand(),
 		commands.NewLogsCommand(),
 		commands.NewInfoCommand(),
+		commands.NewEnvCommand(),
 		commands.NewHealthCommand(),
 		commands.NewVersionCommand(&extCtx.OutputFormat),
 		commands.NewNotificationsCommand(),
