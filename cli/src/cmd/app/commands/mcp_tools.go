@@ -11,6 +11,7 @@ import (
 	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/jongio/azd-core/security"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -383,13 +384,7 @@ func handleRunServices(ctx context.Context, args azdext.ToolArgs) (*mcp.CallTool
 	}
 
 	wait := args.OptionalBool("wait", false)
-	timeoutSeconds := args.OptionalInt("timeoutSeconds", defaultRunWaitTimeoutSeconds)
-	if timeoutSeconds <= 0 {
-		timeoutSeconds = defaultRunWaitTimeoutSeconds
-	}
-	if timeoutSeconds > maxRunWaitTimeoutSeconds {
-		timeoutSeconds = maxRunWaitTimeoutSeconds
-	}
+	timeoutSeconds := clampRunWaitTimeout(args.OptionalInt("timeoutSeconds", defaultRunWaitTimeoutSeconds))
 
 	// Resolve the directory used for readiness polling up front so an invalid
 	// path fails before we start the process.
@@ -458,23 +453,7 @@ func handleRunServices(ctx context.Context, args azdext.ToolArgs) (*mcp.CallTool
 
 	if wait {
 		waitRes := waitForServicesReady(ctx, pollDir, time.Duration(timeoutSeconds)*time.Second, runWaitPollInterval)
-		result := map[string]any{
-			"ready":    waitRes.Ready,
-			"services": waitRes.Services,
-		}
-		if pid > 0 {
-			result["pid"] = pid
-		}
-		if waitRes.TimedOut {
-			result["status"] = "timeout"
-			result["message"] = fmt.Sprintf(
-				"Timed out after %ds waiting for services to become ready. See services for the current state of each one.",
-				timeoutSeconds)
-		} else {
-			result["status"] = "ready"
-			result["message"] = "All services are ready."
-		}
-		return marshalToolResult(result)
+		return marshalToolResult(buildRunWaitResult(waitRes, pid, timeoutSeconds))
 	}
 
 	result := map[string]any{
@@ -519,15 +498,34 @@ type runWaitResult struct {
 // package var so tests can stub the services source without a live dashboard.
 var pollServicesReadiness = collectServiceReadiness
 
+// clampRunWaitTimeout normalizes a caller-supplied readiness timeout (in
+// seconds) to the supported range: non-positive values fall back to the
+// default and anything above the maximum is capped.
+func clampRunWaitTimeout(seconds int) int {
+	if seconds <= 0 {
+		return defaultRunWaitTimeoutSeconds
+	}
+	if seconds > maxRunWaitTimeoutSeconds {
+		return maxRunWaitTimeoutSeconds
+	}
+	return seconds
+}
+
 // collectServiceReadiness reuses the same service source as get_services and
-// info, then derives a ready flag per service. A service is ready once it is
-// running and not explicitly unhealthy; a running service without a health
-// probe reports "unknown" and counts as ready.
+// info, then derives a ready flag per service via toServiceReadiness.
 func collectServiceReadiness(ctx context.Context, projectDir string) ([]serviceReadiness, error) {
 	services, err := collectServiceInfoForMCP(ctx, projectDir)
 	if err != nil {
 		return nil, err
 	}
+	return toServiceReadiness(services), nil
+}
+
+// toServiceReadiness maps service info to per-service readiness. A service is
+// ready once it is running and not explicitly unhealthy; a running service
+// without a health probe reports "unknown" and counts as ready. Nil entries
+// are skipped.
+func toServiceReadiness(services []*serviceinfo.ServiceInfo) []serviceReadiness {
 	out := make([]serviceReadiness, 0, len(services))
 	for _, svc := range services {
 		if svc == nil {
@@ -541,7 +539,7 @@ func collectServiceReadiness(ctx context.Context, projectDir string) ([]serviceR
 		}
 		out = append(out, r)
 	}
-	return out, nil
+	return out
 }
 
 // allServicesReady reports whether every service is ready. An empty set is not
@@ -582,6 +580,29 @@ func waitForServicesReady(ctx context.Context, projectDir string, timeout, inter
 		case <-time.After(interval):
 		}
 	}
+}
+
+// buildRunWaitResult builds the structured result returned by run_services when
+// it waits for readiness. It reports each service's final state and a
+// status/message that distinguishes a clean all-ready return from a timeout.
+func buildRunWaitResult(res runWaitResult, pid, timeoutSeconds int) map[string]any {
+	result := map[string]any{
+		"ready":    res.Ready,
+		"services": res.Services,
+	}
+	if pid > 0 {
+		result["pid"] = pid
+	}
+	if res.TimedOut {
+		result["status"] = "timeout"
+		result["message"] = fmt.Sprintf(
+			"Timed out after %ds waiting for services to become ready. See services for the current state of each one.",
+			timeoutSeconds)
+	} else {
+		result["status"] = "ready"
+		result["message"] = "All services are ready."
+	}
+	return result
 }
 
 // --- stop_services ---
