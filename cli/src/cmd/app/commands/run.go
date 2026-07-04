@@ -38,6 +38,7 @@ var (
 	runRestartContainers bool
 	runForce             bool
 	runTrust             bool
+	runNoTiming          bool
 )
 
 // NewRunCommand creates the run command.
@@ -65,6 +66,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&runRestartContainers, "restart-containers", false, "Restart containers even if they are already running")
 	cmd.Flags().BoolVar(&runForce, "force", false, "Force clean dependency reinstall and auto-resolve port conflicts without prompting")
 	cmd.Flags().BoolVarP(&runTrust, "trust", "y", false, "Trust this workspace for code execution and remember the decision")
+	cmd.Flags().BoolVar(&runNoTiming, "no-timing", false, "Hide the per-service startup timing summary shown after services are ready")
 
 	registerServiceFlagCompletion(cmd, "service")
 
