@@ -108,3 +108,142 @@ resources:
 		t.Fatalf("unexpected graph result: %#v", got)
 	}
 }
+
+func sampleGraphResult() graphResult {
+	return graphResult{
+		Project: "project",
+		Nodes: []graphNode{
+			{Name: "api", Type: "service", Level: 1, Language: "go", Host: "local"},
+			{Name: "db", Type: "resource", Level: 0},
+		},
+		Edges:  []graphEdge{{From: "api", To: "db"}},
+		Levels: [][]string{{"db"}, {"api"}},
+	}
+}
+
+func TestRenderGraphMermaid(t *testing.T) {
+	var buf bytes.Buffer
+	renderGraphMermaid(&buf, sampleGraphResult())
+	out := buf.String()
+
+	if !strings.HasPrefix(out, "flowchart TD") {
+		t.Fatalf("mermaid output should start with flowchart TD:\n%s", out)
+	}
+	// Service node uses square brackets, resource uses rounded shape.
+	if !strings.Contains(out, "[\"api (service)\"]") {
+		t.Fatalf("mermaid missing service node:\n%s", out)
+	}
+	if !strings.Contains(out, "([\"db (resource)\"])") {
+		t.Fatalf("mermaid missing resource node:\n%s", out)
+	}
+	// Edge should reference the generated node ids, not raw names.
+	if !strings.Contains(out, "-->") {
+		t.Fatalf("mermaid missing edge:\n%s", out)
+	}
+}
+
+func TestRenderGraphDOT(t *testing.T) {
+	var buf bytes.Buffer
+	renderGraphDOT(&buf, sampleGraphResult())
+	out := buf.String()
+
+	for _, want := range []string{
+		"digraph services {",
+		"rankdir=LR;",
+		"\"api\" [label=\"api\\n(service)\", shape=box];",
+		"\"db\" [label=\"db\\n(resource)\", shape=ellipse];",
+		"\"api\" -> \"db\";",
+		"}",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("dot output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestEscapeMermaidLabel(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"plain", "plain"},
+		{"say \"hi\"", "say #quot;hi#quot;"},
+		{"a[b]", "a#91;b#93;"},
+		{"a{b}", "a#123;b#125;"},
+		{"line\nbreak", "line break"},
+	}
+	for _, tt := range tests {
+		if got := escapeMermaidLabel(tt.in); got != tt.want {
+			t.Errorf("escapeMermaidLabel(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestEscapeDOTString(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"plain", "plain"},
+		{"say \"hi\"", "say \\\"hi\\\""},
+		{"back\\slash", "back\\\\slash"},
+		{"line\nbreak", "line\\nbreak"},
+	}
+	for _, tt := range tests {
+		if got := escapeDOTString(tt.in); got != tt.want {
+			t.Errorf("escapeDOTString(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestRunGraphInvalidFormat(t *testing.T) {
+	var buf bytes.Buffer
+	err := runGraph(&graphOptions{output: "svg", writer: &buf})
+	if err == nil {
+		t.Fatal("expected error for invalid format")
+	}
+	if !strings.Contains(err.Error(), "invalid output format") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunGraphOutputFile(t *testing.T) {
+	dir := t.TempDir()
+	azureYaml := []byte(`
+name: graph-test
+services:
+  api:
+    host: local
+    language: go
+    project: ./api
+    uses:
+      - db
+resources:
+  db:
+    type: postgres
+`)
+	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), azureYaml, 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "api"), 0o750); err != nil {
+		t.Fatalf("mkdir api: %v", err)
+	}
+	t.Chdir(dir)
+
+	outFile := filepath.Join(dir, "graph.mmd")
+	var buf bytes.Buffer
+	err := runGraph(&graphOptions{output: graphOutputMermaid, outputFile: outFile, writer: &buf})
+	if err != nil {
+		t.Fatalf("runGraph failed: %v", err)
+	}
+	if !strings.Contains(buf.String(), "Wrote mermaid graph to") {
+		t.Fatalf("stdout should confirm file write, got: %s", buf.String())
+	}
+	content, err := os.ReadFile(outFile) //nolint:gosec // path is a test temp file
+	if err != nil {
+		t.Fatalf("read output file: %v", err)
+	}
+	if !strings.HasPrefix(string(content), "flowchart TD") {
+		t.Fatalf("output file should contain mermaid graph:\n%s", string(content))
+	}
+}
