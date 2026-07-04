@@ -6,7 +6,27 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jongio/azd-core/cliout"
 )
+
+// forceTextFormat resets the process-wide cliout output format to the default
+// (text) for the duration of a test and restores the previous value afterwards.
+//
+// Sibling tests in this package set the global format to JSON and "reset" it
+// with an invalid "text" value, which SetFormat treats as a silent no-op, so
+// the format can leak as JSON into these tests. When that happens runOutdated
+// sends its report to stdout via cliout.PrintJSON instead of the provided
+// writer, leaving the test buffer empty. Resetting here makes these tests
+// hermetic regardless of execution order.
+func forceTextFormat(t *testing.T) {
+	t.Helper()
+	original := cliout.GetFormat()
+	t.Cleanup(func() { _ = cliout.SetFormat(string(original)) })
+	if err := cliout.SetFormat("default"); err != nil {
+		t.Fatalf("reset cliout format: %v", err)
+	}
+}
 
 func mkdirAll(t *testing.T, path string) {
 	t.Helper()
@@ -336,6 +356,7 @@ func TestResolveOutdatedTargets(t *testing.T) {
 func TestRunOutdatedAggregation(t *testing.T) {
 	root := setupOutdatedProject(t)
 	t.Chdir(root)
+	forceTextFormat(t)
 
 	// Stub the environment: npm is "installed" and returns one outdated package.
 	origLook, origRun := outdatedLookPath, outdatedRunner
@@ -365,6 +386,7 @@ func TestRunOutdatedAggregation(t *testing.T) {
 func TestRunOutdatedSkipsMissingTool(t *testing.T) {
 	root := setupOutdatedProject(t)
 	t.Chdir(root)
+	forceTextFormat(t)
 
 	origLook, origRun := outdatedLookPath, outdatedRunner
 	t.Cleanup(func() { outdatedLookPath, outdatedRunner = origLook, origRun })
