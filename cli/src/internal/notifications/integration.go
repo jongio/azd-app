@@ -124,6 +124,14 @@ func (nm *NotificationManager) Start() {
 	}
 }
 
+// AddStateListener registers an additional listener on the shared state monitor.
+func (nm *NotificationManager) AddStateListener(listener monitor.StateListener) {
+	if listener == nil {
+		return
+	}
+	nm.stateMonitor.AddListener(listener)
+}
+
 // Stop stops monitoring and notification processing.
 func (nm *NotificationManager) Stop() error {
 	if !nm.started {

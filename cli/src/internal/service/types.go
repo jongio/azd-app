@@ -58,6 +58,30 @@ const (
 	ServiceModeTask = "task"
 )
 
+// Restart policy constants define when azd app should automatically restart a crashed service.
+const (
+	// RestartPolicyNever disables automatic restarts (default).
+	RestartPolicyNever = "never"
+
+	// RestartPolicyOnFailure restarts services after unexpected exits.
+	RestartPolicyOnFailure = "on-failure"
+
+	// RestartPolicyAlways restarts services after any unexpected exit.
+	RestartPolicyAlways = "always"
+)
+
+// Auto-restart default settings.
+const (
+	// DefaultRestartMaxRetries is the default number of restart attempts per crash sequence.
+	DefaultRestartMaxRetries = 3
+
+	// DefaultRestartBackoffBase is the default delay before the first retry attempt.
+	DefaultRestartBackoffBase = time.Second
+
+	// MaxRestartBackoffBase is the maximum allowed base backoff duration.
+	MaxRestartBackoffBase = 30 * time.Second
+)
+
 // AzureYaml represents the parsed azure.yaml file.
 type AzureYaml struct {
 	Name      string              `yaml:"name"`
@@ -115,9 +139,29 @@ type Service struct {
 	HealthcheckEnabled *bool               `yaml:"-"`                     // Internal flag: nil = use default, false = explicitly disabled, true = explicitly enabled
 	Type               string              `yaml:"type,omitempty"`        // Service type: "http", "tcp", "process". Default: "http" if ports defined, "process" otherwise.
 	Mode               string              `yaml:"mode,omitempty"`        // Run mode (for type=process): "watch", "build", "daemon", "task". Default: "daemon".
+	Restart            *RestartConfig      `yaml:"restart,omitempty"`     // Optional auto-restart policy for unexpected service exits.
 	Local              *LocalServiceConfig `yaml:"local,omitempty"`       // Local development configuration
 	Azure              *AzureServiceConfig `yaml:"azure,omitempty"`       // Azure deployment configuration
 	URL                string              `yaml:"url,omitempty"`         // DEPRECATED: Use azure.customUrl instead. Custom URL for accessing the service.
+}
+
+// RestartConfig represents the user-configurable restart behavior in azure.yaml.
+type RestartConfig struct {
+	// Policy controls restart behavior: "never" (default), "on-failure", or "always".
+	Policy string `yaml:"policy,omitempty"`
+
+	// MaxRetries is the maximum number of automatic restart attempts before giving up.
+	MaxRetries int `yaml:"maxRetries,omitempty"`
+
+	// Backoff is the base delay before retrying (for example "1s", "500ms").
+	Backoff string `yaml:"backoff,omitempty"`
+}
+
+// RestartPolicy contains the resolved runtime restart settings for a service.
+type RestartPolicy struct {
+	Policy      string
+	MaxRetries  int
+	BackoffBase time.Duration
 }
 
 // LocalServiceConfig represents local development configuration for a service.
@@ -149,6 +193,7 @@ type serviceRaw struct {
 	Healthcheck any                 `yaml:"healthcheck,omitempty"`
 	Type        string              `yaml:"type,omitempty"`
 	Mode        string              `yaml:"mode,omitempty"`
+	Restart     *RestartConfig      `yaml:"restart,omitempty"`
 	Local       *LocalServiceConfig `yaml:"local,omitempty"`
 	Azure       *AzureServiceConfig `yaml:"azure,omitempty"`
 	URL         string              `yaml:"url,omitempty"`
@@ -175,6 +220,7 @@ func (s *Service) UnmarshalYAML(unmarshal func(any) error) error {
 	s.Logs = raw.Logs
 	s.Type = raw.Type
 	s.Mode = raw.Mode
+	s.Restart = raw.Restart
 	s.Local = raw.Local
 	s.Azure = raw.Azure
 	s.URL = raw.URL
@@ -288,6 +334,42 @@ func (s *Service) GetServiceMode() string {
 
 	// Default to daemon for process services
 	return ServiceModeDaemon
+}
+
+// GetRestartPolicy returns the resolved restart policy for runtime orchestration.
+func (s *Service) GetRestartPolicy() RestartPolicy {
+	policy := RestartPolicy{
+		Policy:      RestartPolicyNever,
+		MaxRetries:  DefaultRestartMaxRetries,
+		BackoffBase: DefaultRestartBackoffBase,
+	}
+
+	if s == nil || s.Restart == nil {
+		return policy
+	}
+
+	switch normalized := strings.TrimSpace(strings.ToLower(s.Restart.Policy)); normalized {
+	case "", RestartPolicyNever:
+		policy.Policy = RestartPolicyNever
+	case RestartPolicyOnFailure, RestartPolicyAlways:
+		policy.Policy = normalized
+	}
+
+	if s.Restart.MaxRetries > 0 {
+		policy.MaxRetries = s.Restart.MaxRetries
+	}
+
+	if s.Restart.Backoff != "" {
+		if parsed, err := time.ParseDuration(s.Restart.Backoff); err == nil && parsed > 0 {
+			policy.BackoffBase = parsed
+		}
+	}
+
+	if policy.BackoffBase > MaxRestartBackoffBase {
+		policy.BackoffBase = MaxRestartBackoffBase
+	}
+
+	return policy
 }
 
 // IsProcessService returns true if this is a process-type service (no network endpoint).
@@ -546,6 +628,7 @@ type ServiceRuntime struct {
 	ShouldUpdateAzureYaml bool   // True if user wants port added to azure.yaml
 	Type                  string // Service type: "http", "tcp", "process"
 	Mode                  string // Run mode (for type=process): "watch", "build", "daemon", "task"
+	Restart               RestartPolicy
 }
 
 // PortMapping represents a port mapping (Docker Compose style).

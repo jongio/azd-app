@@ -29,6 +29,7 @@ const (
 
 var (
 	runServiceFilter     string
+	runScale             []string
 	runEnvFile           string
 	runVerbose           bool
 	runDryRun            bool
@@ -38,6 +39,7 @@ var (
 	runRestartContainers bool
 	runForce             bool
 	runTrust             bool
+	runNoTiming          bool
 )
 
 // NewRunCommand creates the run command.
@@ -56,6 +58,7 @@ func NewRunCommand() *cobra.Command {
 
 	// Add flags for service orchestration
 	cmd.Flags().StringVarP(&runServiceFilter, "service", "s", "", "Run specific service(s) only (comma-separated)")
+	cmd.Flags().StringSliceVar(&runScale, "scale", nil, "Run multiple instances of a service, e.g. --scale worker=3 (repeatable, comma-separated)")
 	cmd.Flags().StringVar(&runEnvFile, "env-file", "", "Load environment variables from .env file")
 	cmd.Flags().BoolVarP(&runVerbose, "verbose", "v", false, "Enable verbose logging")
 	cmd.Flags().BoolVar(&runDryRun, "dry-run", false, "Show what would be run without starting services")
@@ -65,6 +68,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&runForce, "force", false, "Force clean dependency reinstall and auto-resolve port conflicts without prompting")
 	cmd.Flags().BoolVarP(&runTrust, "trust", "y", false, "Trust this workspace for code execution and remember the decision")
 	cmd.Flags().BoolVar(&runDetach, "detach", false, "Run the app in the background and return to the shell")
+	cmd.Flags().BoolVar(&runNoTiming, "no-timing", false, "Hide the per-service startup timing summary shown after services are ready")
 
 	registerServiceFlagCompletion(cmd, "service")
 
@@ -288,6 +292,30 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	if err != nil {
 		return err
 	}
+
+	scale, err := parseScaleFlags(runScale)
+	if err != nil {
+		return fmt.Errorf("invalid --scale value: %w", err)
+	}
+
+	pm := portmanager.GetPortManager(azureYamlDir)
+	alloc := func(instanceName string, avoid map[int]bool) (int, error) {
+		port, _, allocErr := pm.AssignPort(instanceName, 0, false)
+		if allocErr != nil {
+			return 0, fmt.Errorf("failed to assign port for %s: %w", instanceName, allocErr)
+		}
+
+		avoid[port] = true
+		return port, nil
+	}
+
+	expandedRuntimes, expandedServices, err := service.ExpandScaledRuntimes(runtimes, azureYaml.Services, scale, alloc)
+	if err != nil {
+		return fmt.Errorf("failed to expand scaled services: %w", err)
+	}
+
+	runtimes = expandedRuntimes
+	azureYaml.Services = expandedServices
 
 	// Dry-run mode: show what would be executed
 	if runDryRun {
