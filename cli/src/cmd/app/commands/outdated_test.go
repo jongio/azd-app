@@ -28,21 +28,6 @@ func forceTextFormat(t *testing.T) {
 	}
 }
 
-func mkdirAll(t *testing.T, path string) {
-	t.Helper()
-	if err := os.MkdirAll(path, 0o750); err != nil {
-		t.Fatalf("mkdir %s: %v", path, err)
-	}
-}
-
-func writeFile(t *testing.T, path, content string) {
-	t.Helper()
-	mkdirAll(t, filepath.Dir(path))
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatalf("write %s: %v", path, err)
-	}
-}
-
 func TestNewOutdatedCommand(t *testing.T) {
 	cmd := NewOutdatedCommand()
 	if cmd == nil {

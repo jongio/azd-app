@@ -208,6 +208,7 @@ func (e *logsExecutor) followLogsInMemory(subscriptions map[string]chan service.
 				displayLogsJSON([]service.LogEntry{entry}, outputWriter)
 			} else {
 				displayLogsText([]service.LogEntry{entry}, outputWriter, e.opts.timestamps, e.opts.noColor)
+				e.emitAlerts(entry.Service, entry.Message, outputWriter)
 			}
 
 		case <-sigChan:
