@@ -115,7 +115,11 @@ func runCert(_ *cobra.Command, _ []string) error {
 }
 
 func trustCommandForOS(caPath string) string {
-	switch runtime.GOOS {
+	return trustCommandFor(runtime.GOOS, caPath)
+}
+
+func trustCommandFor(goos, caPath string) string {
+	switch goos {
 	case "windows":
 		return fmt.Sprintf(`certutil -addstore -user Root "%s"`, caPath)
 	case "darwin":
