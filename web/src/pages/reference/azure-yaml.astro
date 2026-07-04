@@ -75,6 +75,39 @@ const serviceModes = `services:
     command: npm run migrate
     mode: task`;
 
+const restartPolicyExample = `services:
+  # Node.js API
+  api:
+    language: TypeScript
+    project: ./api
+    command: npm run dev
+    restart:
+      policy: on-failure
+      maxRetries: 5
+      backoff: 1s
+
+  # Go worker
+  worker:
+    language: Go
+    project: ./worker
+    command: go run ./cmd/worker
+    type: process
+    restart:
+      policy: always
+      maxRetries: 3
+      backoff: 500ms
+
+  # Python queue processor
+  queue:
+    language: Python
+    project: ./queue
+    command: python main.py
+    type: process
+    restart:
+      policy: on-failure
+      maxRetries: 4
+      backoff: 2s`;
+
 const advancedService = `services:
   api:
     # Core properties
@@ -585,6 +618,7 @@ const quickReference = `# Property Quick Reference
 ### Dependencies & Health
 - uses - Service/resource dependencies
 - healthcheck - Health monitoring
+- restart - Auto-restart policy for unexpected exits
 
 ### Configuration (azd app)
 - logs - Service logging config
@@ -950,6 +984,7 @@ const resourceTypesExample = `resources:
         <a href="#name" class="text-blue-600 dark:text-blue-400 hover:underline">→ name - Your app's identity</a>
         <a href="#services" class="text-blue-600 dark:text-blue-400 hover:underline">→ services - The heart of your config</a>
         <a href="#service-types" class="text-blue-600 dark:text-blue-400 hover:underline">→ Service Types & Modes</a>
+        <a href="#restart-policy" class="text-blue-600 dark:text-blue-400 hover:underline">→ Auto-Restart Policy</a>
         <a href="#healthchecks" class="text-blue-600 dark:text-blue-400 hover:underline">→ Health Checks</a>
         <a href="#docker" class="text-blue-600 dark:text-blue-400 hover:underline">→ Docker & Containers</a>
         <a href="#resources" class="text-blue-600 dark:text-blue-400 hover:underline">→ Azure Resources</a>
@@ -1094,6 +1129,23 @@ const resourceTypesExample = `resources:
           <Code code={serviceModes} lang="yaml" />
         </div>
 
+        <div id="restart-policy" class="scroll-mt-8">
+          <h3 class="text-2xl font-bold mb-4 mt-8">Auto-Restart Policy</h3>
+          <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+            By default, services are <strong>not</strong> auto-restarted when they crash. Set
+            <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">restart</code>
+            per service to opt in.
+          </p>
+          <ul class="list-disc list-inside space-y-1 text-neutral-700 dark:text-neutral-300 mb-4 ml-4">
+            <li><code>policy: never</code> - default, no automatic restarts</li>
+            <li><code>policy: on-failure</code> - restart unexpected exits only</li>
+            <li><code>policy: always</code> - restart any unexpected exit</li>
+            <li><code>maxRetries</code> - retry cap before giving up (default: 3)</li>
+            <li><code>backoff</code> - retry delay base using Go duration format (default: 1s)</li>
+          </ul>
+          <Code code={restartPolicyExample} lang="yaml" />
+        </div>
+
         <!-- Advanced Service Config -->
         <h3 class="text-2xl font-bold mb-4 mt-10">Complete Service Configuration</h3>
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
@@ -1204,6 +1256,13 @@ const resourceTypesExample = `resources:
                 <td class="py-3 px-4">auto</td>
                 <td class="py-3 px-4">azd app</td>
                 <td class="py-3 px-4">Health check config or false to disable</td>
+              </tr>
+              <tr class="border-t border-neutral-200 dark:border-neutral-700">
+                <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">restart</code></td>
+                <td class="py-3 px-4">object</td>
+                <td class="py-3 px-4">policy: never</td>
+                <td class="py-3 px-4">azd app</td>
+                <td class="py-3 px-4">Auto-restart policy for crashed services (policy, maxRetries, backoff)</td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">logs</code></td>
