@@ -102,6 +102,17 @@ func TestNotificationManager(t *testing.T) {
 		assert.Empty(t, history) // Initially empty
 	})
 
+	t.Run("AddStateListener", func(t *testing.T) {
+		cfg := DefaultNotificationManagerConfig(t.TempDir())
+		nm, err := NewNotificationManager(cfg)
+		require.NoError(t, err)
+
+		assert.NotPanics(t, func() {
+			nm.AddStateListener(nil)
+			nm.AddStateListener(func(monitor.StateTransition) {})
+		})
+	})
+
 	t.Run("IsNotificationsEnabled", func(t *testing.T) {
 		cfg := DefaultNotificationManagerConfig(t.TempDir())
 		nm, err := NewNotificationManager(cfg)

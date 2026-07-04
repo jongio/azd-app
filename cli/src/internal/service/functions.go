@@ -337,6 +337,7 @@ func buildFunctionsRuntime(serviceName string, service Service, projectDir strin
 		WorkingDir:     projectDir,
 		Protocol:       "http",
 		Env:            make(map[string]string),
+		Restart:        service.GetRestartPolicy(),
 	}
 
 	// Assign port

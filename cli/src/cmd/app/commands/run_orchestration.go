@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/executor"
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/supervisor"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/registry"
 )
@@ -105,6 +107,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 		cliout.Warning("Notifications unavailable: %v", err)
 	} else {
 		notifMgr.Start()
+		configureAutoRestartSupervisor(ctx, notifMgr, result.Processes, cwd)
 		defer func() { _ = notifMgr.Stop() }()
 	}
 
@@ -180,6 +183,57 @@ func startServiceMonitors(ctx context.Context, wg *sync.WaitGroup, processes map
 		wg.Add(1)
 		go monitorServiceProcess(ctx, wg, name, process, projectDir)
 	}
+}
+
+func configureAutoRestartSupervisor(
+	ctx context.Context,
+	notifMgr *notifications.NotificationManager,
+	processes map[string]*service.ServiceProcess,
+	projectDir string,
+) {
+	if notifMgr == nil || len(processes) == 0 {
+		return
+	}
+
+	policies := make(map[string]service.RestartPolicy, len(processes))
+	for name, process := range processes {
+		if process == nil {
+			continue
+		}
+		policy := strings.ToLower(strings.TrimSpace(process.Runtime.Restart.Policy))
+		if policy != service.RestartPolicyOnFailure && policy != service.RestartPolicyAlways {
+			continue
+		}
+		policies[name] = process.Runtime.Restart
+	}
+
+	if len(policies) == 0 {
+		return
+	}
+
+	controller, err := NewServiceController(projectDir)
+	if err != nil {
+		cliout.Warning("Auto-restart unavailable: %v", err)
+		return
+	}
+
+	restartSupervisor := supervisor.New(ctx, policies, func(serviceName string) error {
+		restartResult := controller.RestartService(ctx, serviceName)
+		if restartResult == nil {
+			return fmt.Errorf("failed to restart service '%s': no result returned", serviceName)
+		}
+
+		if !restartResult.Success {
+			if restartResult.Error != "" {
+				return fmt.Errorf("failed to restart service '%s': %s", serviceName, restartResult.Error)
+			}
+			return fmt.Errorf("failed to restart service '%s': %s", serviceName, restartResult.Message)
+		}
+
+		return nil
+	})
+
+	notifMgr.AddStateListener(restartSupervisor.OnStateTransition)
 }
 
 // performGracefulShutdown stops all services and dashboard with a timeout.

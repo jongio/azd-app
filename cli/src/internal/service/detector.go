@@ -63,6 +63,7 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 		WorkingDir: projectDir,
 		Protocol:   "http",
 		Env:        make(map[string]string),
+		Restart:    service.GetRestartPolicy(),
 		HealthCheck: HealthCheckConfig{
 			Type:     defaultHealthCheckType,
 			Path:     "/",
@@ -179,6 +180,7 @@ func detectContainerRuntime(serviceName string, service Service, usedPorts map[i
 		Protocol:   "tcp",
 		Env:        make(map[string]string),
 		Type:       ServiceTypeContainer,
+		Restart:    service.GetRestartPolicy(),
 		HealthCheck: HealthCheckConfig{
 			Type:     defaultHealthCheckType,
 			Timeout:  60 * time.Second,
