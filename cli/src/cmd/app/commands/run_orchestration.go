@@ -49,6 +49,9 @@ func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceR
 
 	logger.LogReady()
 
+	// Record per-service startup timing and surface regressions vs prior runs.
+	recordStartupTimings(cwd, result)
+
 	// Execute postrun hook after all services are ready
 	if err := executePostrunHook(ctx, azureYaml, azureYamlDir); err != nil {
 		cliout.Warning("Postrun hook failed but services are running: %v", err)
