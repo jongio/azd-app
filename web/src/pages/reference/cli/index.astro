@@ -11,6 +11,9 @@ azd app deps
 # Start development environment
 azd app run
 
+# Start local reverse proxy
+azd app proxy
+
 # Generate local HTTPS certificate
 azd app cert --host api.local.test
 
@@ -127,6 +130,17 @@ azd app mcp serve`;
       <p class="text-neutral-700 dark:text-neutral-300">Restart services.</p>
       <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
         3 flags • 4 examples
+      </div>
+    </a>
+
+    <a href="/azd-app/reference/cli/proxy/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+      <div class="flex items-start justify-between mb-2">
+        <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app proxy</code>
+        <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
+      </div>
+      <p class="text-neutral-700 dark:text-neutral-300">Route local requests to running services through one local origin.</p>
+      <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+        1 flag • 3 examples
       </div>
     </a>
 

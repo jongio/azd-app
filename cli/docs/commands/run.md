@@ -26,6 +26,7 @@ azd app run [flags]
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Run specific service(s) only (comma-separated) |
+| `--scale` | | string[] | | Run multiple instances of a service, e.g. --scale worker=3 (repeatable, comma-separated) |
 | `--runtime` | | string | `azd` | Runtime mode: 'azd' or 'aspire' |
 | `--env-file` | | string | | Load environment variables from .env file |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
@@ -62,6 +63,19 @@ azd app run -w
 ```
 
 **Non-blocking**: Browser launch happens asynchronously and never blocks dashboard startup.
+
+### Run Multiple Instances
+
+Use `--scale` to run multiple instances of a service:
+
+```bash
+azd app run --scale worker=3
+```
+
+This starts:
+- `worker` with `AZD_APP_INSTANCE=1`
+- `worker-2` with a different local port and `AZD_APP_INSTANCE=2`
+- `worker-3` with a different local port and `AZD_APP_INSTANCE=3`
 
 ## Lifecycle Hooks
 

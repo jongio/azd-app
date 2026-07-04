@@ -13,6 +13,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/azure"
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
+	"github.com/jongio/azd-app/cli/src/internal/logalert"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/jongio/azd-core/cliout"
@@ -154,6 +155,7 @@ type logsOptions struct {
 	contextLines int    // Number of context lines before/after matching entries (0-10)
 	source       string // Log source: "local", "azure", or "all"
 	redact       bool
+	alerts       bool // Enable log-pattern alert rules
 }
 
 // logsExecutor encapsulates the logs command execution with injectable dependencies.
@@ -165,6 +167,7 @@ type logsExecutor struct {
 	getWorkingDir          func() (string, error)
 	outputWriter           io.Writer
 	signalChan             chan os.Signal
+	alertEngine            *logalert.Engine
 
 	// Configuration options (stored directly to avoid duplication)
 	opts *logsOptions
@@ -294,6 +297,7 @@ Examples:
 	cmd.Flags().IntVar(&opts.contextLines, "context", 0, "Number of context lines before/after matching entries (0-10, requires --level)")
 	cmd.Flags().StringVar(&opts.source, "source", "local", "Log source: 'local' (default), 'azure', or 'all'")
 	cmd.Flags().BoolVar(&opts.redact, "redact", false, "Redact secret-shaped values before printing logs")
+	cmd.Flags().BoolVar(&opts.alerts, "alerts", false, "Raise alerts for log lines matching built-in patterns (panic, unhandled exception, fatal)")
 
 	registerServiceFlagCompletion(cmd, "service")
 
@@ -310,6 +314,14 @@ func runLogsWithOptions(opts *logsOptions, args []string) error {
 
 	// Create executor with production dependencies
 	executor := newLogsExecutor(opts)
+
+	// Enable log-pattern alerts when requested. Built-in rules are static and
+	// compile cleanly, but surface any load error rather than swallowing it.
+	engine, err := buildAlertEngine(opts.alerts)
+	if err != nil {
+		return err
+	}
+	executor.alertEngine = engine
 
 	return executor.execute(context.Background(), args)
 }

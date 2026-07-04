@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,13 +15,16 @@ import (
 )
 
 const (
-	graphOutputText = "text"
-	graphOutputJSON = "json"
+	graphOutputText    = "text"
+	graphOutputJSON    = "json"
+	graphOutputMermaid = "mermaid"
+	graphOutputDOT     = "dot"
 )
 
 type graphOptions struct {
-	output string
-	writer io.Writer
+	output     string
+	outputFile string
+	writer     io.Writer
 }
 
 type graphResult struct {
@@ -48,15 +52,30 @@ type graphEdge struct {
 func NewGraphCommand() *cobra.Command {
 	opts := &graphOptions{writer: os.Stdout}
 	cmd := &cobra.Command{
-		Use:          "graph",
-		Short:        "Show the service dependency graph",
-		Long:         "Show services, resources, dependency edges, and startup levels from azure.yaml.",
+		Use:   "graph",
+		Short: "Show the service dependency graph",
+		Long: `Show services, resources, dependency edges, and startup levels from azure.yaml.
+
+Use --format to change the output. text and json print to stdout. mermaid and dot
+emit a diagram you can drop into a README or an architecture doc. Combine with
+--output-file to write the result to a file instead of stdout.
+
+Examples:
+  # Human-readable text (default)
+  azd app graph
+
+  # Mermaid flowchart written to a file
+  azd app graph --format mermaid --output-file docs/services.mmd
+
+  # Graphviz DOT to stdout
+  azd app graph --format dot`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGraph(opts)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text or json")
+	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, mermaid, or dot")
+	cmd.Flags().StringVar(&opts.outputFile, "output-file", "", "Write output to this file instead of stdout")
 	return cmd
 }
 
@@ -70,8 +89,10 @@ func runGraph(opts *graphOptions) error {
 	if opts.output == "" {
 		opts.output = graphOutputText
 	}
-	if opts.output != graphOutputText && opts.output != graphOutputJSON {
-		return fmt.Errorf("invalid output format: %s (must be text or json)", opts.output)
+	switch opts.output {
+	case graphOutputText, graphOutputJSON, graphOutputMermaid, graphOutputDOT:
+	default:
+		return fmt.Errorf("invalid output format: %s (must be text, json, mermaid, or dot)", opts.output)
 	}
 
 	azureYamlPath, err := findAzureYaml()
@@ -93,13 +114,40 @@ func runGraph(opts *graphOptions) error {
 	}
 	result := buildGraphResult(projectDir, graph)
 
-	if opts.output == graphOutputJSON {
-		enc := json.NewEncoder(opts.writer)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
+	// When --output-file is set, buffer the rendered output and write it to disk.
+	writer := opts.writer
+	var buf *bytes.Buffer
+	if opts.outputFile != "" {
+		buf = &bytes.Buffer{}
+		writer = buf
 	}
 
-	printGraphText(opts.writer, result)
+	if err := renderGraph(writer, opts.output, result); err != nil {
+		return err
+	}
+
+	if buf != nil {
+		if err := os.WriteFile(opts.outputFile, buf.Bytes(), 0o644); err != nil {
+			return fmt.Errorf("failed to write graph to %s: %w", opts.outputFile, err)
+		}
+		_, _ = fmt.Fprintf(opts.writer, "Wrote %s graph to %s\n", opts.output, opts.outputFile)
+	}
+	return nil
+}
+
+func renderGraph(w io.Writer, format string, result graphResult) error {
+	switch format {
+	case graphOutputJSON:
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
+	case graphOutputMermaid:
+		renderGraphMermaid(w, result)
+	case graphOutputDOT:
+		renderGraphDOT(w, result)
+	default:
+		printGraphText(w, result)
+	}
 	return nil
 }
 
@@ -191,4 +239,95 @@ func joinGraphNames(names []string) string {
 	sorted := append([]string(nil), names...)
 	sort.Strings(sorted)
 	return strings.Join(sorted, ", ")
+}
+
+// mermaidNodeIDs builds a map from node name to a Mermaid-safe identifier.
+// Mermaid node IDs must be alphanumeric or underscore, so unsafe characters are
+// replaced and a stable index suffix guarantees uniqueness.
+func mermaidNodeIDs(nodes []graphNode) map[string]string {
+	ids := make(map[string]string, len(nodes))
+	for i, node := range nodes {
+		var b strings.Builder
+		b.WriteByte('n')
+		for _, r := range node.Name {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
+				b.WriteRune(r)
+			} else {
+				b.WriteByte('_')
+			}
+		}
+		fmt.Fprintf(&b, "_%d", i)
+		ids[node.Name] = b.String()
+	}
+	return ids
+}
+
+// escapeMermaidLabel escapes a label for use inside a double-quoted Mermaid node.
+func escapeMermaidLabel(s string) string {
+	replacer := strings.NewReplacer(
+		"\"", "#quot;",
+		"\n", " ",
+		"[", "#91;",
+		"]", "#93;",
+		"{", "#123;",
+		"}", "#125;",
+	)
+	return replacer.Replace(s)
+}
+
+func renderGraphMermaid(w io.Writer, result graphResult) {
+	ids := mermaidNodeIDs(result.Nodes)
+
+	_, _ = fmt.Fprintln(w, "flowchart TD")
+	for _, node := range result.Nodes {
+		label := node.Name
+		if node.Type != "" {
+			label += " (" + node.Type + ")"
+		}
+		id := ids[node.Name]
+		// Resources use a rounded shape to distinguish them from services.
+		if node.Type == "resource" {
+			_, _ = fmt.Fprintf(w, "    %s([\"%s\"])\n", id, escapeMermaidLabel(label))
+		} else {
+			_, _ = fmt.Fprintf(w, "    %s[\"%s\"]\n", id, escapeMermaidLabel(label))
+		}
+	}
+	for _, edge := range result.Edges {
+		from, okFrom := ids[edge.From]
+		to, okTo := ids[edge.To]
+		if !okFrom || !okTo {
+			continue
+		}
+		_, _ = fmt.Fprintf(w, "    %s --> %s\n", from, to)
+	}
+}
+
+// escapeDOTString escapes a string for use inside a double-quoted Graphviz DOT literal.
+func escapeDOTString(s string) string {
+	replacer := strings.NewReplacer(
+		"\\", "\\\\",
+		"\"", "\\\"",
+		"\n", "\\n",
+	)
+	return replacer.Replace(s)
+}
+
+func renderGraphDOT(w io.Writer, result graphResult) {
+	_, _ = fmt.Fprintln(w, "digraph services {")
+	_, _ = fmt.Fprintln(w, "    rankdir=LR;")
+	for _, node := range result.Nodes {
+		label := node.Name
+		if node.Type != "" {
+			label += "\n(" + node.Type + ")"
+		}
+		shape := "box"
+		if node.Type == "resource" {
+			shape = "ellipse"
+		}
+		_, _ = fmt.Fprintf(w, "    \"%s\" [label=\"%s\", shape=%s];\n", escapeDOTString(node.Name), escapeDOTString(label), shape)
+	}
+	for _, edge := range result.Edges {
+		_, _ = fmt.Fprintf(w, "    \"%s\" -> \"%s\";\n", escapeDOTString(edge.From), escapeDOTString(edge.To))
+	}
+	_, _ = fmt.Fprintln(w, "}")
 }

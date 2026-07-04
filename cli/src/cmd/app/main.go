@@ -98,6 +98,7 @@ func main() {
 		commands.NewStartCommand(),
 		commands.NewStopCommand(),
 		commands.NewRestartCommand(),
+		commands.NewProxyCommand(),
 		commands.NewCertCommand(),
 		commands.NewAddCommand(),
 		commands.NewSupportBundleCommand(),
