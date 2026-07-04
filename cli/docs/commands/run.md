@@ -31,6 +31,7 @@ azd app run [flags]
 | `--env-file` | | string | | Load environment variables from .env file |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show execution plan without starting services |
+| `--detach` | | bool | `false` | Run the app in the background and return to the shell |
 | `--restart-containers` | | bool | `false` | Restart containers even if they are already running |
 | `--force` | | bool | `false` | Force clean dependency reinstall (passes --force to deps) |
 | `--trust` | `-y` | bool | `false` | Trust this workspace for code execution and remember the decision |
@@ -63,6 +64,20 @@ azd app run -w
 ```
 
 **Non-blocking**: Browser launch happens asynchronously and never blocks dashboard startup.
+
+## Run in the background
+
+Use `--detach` to start `azd app run` in a detached process and return to the shell.
+
+```bash
+azd app run --detach
+```
+
+After starting in the background:
+
+- Check status with `azd app status`
+- Stop the run with `azd app stop`
+- Review logs in `~/.azd/azd-app/{projectHash}/run.log`
 
 ### Run Multiple Instances
 

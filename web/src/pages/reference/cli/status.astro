@@ -1,0 +1,86 @@
+---
+import Layout from '../../../components/Layout.astro';
+import { Code } from 'astro-expressive-code/components';
+
+const usageCode = 'azd app status';
+const exampleText = 'azd app status';
+const exampleJSON = 'azd app status --output json';
+const jsonShape = `{
+  "running": true,
+  "pid": 12345,
+  "dashboardUrl": "http://localhost:4280",
+  "startTime": "2026-07-03T12:00:00Z",
+  "services": [
+    {
+      "name": "api",
+      "url": "http://localhost:8080",
+      "port": 8080
+    }
+  ]
+}`;
+---
+
+<Layout title="status - CLI Reference" description="Show whether azd app run is active, including dashboard URL and services.">
+  <div class="max-w-4xl mx-auto px-4 py-12">
+    <nav class="text-sm mb-8">
+      <ol class="flex items-center gap-2 text-neutral-500">
+        <li><a href="/azd-app/" class="hover:text-blue-500">Home</a></li>
+        <li>/</li>
+        <li><a href="/azd-app/reference/cli/" class="hover:text-blue-500">CLI Reference</a></li>
+        <li>/</li>
+        <li class="text-neutral-900 dark:text-white">status</li>
+      </ol>
+    </nav>
+
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">azd app status</h1>
+      <p class="text-xl text-neutral-700 dark:text-neutral-300">Show whether azd app run is active, including dashboard URL and services.</p>
+    </div>
+
+    <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
+    <Code code={usageCode} lang="bash" frame="terminal" />
+
+    <h2 class="text-2xl font-bold mt-12 mb-4">What it shows</h2>
+    <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
+      <li>Running state for this project</li>
+      <li>Dashboard URL</li>
+      <li>Running services and local endpoints</li>
+    </ul>
+
+    <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
+    <div class="space-y-4">
+      <Code code={exampleText} lang="bash" frame="terminal" />
+      <Code code={exampleJSON} lang="bash" frame="terminal" />
+    </div>
+
+    <h2 class="text-2xl font-bold mt-12 mb-4">JSON output</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+      Use the global <code>--output json</code> flag for machine-readable output.
+      If the recorded PID is stale, status returns <code>{`{"running": false}`}</code> and cleans up the stale run-state file.
+    </p>
+    <Code code={jsonShape} lang="json" />
+
+    <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
+      <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">📚 Detailed Documentation</h3>
+      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
+        For complete documentation and behavior details, see the full command specification.
+      </p>
+      <a
+        href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/status.md"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"
+      >
+        View full status specification →
+      </a>
+    </div>
+
+    <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
+      <div class="flex justify-between">
+        <a href="/azd-app/reference/cli/" class="text-blue-600 dark:text-blue-400 hover:underline">
+          ← Back to CLI Reference
+        </a>
+      </div>
+    </div>
+  </div>
+</Layout>

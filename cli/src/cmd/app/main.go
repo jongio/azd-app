@@ -98,6 +98,7 @@ func main() {
 		commands.NewMCPCommand(),    // Model Context Protocol server
 		commands.NewStartCommand(),
 		commands.NewStopCommand(),
+		commands.NewStatusCommand(),
 		commands.NewRestartCommand(),
 		commands.NewProxyCommand(),
 		commands.NewCertCommand(),
