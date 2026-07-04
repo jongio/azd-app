@@ -86,6 +86,7 @@ func main() {
 		commands.NewReqsCommand(),
 		commands.NewRunCommand(),
 		commands.NewDepsCommand(),
+		commands.NewCleanCommand(),
 		commands.NewTestCommand(),
 		commands.NewLogsCommand(),
 		commands.NewInfoCommand(),
