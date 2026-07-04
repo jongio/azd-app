@@ -177,6 +177,17 @@ func setupCleanProject(t *testing.T) (root, serviceDir string) {
 	writeFile(t, filepath.Join(serviceDir, "package.json"), "{\"name\":\"web\"}")
 	writeFile(t, filepath.Join(serviceDir, "dist", "bundle.js"), "console.log(1)")
 	writeFile(t, filepath.Join(serviceDir, "node_modules", "dep", "index.js"), "module.exports = 1")
+
+	// clean canonicalizes service paths via filepath.EvalSymlinks (required for
+	// the path-containment guard and consistent with ParseAzureYaml), so its
+	// output uses the resolved path. On some platforms t.TempDir() is not already
+	// canonical: on Windows CI, TEMP uses an 8.3 short name (e.g. RUNNER~1) that
+	// EvalSymlinks expands to its long form (runneradmin); on macOS /var resolves
+	// to /private/var. Resolve serviceDir the same way so comparisons against
+	// clean's output match on every OS.
+	if resolved, err := filepath.EvalSymlinks(serviceDir); err == nil {
+		serviceDir = resolved
+	}
 	return root, serviceDir
 }
 
