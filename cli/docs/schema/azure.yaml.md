@@ -463,6 +463,28 @@ services:
 
 See [Service States and Health](../features/service-states.md) for detailed documentation on service types, modes, and health states.
 
+#### `resources` ⭐ NEW
+**Type:** `object` (optional)
+
+Per-service CPU and memory alert thresholds for local monitoring. When a running service exceeds a configured threshold, `azd app run` raises a throttled warning and the service info exposes over-threshold indicators. Omit a field or set it to `0` to skip that check. This is different from the top-level `resources` list of Azure resources.
+
+**Properties:**
+- **`cpuPercent`**: Maximum CPU usage as a percentage of a single core. Values above 100 are allowed for multi-core work. `0` disables the CPU check.
+- **`memoryMB`**: Maximum resident memory in megabytes. `0` disables the memory check.
+
+```yaml
+services:
+  api:
+    language: node
+    project: ./api
+    ports: ["3000"]
+    resources:
+      cpuPercent: 85    # warn when the api uses more than 85% of a core
+      memoryMB: 512     # warn when the api holds more than 512 MB resident
+```
+
+Warnings are debounced per service and per dimension, so a service that hovers just over a limit does not flood the console. Thresholds only affect local `azd app run` monitoring; they do not change how the service is deployed to Azure.
+
 #### `test` ⭐ NEW
 **Type:** `object` (optional)
 
