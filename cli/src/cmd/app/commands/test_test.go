@@ -39,6 +39,8 @@ func TestNewTestCommand(t *testing.T) {
 		"dry-run",
 		"output-format",
 		"output-dir",
+		"changed",
+		"changed-base",
 	}
 
 	for _, flagName := range flags {

@@ -40,6 +40,8 @@ type TestOptions struct {
 	Save            bool
 	NoSave          bool
 	Environment     string
+	Changed         bool
+	ChangedBase     string
 }
 
 // NewTestCommand creates the test command.
@@ -52,7 +54,7 @@ func NewTestCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "test",
 		Short: "Run tests for all services with coverage aggregation",
-		Long:  `Automatically detects and runs tests for Node.js (Jest/Vitest/Mocha), Python (pytest/unittest), and .NET (xUnit/NUnit/MSTest) projects with unified coverage reporting`,
+		Long:  "Automatically detects and runs tests for Node.js (Jest/Vitest/Mocha), Python (pytest/unittest), and .NET (xUnit/NUnit/MSTest) projects with unified coverage reporting.\n\nUse --changed to only test services with files changed since --changed-base (default HEAD). It looks at staged, unstaged, and untracked files, maps each one to the service whose project directory contains it, and runs only those services. Combine it with --service to intersect the two filters.",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Try to get the output flag from parent or self
 			var formatValue string
@@ -90,6 +92,8 @@ func NewTestCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.Save, "save", false, "Save auto-detected test config to azure.yaml without prompting")
 	cmd.Flags().BoolVar(&opts.NoSave, "no-save", false, "Don't prompt to save auto-detected test config")
 	cmd.Flags().StringVarP(&opts.Environment, "environment", "e", "", "Target azd environment name (loads vars from .azure/<env>/.env)")
+	cmd.Flags().BoolVar(&opts.Changed, "changed", false, "Only test services with files changed since --changed-base")
+	cmd.Flags().StringVar(&opts.ChangedBase, "changed-base", "HEAD", "Git ref to compare against for --changed (e.g. HEAD, origin/main)")
 
 	registerServiceFlagCompletion(cmd, "service")
 
@@ -179,6 +183,26 @@ func runTests(commandOrchestrator *orchestrator.Orchestrator, opts *TestOptions)
 		serviceFilter = strings.Split(opts.ServiceFilter, ",")
 		for i := range serviceFilter {
 			serviceFilter[i] = strings.TrimSpace(serviceFilter[i])
+		}
+	}
+
+	// --changed narrows the run to services whose files changed since the base
+	// ref, intersected with any explicit --service filter.
+	if opts.Changed {
+		affected, err := changedServiceFilter(orchestrator.GetServices(), serviceFilter, opts.ChangedBase)
+		if err != nil {
+			return err
+		}
+		if len(affected) == 0 {
+			if cliout.IsJSON() {
+				return cliout.PrintJSON(map[string]any{"affected": []string{}, "tested": false})
+			}
+			cliout.Info("No services affected by changes since %s. Nothing to test.", opts.ChangedBase)
+			return nil
+		}
+		serviceFilter = affected
+		if !cliout.IsJSON() {
+			cliout.Info("Testing services changed since %s: %s", opts.ChangedBase, strings.Join(affected, ", "))
 		}
 	}
 
