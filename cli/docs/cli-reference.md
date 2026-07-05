@@ -354,6 +354,7 @@ azd app run --force
 | `--env-file` | | string | | Load environment variables from .env file |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show what would be run without starting services |
+| `--no-timing` | | bool | `false` | Hide the per-service startup timing summary shown after services are ready |
 | `--restart-containers` | | bool | `false` | Restart containers even if they are already running |
 | `--force` | `-f` | bool | `false` | Force clean dependency reinstall (passes --force to deps) |
 | `--web` | `-w` | bool | `false` | Open dashboard in browser |
