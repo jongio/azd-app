@@ -50,8 +50,9 @@ Examples:
 
   # Show information about multiple services
   azd app info --service "api,web"`,
-		SilenceUsage: true,
-		RunE:         runInfo,
+		SilenceUsage:      true,
+		RunE:              runInfo,
+		ValidArgsFunction: completeServiceArgs,
 	}
 
 	cmd.Flags().BoolVar(&infoAll, "all", false, "Show services from all projects on this machine")

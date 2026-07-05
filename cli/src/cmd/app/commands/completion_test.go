@@ -109,6 +109,75 @@ func TestCompleteServiceNames_NoAzureYaml(t *testing.T) {
 	}
 }
 
+func TestCompleteServiceArgs(t *testing.T) {
+	dir := t.TempDir()
+	writeAzureYamlForCompletion(t, dir, "api", "web", "worker")
+	t.Chdir(dir)
+
+	tests := []struct {
+		name       string
+		args       []string
+		toComplete string
+		want       []string
+	}{
+		{
+			name:       "empty prefix suggests all",
+			args:       nil,
+			toComplete: "",
+			want:       []string{"api", "web", "worker"},
+		},
+		{
+			name:       "prefix filters",
+			args:       nil,
+			toComplete: "w",
+			want:       []string{"web", "worker"},
+		},
+		{
+			name:       "already chosen names are skipped",
+			args:       []string{"api"},
+			toComplete: "",
+			want:       []string{"web", "worker"},
+		},
+		{
+			name:       "chosen skip combines with prefix",
+			args:       []string{"web"},
+			toComplete: "w",
+			want:       []string{"worker"},
+		},
+		{
+			name:       "no match returns empty",
+			args:       nil,
+			toComplete: "zzz",
+			want:       []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, directive := completeServiceArgs(nil, tt.args, tt.toComplete)
+			if directive != cobra.ShellCompDirectiveNoFileComp {
+				t.Errorf("directive = %v, want ShellCompDirectiveNoFileComp", directive)
+			}
+			if !reflect.DeepEqual(normalizeCompletion(got), normalizeCompletion(tt.want)) {
+				t.Errorf("completeServiceArgs(%v, %q) = %v, want %v", tt.args, tt.toComplete, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCompleteServiceArgs_NoAzureYaml(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+
+	got, directive := completeServiceArgs(nil, nil, "")
+	if got != nil {
+		t.Errorf("completeServiceArgs() = %v, want nil when azure.yaml is missing", got)
+	}
+	if directive != cobra.ShellCompDirectiveNoFileComp {
+		t.Errorf("directive = %v, want ShellCompDirectiveNoFileComp", directive)
+	}
+}
+
 func TestRegisterServiceFlagCompletion(t *testing.T) {
 	cmd := &cobra.Command{Use: "demo"}
 	cmd.Flags().String("service", "", "service filter")
