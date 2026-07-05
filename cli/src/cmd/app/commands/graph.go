@@ -24,6 +24,7 @@ const (
 type graphOptions struct {
 	output     string
 	outputFile string
+	focus      string
 	writer     io.Writer
 }
 
@@ -60,6 +61,9 @@ Use --format to change the output. text and json print to stdout. mermaid and do
 emit a diagram you can drop into a README or an architecture doc. Combine with
 --output-file to write the result to a file instead of stdout.
 
+Pass --focus <service> to narrow the graph to one service, everything it depends
+on, and everything that depends on it. This works with every output format.
+
 Examples:
   # Human-readable text (default)
   azd app graph
@@ -68,7 +72,10 @@ Examples:
   azd app graph --format mermaid --output-file docs/services.mmd
 
   # Graphviz DOT to stdout
-  azd app graph --format dot`,
+  azd app graph --format dot
+
+  # Just the api service and its connected nodes
+  azd app graph --focus api`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGraph(opts)
@@ -76,6 +83,7 @@ Examples:
 	}
 	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, mermaid, or dot")
 	cmd.Flags().StringVar(&opts.outputFile, "output-file", "", "Write output to this file instead of stdout")
+	cmd.Flags().StringVar(&opts.focus, "focus", "", "Limit the graph to a service, its dependencies, and its dependents")
 	return cmd
 }
 
@@ -114,6 +122,13 @@ func runGraph(opts *graphOptions) error {
 	}
 	result := buildGraphResult(projectDir, graph)
 
+	if opts.focus != "" {
+		result, err = focusGraphResult(result, opts.focus)
+		if err != nil {
+			return err
+		}
+	}
+
 	// When --output-file is set, buffer the rendered output and write it to disk.
 	writer := opts.writer
 	var buf *bytes.Buffer
@@ -149,6 +164,87 @@ func renderGraph(w io.Writer, format string, result graphResult) error {
 		printGraphText(w, result)
 	}
 	return nil
+}
+
+// focusGraphResult reduces the graph to the focused node, everything it depends
+// on (transitively), and everything that depends on it (transitively). Node
+// metadata is preserved; startup levels are filtered to the focused nodes with
+// empty levels removed. It returns an error if the focus name is not a node.
+func focusGraphResult(result graphResult, focus string) (graphResult, error) {
+	known := make(map[string]struct{}, len(result.Nodes))
+	for _, n := range result.Nodes {
+		known[n.Name] = struct{}{}
+	}
+	if _, ok := known[focus]; !ok {
+		names := make([]string, 0, len(result.Nodes))
+		for _, n := range result.Nodes {
+			names = append(names, n.Name)
+		}
+		sort.Strings(names)
+		return graphResult{}, fmt.Errorf("service %q not found in the graph. Available: %s",
+			focus, strings.Join(names, ", "))
+	}
+
+	// deps maps a node to the nodes it depends on; dependents is the reverse.
+	deps := make(map[string][]string)
+	dependents := make(map[string][]string)
+	for _, e := range result.Edges {
+		deps[e.From] = append(deps[e.From], e.To)
+		dependents[e.To] = append(dependents[e.To], e.From)
+	}
+
+	keep := map[string]struct{}{focus: {}}
+	collectReachable(focus, deps, keep)
+	collectReachable(focus, dependents, keep)
+
+	nodes := make([]graphNode, 0, len(keep))
+	for _, n := range result.Nodes {
+		if _, ok := keep[n.Name]; ok {
+			nodes = append(nodes, n)
+		}
+	}
+
+	edges := make([]graphEdge, 0, len(result.Edges))
+	for _, e := range result.Edges {
+		_, okFrom := keep[e.From]
+		_, okTo := keep[e.To]
+		if okFrom && okTo {
+			edges = append(edges, e)
+		}
+	}
+
+	levels := make([][]string, 0, len(result.Levels))
+	for _, level := range result.Levels {
+		filtered := make([]string, 0, len(level))
+		for _, name := range level {
+			if _, ok := keep[name]; ok {
+				filtered = append(filtered, name)
+			}
+		}
+		if len(filtered) > 0 {
+			levels = append(levels, filtered)
+		}
+	}
+
+	return graphResult{
+		Project: result.Project,
+		Nodes:   nodes,
+		Edges:   edges,
+		Levels:  levels,
+	}, nil
+}
+
+// collectReachable does a depth-first walk over adj starting at start, adding
+// every reachable node to keep. Nodes already in keep are skipped, so cycles
+// terminate.
+func collectReachable(start string, adj map[string][]string, keep map[string]struct{}) {
+	for _, next := range adj[start] {
+		if _, ok := keep[next]; ok {
+			continue
+		}
+		keep[next] = struct{}{}
+		collectReachable(next, adj, keep)
+	}
 }
 
 func buildGraphResult(projectDir string, graph *service.DependencyGraph) graphResult {
