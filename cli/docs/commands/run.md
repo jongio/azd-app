@@ -32,6 +32,7 @@ azd app run [flags]
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show execution plan without starting services |
 | `--detach` | | bool | `false` | Run the app in the background and return to the shell |
+| `--no-timing` | | bool | `false` | Hide the per-service startup timing summary shown after services are ready |
 | `--restart-containers` | | bool | `false` | Restart containers even if they are already running |
 | `--force` | | bool | `false` | Force clean dependency reinstall (passes --force to deps) |
 | `--trust` | `-y` | bool | `false` | Trust this workspace for code execution and remember the decision |
@@ -78,6 +79,15 @@ After starting in the background:
 - Check status with `azd app status`
 - Stop the run with `azd app stop`
 - Review logs in `~/.azd/azd-app/{projectHash}/run.log`
+
+## Hide startup timing summary
+
+Use `--no-timing` to skip the per-service startup timing summary after all
+services are ready.
+
+```bash
+azd app run --no-timing
+```
 
 ### Run Multiple Instances
 
