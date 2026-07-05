@@ -92,6 +92,16 @@ type AzureYaml struct {
 	Dashboard *DashboardConfig    `yaml:"dashboard,omitempty"`
 	Logs      *LogsConfig         `yaml:"logs,omitempty"`      // Project-level logging configuration
 	EnvFilter *EnvFilterConfig    `yaml:"envFilter,omitempty"` // Optional env-var filter configuration
+	Security  *SecurityConfig     `yaml:"security,omitempty"`  // Optional advisory security-check configuration
+}
+
+// SecurityConfig holds opt-out switches for the advisory security checks that
+// run during preflight. The checks are advisory: they warn but never block a
+// run. Set a field to true to silence the matching warning for this project.
+type SecurityConfig struct {
+	// SkipExposureCheck disables the warning shown when a service is configured
+	// to bind to every network interface (for example HOST=0.0.0.0).
+	SkipExposureCheck bool `yaml:"skipExposureCheck,omitempty"`
 }
 
 // EnvFilterConfig controls environment variable filtering at the dashboard-to-child-service
