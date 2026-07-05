@@ -28,7 +28,52 @@ import (
 // to the deployment environment (managed identity, Key Vault references), not to the local dev
 // orchestrator.
 func ResolveEnvironment(ctx context.Context, service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string) (map[string]string, error) {
+	env, _, err := resolveEnvironmentWithSources(ctx, service, azureEnv, dotEnvPath, serviceURLs)
+	return env, err
+}
+
+// EnvSource identifies where an environment variable's value was read from.
+type EnvSource string
+
+// Environment variable sources, ordered from lowest to highest precedence.
+const (
+	EnvSourceOS         EnvSource = "os"
+	EnvSourceAzd        EnvSource = "azd"
+	EnvSourceDotEnv     EnvSource = ".env"
+	EnvSourceServiceURL EnvSource = "service-url"
+	EnvSourceService    EnvSource = "azure.yaml"
+)
+
+// EnvProvenance records where the effective value of a variable came from and,
+// when a higher-priority source replaced a lower one, which sources it overrode
+// (in the order they were applied, lowest priority first).
+type EnvProvenance struct {
+	Source    EnvSource   `json:"source"`
+	Overrides []EnvSource `json:"overrides,omitempty"`
+}
+
+// ResolveEnvironmentWithSources resolves the environment exactly like
+// ResolveEnvironment and additionally returns, per variable, the source that
+// supplied the winning value and any lower-priority sources it overrode.
+func ResolveEnvironmentWithSources(ctx context.Context, service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string) (map[string]string, map[string]EnvProvenance, error) {
+	return resolveEnvironmentWithSources(ctx, service, azureEnv, dotEnvPath, serviceURLs)
+}
+
+func resolveEnvironmentWithSources(ctx context.Context, service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string) (map[string]string, map[string]EnvProvenance, error) {
 	env := make(map[string]string)
+	prov := make(map[string]EnvProvenance)
+
+	apply := func(source EnvSource, key, value string) {
+		if existing, ok := prov[key]; ok {
+			prov[key] = EnvProvenance{
+				Source:    source,
+				Overrides: append(append([]EnvSource{}, existing.Overrides...), existing.Source),
+			}
+		} else {
+			prov[key] = EnvProvenance{Source: source}
+		}
+		env[key] = value
+	}
 
 	// Start with full OS environment — child processes inherit everything from the parent.
 	// When running as an azd extension, the parent azd process injects all environment
@@ -37,29 +82,29 @@ func ResolveEnvironment(ctx context.Context, service Service, azureEnv map[strin
 	for _, e := range os.Environ() {
 		pair := strings.SplitN(e, "=", 2)
 		if len(pair) == 2 {
-			env[pair[0]] = pair[1]
+			apply(EnvSourceOS, pair[0], pair[1])
 		}
 	}
 
 	// Merge Azure environment variables (from azd context) - these override OS env
 	for k, v := range azureEnv {
-		env[k] = v
+		apply(EnvSourceAzd, k, v)
 	}
 
 	// Load and merge .env file if specified - these override Azure env
 	if dotEnvPath != "" {
 		dotEnv, err := LoadDotEnv(dotEnvPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load .env file: %w", err)
+			return nil, nil, fmt.Errorf("failed to load .env file: %w", err)
 		}
 		for k, v := range dotEnv {
-			env[k] = v
+			apply(EnvSourceDotEnv, k, v)
 		}
 	}
 
 	// Merge auto-generated service URLs - these override .env file
 	for k, v := range serviceURLs {
-		env[k] = v
+		apply(EnvSourceServiceURL, k, v)
 	}
 
 	// Merge service-specific environment variables from azure.yaml - highest priority
@@ -67,10 +112,11 @@ func ResolveEnvironment(ctx context.Context, service Service, azureEnv map[strin
 	for name, value := range serviceEnv {
 		// Perform variable substitution
 		value = substituteEnvVars(value, env)
-		env[name] = value
+		apply(EnvSourceService, name, value)
 	}
 
-	// Resolve Azure Key Vault references if present
+	// Resolve Azure Key Vault references if present. This rewrites values only;
+	// the winning source per key is unchanged, so provenance still applies.
 	envSlice := envMapToSlice(env)
 	if hasKeyVaultReferences(envSlice) {
 		resolvedSlice, err := resolveKeyVaultReferences(ctx, envSlice)
@@ -83,7 +129,7 @@ func ResolveEnvironment(ctx context.Context, service Service, azureEnv map[strin
 		}
 	}
 
-	return env, nil
+	return env, prov, nil
 }
 
 // resolveKeyVaultReferences resolves Key Vault references in environment variables.
