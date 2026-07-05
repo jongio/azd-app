@@ -264,6 +264,10 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 		return fmt.Errorf("failed to parse azure.yaml: %w", err)
 	}
 
+	// Install any project-specific log redaction rules before services start
+	// streaming, so both the live console and support bundles honor them.
+	registerLogRedaction(azureYaml)
+
 	// REMOVED: initializeAzureLogBuffer call - deprecated v1
 	// Azure logs are now fetched on-demand via /api/azure/logs endpoint
 

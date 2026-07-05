@@ -131,7 +131,7 @@ var sensitivePatterns = regexp.MustCompile(
 
 // MaskSecretsInLogLine redacts sensitive values from a log message.
 func MaskSecretsInLogLine(message string) string {
-	return sensitivePatterns.ReplaceAllStringFunc(message, func(match string) string {
+	masked := sensitivePatterns.ReplaceAllStringFunc(message, func(match string) string {
 		// For key=value patterns, keep the key and mask the value
 		if idx := strings.IndexAny(match, "=:"); idx >= 0 {
 			return match[:idx+1] + "***"
@@ -139,6 +139,7 @@ func MaskSecretsInLogLine(message string) string {
 		// For standalone tokens (JWT), mask entirely
 		return "***"
 	})
+	return applyCustomRedaction(masked)
 }
 
 // writeToFile writes a log entry to the file (must be called with fileMu locked).
