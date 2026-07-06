@@ -90,3 +90,32 @@ func splitServiceCompletion(toComplete string) (prefix, last string, chosen map[
 func registerServiceFlagCompletion(cmd *cobra.Command, flagName string) {
 	_ = cmd.RegisterFlagCompletionFunc(flagName, completeServiceNames)
 }
+
+// completeServiceArgs is a cobra ValidArgsFunction for commands that accept one
+// or more service names as positional arguments (for example env, info, and
+// logs). It suggests service names read from azure.yaml, skips names already
+// given earlier on the command line, and always returns
+// ShellCompDirectiveNoFileComp so the shell does not fall back to file-name
+// completion.
+func completeServiceArgs(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	all := serviceNamesFromAzureYaml()
+	if len(all) == 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	chosen := make(map[string]bool, len(args))
+	for _, a := range args {
+		chosen[a] = true
+	}
+
+	suggestions := make([]string, 0, len(all))
+	for _, name := range all {
+		if chosen[name] {
+			continue
+		}
+		if strings.HasPrefix(name, toComplete) {
+			suggestions = append(suggestions, name)
+		}
+	}
+	return suggestions, cobra.ShellCompDirectiveNoFileComp
+}
