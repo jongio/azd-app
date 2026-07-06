@@ -80,15 +80,6 @@ After starting in the background:
 - Stop the run with `azd app stop`
 - Review logs in `~/.azd/azd-app/{projectHash}/run.log`
 
-## Hide startup timing summary
-
-Use `--no-timing` to skip the per-service startup timing summary after all
-services are ready.
-
-```bash
-azd app run --no-timing
-```
-
 ### Run Multiple Instances
 
 Use `--scale` to run multiple instances of a service:
@@ -101,6 +92,15 @@ This starts:
 - `worker` with `AZD_APP_INSTANCE=1`
 - `worker-2` with a different local port and `AZD_APP_INSTANCE=2`
 - `worker-3` with a different local port and `AZD_APP_INSTANCE=3`
+
+## Hide startup timing summary
+
+Use `--no-timing` to skip the per-service startup timing summary after all
+services are ready.
+
+```bash
+azd app run --no-timing
+```
 
 ## Lifecycle Hooks
 
