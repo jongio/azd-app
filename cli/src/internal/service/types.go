@@ -152,9 +152,22 @@ type Service struct {
 	Type               string              `yaml:"type,omitempty"`        // Service type: "http", "tcp", "process". Default: "http" if ports defined, "process" otherwise.
 	Mode               string              `yaml:"mode,omitempty"`        // Run mode (for type=process): "watch", "build", "daemon", "task". Default: "daemon".
 	Restart            *RestartConfig      `yaml:"restart,omitempty"`     // Optional auto-restart policy for unexpected service exits.
+	Resources          *ResourceThresholds `yaml:"resources,omitempty"`   // Optional per-service CPU/memory alert thresholds.
 	Local              *LocalServiceConfig `yaml:"local,omitempty"`       // Local development configuration
 	Azure              *AzureServiceConfig `yaml:"azure,omitempty"`       // Azure deployment configuration
 	URL                string              `yaml:"url,omitempty"`         // DEPRECATED: Use azure.customUrl instead. Custom URL for accessing the service.
+}
+
+// ResourceThresholds sets optional per-service resource limits that raise a
+// throttled warning during a run when a service exceeds them. A zero field is
+// not checked.
+type ResourceThresholds struct {
+	// CPUPercent is the maximum CPU usage as a percentage of a single core; it
+	// can exceed 100 for multi-core work. Zero disables the CPU check.
+	CPUPercent float64 `yaml:"cpuPercent,omitempty" json:"cpuPercent,omitempty"`
+	// MemoryMB is the maximum resident memory in megabytes. Zero disables the
+	// memory check.
+	MemoryMB uint64 `yaml:"memoryMB,omitempty" json:"memoryMB,omitempty"`
 }
 
 // RestartConfig represents the user-configurable restart behavior in azure.yaml.
@@ -206,6 +219,7 @@ type serviceRaw struct {
 	Type        string              `yaml:"type,omitempty"`
 	Mode        string              `yaml:"mode,omitempty"`
 	Restart     *RestartConfig      `yaml:"restart,omitempty"`
+	Resources   *ResourceThresholds `yaml:"resources,omitempty"`
 	Local       *LocalServiceConfig `yaml:"local,omitempty"`
 	Azure       *AzureServiceConfig `yaml:"azure,omitempty"`
 	URL         string              `yaml:"url,omitempty"`
@@ -233,6 +247,7 @@ func (s *Service) UnmarshalYAML(unmarshal func(any) error) error {
 	s.Type = raw.Type
 	s.Mode = raw.Mode
 	s.Restart = raw.Restart
+	s.Resources = raw.Resources
 	s.Local = raw.Local
 	s.Azure = raw.Azure
 	s.URL = raw.URL

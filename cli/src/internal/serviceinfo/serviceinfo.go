@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/resourcealert"
 	"github.com/jongio/azd-app/cli/src/internal/resourcesampler"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/registry"
@@ -25,6 +26,10 @@ var (
 	// as a package var so tests can exercise the merge path deterministically
 	// without depending on live process sampling.
 	sampleResourceUsage = resourcesampler.Sample
+
+	// resourceAlertEngine debounces per-service resource threshold warnings so a
+	// service hovering over a limit does not flood the console across refreshes.
+	resourceAlertEngine = resourcealert.NewEngine(0)
 )
 
 func init() {
@@ -108,6 +113,14 @@ type LocalServiceInfo struct {
 	// MemoryBytes is the running process tree's resident memory in bytes. Zero
 	// when the service is not running or sampling failed.
 	MemoryBytes uint64 `json:"memoryBytes,omitempty"`
+	// CPUThresholdPercent is the configured CPU alert threshold, if any.
+	CPUThresholdPercent float64 `json:"cpuThresholdPercent,omitempty"`
+	// MemoryThresholdMB is the configured memory alert threshold in MB, if any.
+	MemoryThresholdMB uint64 `json:"memoryThresholdMB,omitempty"`
+	// CPUOverThreshold is true when live CPU usage exceeds CPUThresholdPercent.
+	CPUOverThreshold bool `json:"cpuOverThreshold,omitempty"`
+	// MemoryOverThreshold is true when live memory usage exceeds MemoryThresholdMB.
+	MemoryOverThreshold bool `json:"memoryOverThreshold,omitempty"`
 }
 
 // AzureServiceInfo contains Azure-specific service information.
@@ -293,6 +306,7 @@ func extractAzureServiceInfo(envVars map[string]string) map[string]AzureServiceI
 // mergeServiceInfo combines azure.yaml services with running services and Azure info.
 func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.ServiceRegistryEntry, azureServices map[string]AzureServiceInfo, envVars map[string]string) []*ServiceInfo {
 	serviceMap := make(map[string]*ServiceInfo)
+	thresholds := make(map[string]resourcealert.Threshold)
 
 	// First, add all services from azure.yaml
 	if azureYaml != nil && azureYaml.Services != nil {
@@ -345,6 +359,13 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 				}
 			}
 
+			if svc.Resources != nil {
+				thresholds[normalizedName] = resourcealert.Threshold{
+					CPUPercent: svc.Resources.CPUPercent,
+					MemoryMB:   svc.Resources.MemoryMB,
+				}
+			}
+
 			serviceMap[normalizedName] = serviceInfo
 		}
 	}
@@ -381,6 +402,9 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 				usage := sampleResourceUsage(runningSvc.PID)
 				existing.Local.CPUPercent = usage.CPUPercent
 				existing.Local.MemoryBytes = usage.MemoryBytes
+				if threshold, ok := thresholds[normalizedName]; ok {
+					applyResourceThresholds(existing.Local, runningSvc.Name, usage, threshold)
+				}
 			}
 		}
 	}
@@ -425,6 +449,47 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 	}
 
 	return result
+}
+
+// applyResourceThresholds records the configured thresholds on the local info,
+// sets the over-threshold indicators from the current sample, and raises a
+// throttled warning for each dimension that is exceeded.
+func applyResourceThresholds(local *LocalServiceInfo, serviceName string, usage resourcesampler.Usage, threshold resourcealert.Threshold) {
+	if local == nil || !threshold.Configured() {
+		return
+	}
+
+	local.CPUThresholdPercent = threshold.CPUPercent
+	local.MemoryThresholdMB = threshold.MemoryMB
+
+	now := time.Now()
+
+	// Indicator state is a pure comparison, always reflecting the latest sample.
+	for _, breach := range threshold.Exceeds(serviceName, usage.CPUPercent, usage.MemoryBytes, now) {
+		switch breach.Kind {
+		case resourcealert.KindCPU:
+			local.CPUOverThreshold = true
+		case resourcealert.KindMemory:
+			local.MemoryOverThreshold = true
+		}
+	}
+
+	// Warnings are debounced so a service hovering over a limit does not flood
+	// the console across refreshes.
+	for _, breach := range resourceAlertEngine.Evaluate(serviceName, usage.CPUPercent, usage.MemoryBytes, threshold, now) {
+		switch breach.Kind {
+		case resourcealert.KindCPU:
+			slog.Warn("Service over CPU threshold",
+				"service", serviceName,
+				"cpuPercent", breach.Value,
+				"thresholdPercent", breach.Limit)
+		case resourcealert.KindMemory:
+			slog.Warn("Service over memory threshold",
+				"service", serviceName,
+				"memoryMB", breach.Value,
+				"thresholdMB", breach.Limit)
+		}
+	}
 }
 
 // detectFramework attempts to detect framework from service definition.
