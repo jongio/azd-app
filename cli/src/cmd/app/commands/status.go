@@ -1,9 +1,14 @@
 package commands
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"os"
+	"os/signal"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/constants"
@@ -12,6 +17,14 @@ import (
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/registry"
 	"github.com/spf13/cobra"
+)
+
+// minStatusWatchInterval is the smallest refresh interval accepted by --watch.
+const minStatusWatchInterval = time.Second
+
+var (
+	statusWatch    bool
+	statusInterval time.Duration
 )
 
 type statusReport struct {
@@ -24,21 +37,51 @@ type statusReport struct {
 
 // NewStatusCommand creates the status command.
 func NewStatusCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:          "status",
-		Short:        "Show whether azd app run is active",
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show whether azd app run is active",
+		Long: `Show whether azd app run is active, along with its PID, dashboard URL, and
+running services.
+
+Pass --watch to refresh the status on an interval until you press Ctrl+C, which
+is handy for keeping an eye on services while they start. The global --json flag
+prints a single snapshot and ignores --watch.
+
+Examples:
+  # One-time snapshot
+  azd app status
+
+  # Live view, refreshed every 2 seconds
+  azd app status --watch
+
+  # Live view, refreshed every 5 seconds
+  azd app status --watch --interval 5s`,
 		SilenceUsage: true,
 		RunE:         runStatus,
 	}
+	cmd.Flags().BoolVar(&statusWatch, "watch", false, "Refresh the status on an interval until interrupted")
+	cmd.Flags().DurationVar(&statusInterval, "interval", 2*time.Second, "Refresh interval for --watch (minimum 1s)")
+	return cmd
 }
 
-func runStatus(_ *cobra.Command, _ []string) error {
-	cliout.CommandHeader("status", "Show app status")
-
+func runStatus(cmd *cobra.Command, _ []string) error {
 	projectDir, err := findProjectDir()
 	if err != nil {
 		return err
 	}
+
+	// --watch is an interactive text view. The global --json flag always wins and
+	// prints a single snapshot instead.
+	if statusWatch && !cliout.IsJSON() {
+		if statusInterval < minStatusWatchInterval {
+			return fmt.Errorf("--interval must be at least %s, got %s", minStatusWatchInterval, statusInterval)
+		}
+		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return watchStatus(ctx, os.Stdout, projectDir, statusInterval)
+	}
+
+	cliout.CommandHeader("status", "Show app status")
 
 	report, err := buildStatusReport(projectDir)
 	if err != nil {
@@ -51,6 +94,49 @@ func runStatus(_ *cobra.Command, _ []string) error {
 
 	printStatusReport(report)
 	return nil
+}
+
+// watchStatus renders the status to w immediately and then again on every tick
+// until the context is canceled (for example by Ctrl+C).
+func watchStatus(ctx context.Context, w io.Writer, projectDir string, interval time.Duration) error {
+	render := func() error {
+		report, err := buildStatusReport(projectDir)
+		if err != nil {
+			return err
+		}
+		renderStatusReport(w, report, time.Now())
+		return nil
+	}
+
+	if err := render(); err != nil {
+		return err
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			_, _ = fmt.Fprintln(w, "\nStopped watching.")
+			return nil
+		case <-ticker.C:
+			if err := render(); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// renderStatusReport clears the screen and writes a single status frame with a
+// refresh timestamp header. It is used by the --watch loop.
+func renderStatusReport(w io.Writer, report statusReport, refreshedAt time.Time) {
+	// Clear the screen so each refresh replaces the previous frame.
+	_, _ = fmt.Fprint(w, "\033[H\033[2J")
+	_, _ = fmt.Fprintf(w, "azd app status (refreshed %s, press Ctrl+C to stop)\n\n", refreshedAt.Format("15:04:05"))
+	for _, line := range statusTextLines(report) {
+		_, _ = fmt.Fprintln(w, line)
+	}
 }
 
 func buildStatusReport(projectDir string) (statusReport, error) {
