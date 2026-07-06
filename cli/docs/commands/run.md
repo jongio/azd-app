@@ -36,6 +36,7 @@ azd app run [flags]
 | `--force` | | bool | `false` | Force clean dependency reinstall (passes --force to deps) |
 | `--trust` | `-y` | bool | `false` | Trust this workspace for code execution and remember the decision |
 | `--web` | `-w` | bool | `false` | Open dashboard in browser |
+| `--skip-secret-scan` | | bool | `false` | Skip the advisory scan for hardcoded secrets in tracked config |
 
 ## Dashboard Browser Launch
 
