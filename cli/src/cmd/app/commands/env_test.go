@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,7 @@ func TestNewEnvCommand(t *testing.T) {
 	assert.NotEmpty(t, cmd.Short)
 	require.NotNil(t, cmd.RunE)
 
-	for _, name := range []string{"format", "no-mask", "env-file"} {
+	for _, name := range []string{"format", "no-mask", "env-file", "all"} {
 		assert.NotNil(t, cmd.Flags().Lookup(name), "expected --%s flag", name)
 	}
 }
@@ -178,6 +179,96 @@ func TestRunEnvCommand(t *testing.T) {
 		require.Error(t, runErr)
 		assert.Contains(t, runErr.Error(), "invalid --format")
 	})
+
+	t.Run("all prints every service grouped by header", func(t *testing.T) {
+		resetEnvFlags()
+		t.Setenv("SERVICE_ENV_MARKER", "marker-value")
+		out, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"--all"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+		assert.Contains(t, out, "# api")
+		assert.Contains(t, out, "# web")
+		// The api header must come before the web header (services are sorted).
+		assert.Less(t, strings.Index(out, "# api"), strings.Index(out, "# web"))
+		assert.Contains(t, out, "SERVICE_ENV_MARKER=marker-value")
+	})
+
+	t.Run("all with json emits an object keyed by service", func(t *testing.T) {
+		resetEnvFlags()
+		out, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"--all", "--format", "json"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+		var parsed map[string]map[string]string
+		require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+		assert.Contains(t, parsed, "api")
+		assert.Contains(t, parsed, "web")
+	})
+
+	t.Run("all with a service name errors", func(t *testing.T) {
+		resetEnvFlags()
+		cmd := NewEnvCommand()
+		cmd.SetArgs([]string{"api", "--all"})
+		runErr := cmd.Execute()
+		require.Error(t, runErr)
+		assert.Contains(t, runErr.Error(), "cannot combine --all with a service name")
+	})
+}
+
+func TestRenderAllEnv(t *testing.T) {
+	resolved := map[string]map[string]string{
+		"api": {"GREETING": "hello", "DB_PASSWORD": "supersecret"},
+		"web": {"REGION": "westus"},
+	}
+	names := []string{"api", "web"}
+
+	t.Run("dotenv groups services under headers and masks secrets", func(t *testing.T) {
+		resetEnvFlags()
+		out, runErr := captureStdout(t, func() error {
+			return renderAllEnv(resolved, names, envFormatDotenv, true)
+		})
+		require.NoError(t, runErr)
+		assert.Contains(t, out, "# api")
+		assert.Contains(t, out, "GREETING=hello")
+		assert.Contains(t, out, "# web")
+		assert.Contains(t, out, "REGION=westus")
+		assert.NotContains(t, out, "supersecret")
+	})
+
+	t.Run("no-mask keeps raw secret values", func(t *testing.T) {
+		resetEnvFlags()
+		out, runErr := captureStdout(t, func() error {
+			return renderAllEnv(resolved, names, envFormatDotenv, false)
+		})
+		require.NoError(t, runErr)
+		assert.Contains(t, out, "DB_PASSWORD=supersecret")
+	})
+
+	t.Run("json emits object keyed by service", func(t *testing.T) {
+		resetEnvFlags()
+		out, runErr := captureStdout(t, func() error {
+			return renderAllEnv(resolved, names, envFormatJSON, false)
+		})
+		require.NoError(t, runErr)
+		var parsed map[string]map[string]string
+		require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+		assert.Equal(t, "hello", parsed["api"]["GREETING"])
+		assert.Equal(t, "westus", parsed["web"]["REGION"])
+	})
+
+	t.Run("no services reports an empty message", func(t *testing.T) {
+		resetEnvFlags()
+		out, runErr := captureStdout(t, func() error {
+			return renderAllEnv(map[string]map[string]string{}, nil, envFormatDotenv, true)
+		})
+		require.NoError(t, runErr)
+		assert.Contains(t, out, "No services are defined")
+	})
 }
 
 // resetEnvFlags clears the package-level env command flag state between runs so
@@ -188,6 +279,7 @@ func resetEnvFlags() {
 	envFormat = envFormatDotenv
 	envNoMask = false
 	envFile = ""
+	envAll = false
 	_ = cliout.SetFormat("default")
 }
 
