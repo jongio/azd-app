@@ -40,6 +40,7 @@ var (
 	runForce             bool
 	runTrust             bool
 	runNoTiming          bool
+	runSkipSecretScan    bool
 	runSkipExposureCheck bool
 )
 
@@ -70,6 +71,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&runTrust, "trust", "y", false, "Trust this workspace for code execution and remember the decision")
 	cmd.Flags().BoolVar(&runDetach, "detach", false, "Run the app in the background and return to the shell")
 	cmd.Flags().BoolVar(&runNoTiming, "no-timing", false, "Hide the per-service startup timing summary shown after services are ready")
+	cmd.Flags().BoolVar(&runSkipSecretScan, "skip-secret-scan", false, "Skip the advisory scan for hardcoded secrets in tracked config")
 	cmd.Flags().BoolVar(&runSkipExposureCheck, "skip-exposure-check", false, "Skip the warning shown when a service binds to all network interfaces")
 
 	registerServiceFlagCompletion(cmd, "service")
@@ -284,6 +286,9 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	if len(services) == 0 {
 		return fmt.Errorf("no services match filter: %s", runServiceFilter)
 	}
+
+	// Advisory security preflight: warn about literal secrets in tracked config.
+	runSecretScan(azureYaml, services, azureYamlDir)
 
 	// Advisory: warn when a service binds to every network interface.
 	runExposureCheck(services, azureYamlDir, azureYaml)
