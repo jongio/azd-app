@@ -277,6 +277,7 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runLogsWithOptions(opts, args)
 		},
+		ValidArgsFunction: completeServiceArgs,
 	}
 
 	cmd.Flags().BoolVarP(&opts.follow, "follow", "f", false, "Follow log output (tail -f behavior)")

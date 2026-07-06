@@ -279,6 +279,39 @@ Logs are automatically assigned levels based on content patterns:
 | Contains "debug", "trace" | DEBUG | "Debug: processing..." |
 | Default | INFO | "Server started" |
 
+## Secret Redaction
+
+Log lines are masked for secret-shaped values as they are written, so tokens and
+passwords do not end up in the console, log files, or support bundles. A built-in
+set of patterns covers common formats (key=value pairs for `secret`, `password`,
+`token`, `key`, `credential`, and `auth`, plus JWT tokens).
+
+### Custom redaction rules
+
+Projects often use tokens with their own shape that the built-in patterns do not
+recognize. Declare extra rules under `logs.redaction` in `azure.yaml`:
+
+```yaml
+logs:
+  redaction:
+    patterns:
+      - "acme-[a-z0-9]{16}"      # regular expression, every match is masked
+      - "internal-[A-Z0-9]{8}"
+    literals:
+      - "my-known-shared-secret" # exact string, masked wherever it appears
+```
+
+- `patterns` are regular expressions. Every match is replaced with `***`.
+- `literals` are exact strings, masked wherever they appear.
+
+Rules are compiled once at startup and applied on top of the built-in patterns.
+If a pattern fails to compile, the run prints a warning and skips only that entry
+rather than failing to start. With no `redaction` block present, the built-in
+patterns still apply.
+
+Because log files are masked as they are written, the same rules apply to support
+bundles that include those files.
+
 ## Service Filtering
 
 ### Single Service

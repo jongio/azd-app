@@ -150,6 +150,19 @@ type LogsConfig struct {
 	Classifications []LogClassification `yaml:"classifications,omitempty" json:"classifications,omitempty"`
 	// Analytics is the global Azure Log Analytics configuration (workspace, polling, timespan)
 	Analytics *AnalyticsConfigGlobal `yaml:"analytics,omitempty" json:"analytics,omitempty"`
+	// Redaction adds project-specific secret patterns and literals that are
+	// masked in streamed logs and support bundles, alongside the built-in patterns.
+	Redaction *LogRedactionConfig `yaml:"redaction,omitempty" json:"redaction,omitempty"`
+}
+
+// LogRedactionConfig declares project-specific secret redaction rules that are
+// applied to streamed logs (and, because log files are masked as they are
+// written, to support bundles) in addition to the built-in patterns.
+type LogRedactionConfig struct {
+	// Patterns is a list of regular expressions; every match is masked.
+	Patterns []string `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	// Literals is a list of exact strings to mask wherever they appear.
+	Literals []string `yaml:"literals,omitempty" json:"literals,omitempty"`
 }
 
 // ServiceLogsConfig represents service-level logs configuration in azure.yaml.

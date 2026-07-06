@@ -60,9 +60,10 @@ Examples:
 
   # Resolved environment for every service
   azd app env --all`,
-		SilenceUsage: true,
-		Args:         cobra.MaximumNArgs(1),
-		RunE:         runEnv,
+		SilenceUsage:      true,
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runEnv,
+		ValidArgsFunction: completeServiceArgs,
 	}
 
 	cmd.Flags().StringVar(&envFormat, "format", envFormatDotenv, "Output format: dotenv, shell, or json")
