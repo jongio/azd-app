@@ -79,3 +79,15 @@ func TestResolveEnvironmentMatchesWithSources(t *testing.T) {
 
 	assert.Equal(t, plain, withSources)
 }
+
+func TestResolveEnvironmentWithSourcesDotEnvLoadError(t *testing.T) {
+	// A missing .env path makes LoadDotEnv fail, which must surface as an error
+	// with nil results rather than a partial environment.
+	missing := filepath.Join(t.TempDir(), "missing.env")
+
+	env, prov, err := ResolveEnvironmentWithSources(context.Background(), Service{}, nil, missing, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load .env file")
+	assert.Nil(t, env)
+	assert.Nil(t, prov)
+}
