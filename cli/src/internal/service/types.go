@@ -124,6 +124,9 @@ type SecurityConfig struct {
 	// SkipSecretScan disables the advisory scan that flags literal secret
 	// values found in tracked configuration before a run starts.
 	SkipSecretScan bool `yaml:"skipSecretScan,omitempty"`
+	// SkipExposureCheck disables the warning shown when a service is configured
+	// to bind to every network interface (for example HOST=0.0.0.0).
+	SkipExposureCheck bool `yaml:"skipExposureCheck,omitempty"`
 }
 
 // DashboardConfig represents dashboard configuration in azure.yaml.

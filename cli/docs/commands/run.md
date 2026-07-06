@@ -37,6 +37,7 @@ azd app run [flags]
 | `--trust` | `-y` | bool | `false` | Trust this workspace for code execution and remember the decision |
 | `--web` | `-w` | bool | `false` | Open dashboard in browser |
 | `--skip-secret-scan` | | bool | `false` | Skip the advisory scan for hardcoded secrets in tracked config |
+| `--skip-exposure-check` | | bool | `false` | Skip the warning shown when a service binds to all network interfaces |
 
 ## Dashboard Browser Launch
 
