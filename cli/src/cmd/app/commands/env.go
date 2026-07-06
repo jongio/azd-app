@@ -20,10 +20,11 @@ const (
 )
 
 var (
-	envFormat string
-	envNoMask bool
-	envFile   string
-	envAll    bool
+	envFormat  string
+	envNoMask  bool
+	envFile    string
+	envAll     bool
+	envExplain bool
 )
 
 // NewEnvCommand creates the env command.
@@ -58,6 +59,9 @@ Examples:
   # Raw values, no masking
   azd app env api --no-mask
 
+  # Explain where each effective value came from
+  azd app env api --explain
+
   # Resolved environment for every service
   azd app env --all`,
 		SilenceUsage:      true,
@@ -70,6 +74,7 @@ Examples:
 	cmd.Flags().BoolVar(&envNoMask, "no-mask", false, "Print raw values instead of masking secret-shaped values")
 	cmd.Flags().StringVar(&envFile, "env-file", "", "Path to a .env file to merge, matching azd app run")
 	cmd.Flags().BoolVar(&envAll, "all", false, "Print the resolved environment for every service")
+	cmd.Flags().BoolVar(&envExplain, "explain", false, "Show the source of each effective value and any sources it overrode")
 
 	return cmd
 }
@@ -124,12 +129,17 @@ func runEnv(_ *cobra.Command, args []string) error {
 	}
 
 	svc := azureYaml.Services[serviceName]
+	mask := !envNoMask
+
+	if envExplain {
+		return runEnvExplain(serviceName, svc, mask)
+	}
+
 	resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
 	if err != nil {
 		return fmt.Errorf("failed to resolve environment for %q: %w", serviceName, err)
 	}
 
-	mask := !envNoMask
 	if format == envFormatJSON {
 		return cliout.PrintJSON(maskEnv(resolved, mask))
 	}
@@ -190,6 +200,60 @@ func renderAllEnv(resolvedByService map[string]map[string]string, names []string
 		fmt.Print(formatEnv(resolvedByService[name], format, mask))
 	}
 	return nil
+}
+
+// envExplainEntry is the per-variable JSON shape for "env --explain": the
+// effective value plus the source that supplied it and any sources it overrode.
+type envExplainEntry struct {
+	Value     string              `json:"value"`
+	Source    service.EnvSource   `json:"source"`
+	Overrides []service.EnvSource `json:"overrides,omitempty"`
+}
+
+// runEnvExplain prints each effective variable with the source that won and,
+// when a higher-priority source replaced a lower one, the sources it overrode.
+func runEnvExplain(serviceName string, svc service.Service, mask bool) error {
+	resolved, prov, err := service.ResolveEnvironmentWithSources(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
+	if err != nil {
+		return fmt.Errorf("failed to resolve environment for %q: %w", serviceName, err)
+	}
+
+	masked := maskEnv(resolved, mask)
+	keys := make([]string, 0, len(masked))
+	for k := range masked {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	if cliout.IsJSON() {
+		out := make(map[string]envExplainEntry, len(masked))
+		for _, k := range keys {
+			p := prov[k]
+			out[k] = envExplainEntry{Value: masked[k], Source: p.Source, Overrides: p.Overrides}
+		}
+		return cliout.PrintJSON(out)
+	}
+
+	for _, k := range keys {
+		p := prov[k]
+		fmt.Printf("%s=%s\n", k, masked[k])
+		if len(p.Overrides) > 0 {
+			fmt.Printf("    source: %s (overrode: %s)\n", p.Source, joinSourcesHighestFirst(p.Overrides))
+		} else {
+			fmt.Printf("    source: %s\n", p.Source)
+		}
+	}
+	return nil
+}
+
+// joinSourcesHighestFirst renders overridden sources from highest to lowest
+// precedence. Overrides are recorded lowest-first, so this reverses them.
+func joinSourcesHighestFirst(sources []service.EnvSource) string {
+	parts := make([]string, 0, len(sources))
+	for i := len(sources) - 1; i >= 0; i-- {
+		parts = append(parts, string(sources[i]))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // printServiceList prints the available service names so the user knows the

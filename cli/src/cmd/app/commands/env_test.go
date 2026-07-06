@@ -19,7 +19,7 @@ func TestNewEnvCommand(t *testing.T) {
 	assert.NotEmpty(t, cmd.Short)
 	require.NotNil(t, cmd.RunE)
 
-	for _, name := range []string{"format", "no-mask", "env-file", "all"} {
+	for _, name := range []string{"format", "no-mask", "env-file", "all", "explain"} {
 		assert.NotNil(t, cmd.Flags().Lookup(name), "expected --%s flag", name)
 	}
 }
@@ -280,6 +280,7 @@ func resetEnvFlags() {
 	envNoMask = false
 	envFile = ""
 	envAll = false
+	envExplain = false
 	_ = cliout.SetFormat("default")
 }
 
