@@ -49,7 +49,7 @@ func TestCollectSecretFindingsFromTrackedEnv(t *testing.T) {
 	envPath := filepath.Join(dir, ".env")
 	require.NoError(t, os.WriteFile(envPath,
 		[]byte("DB_PASSWORD=hunter2!\nSERVICE_NAME=orders-api\n"), 0o600))
-	runGit(t, dir, "add", ".env")
+	runGitT(t, dir, "add", ".env")
 
 	findings := collectSecretFindings(nil, dir)
 
@@ -73,11 +73,13 @@ func initGitRepo(t *testing.T) string {
 		t.Skip("git not available")
 	}
 	dir := t.TempDir()
-	runGit(t, dir, "init")
+	runGitT(t, dir, "init")
 	return dir
 }
 
-func runGit(t *testing.T, dir string, args ...string) {
+// runGitT runs a git command in dir and fails the test on error. It is a
+// test-only helper; the production git runner lives in test_changed.go.
+func runGitT(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
 	out, err := cmd.CombinedOutput()
