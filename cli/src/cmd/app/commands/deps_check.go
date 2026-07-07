@@ -150,9 +150,9 @@ func runDepsCheck(opts *DepsOptions, w io.Writer) error {
 			return cliout.PrintJSON(depsCheckResult{Projects: []depsCheckStatus{}, AllInstalled: true})
 		}
 		if len(opts.Services) > 0 {
-			fmt.Fprintf(w, "No projects found matching services: %v\n", opts.Services)
+			_, _ = fmt.Fprintf(w, "No projects found matching services: %v\n", opts.Services)
 		} else {
-			fmt.Fprintln(w, msgNoProjectsDetected)
+			_, _ = fmt.Fprintln(w, msgNoProjectsDetected)
 		}
 		return nil
 	}
@@ -175,7 +175,7 @@ func runDepsCheck(opts *DepsOptions, w io.Writer) error {
 
 // renderDepsCheckText prints a human-readable dependency check report.
 func renderDepsCheckText(w io.Writer, result depsCheckResult, searchRoot string) {
-	fmt.Fprintln(w, "Dependency check")
+	_, _ = fmt.Fprintln(w, "Dependency check")
 	for _, s := range result.Projects {
 		location := s.Dir
 		if location == "" {
@@ -192,11 +192,11 @@ func renderDepsCheckText(w io.Writer, result depsCheckResult, searchRoot string)
 		if !s.Installed {
 			status = "missing"
 		}
-		fmt.Fprintf(w, "  [%s] %s (%s)\n", status, location, label)
+		_, _ = fmt.Fprintf(w, "  [%s] %s (%s)\n", status, location, label)
 	}
 	if result.Missing > 0 {
-		fmt.Fprintf(w, "%d of %d service(s) missing dependencies. Run 'azd app deps' to install.\n", result.Missing, result.TotalChecked)
+		_, _ = fmt.Fprintf(w, "%d of %d service(s) missing dependencies. Run 'azd app deps' to install.\n", result.Missing, result.TotalChecked)
 	} else {
-		fmt.Fprintf(w, "All %d service(s) have dependencies installed.\n", result.TotalChecked)
+		_, _ = fmt.Fprintf(w, "All %d service(s) have dependencies installed.\n", result.TotalChecked)
 	}
 }
