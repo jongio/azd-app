@@ -3,9 +3,12 @@ package commands
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"os/signal"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/dashboard"
@@ -15,9 +18,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// minInfoWatchInterval is the smallest refresh interval accepted by --watch.
+const minInfoWatchInterval = time.Second
+
 var (
-	infoAll     bool
-	infoService string
+	infoAll      bool
+	infoService  string
+	infoWatch    bool
+	infoInterval time.Duration
 )
 
 const (
@@ -49,7 +57,13 @@ Examples:
   azd app info --service api
 
   # Show information about multiple services
-  azd app info --service "api,web"`,
+  azd app info --service "api,web"
+
+  # Live view, refreshed every 2 seconds (CPU and memory update each frame)
+  azd app info --watch
+
+  # Live view, refreshed every 5 seconds
+  azd app info --watch --interval 5s`,
 		SilenceUsage:      true,
 		RunE:              runInfo,
 		ValidArgsFunction: completeServiceArgs,
@@ -57,18 +71,42 @@ Examples:
 
 	cmd.Flags().BoolVar(&infoAll, "all", false, "Show services from all projects on this machine")
 	cmd.Flags().StringVarP(&infoService, "service", "s", "", "Show info for specific service(s) (comma-separated)")
+	cmd.Flags().BoolVar(&infoWatch, "watch", false, "Refresh service info on an interval until interrupted")
+	cmd.Flags().DurationVar(&infoInterval, "interval", 2*time.Second, "Refresh interval for --watch (minimum 1s)")
 
 	return cmd
 }
 
 // runInfo executes the info command.
 func runInfo(cmd *cobra.Command, args []string) error {
-	cliout.CommandHeader("info", "Show information about services")
 	// Get current working directory (may be set by --cwd flag)
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
+
+	// Resolve the requested services from positional args and/or --service.
+	requested := append([]string{}, args...)
+	if infoService != "" {
+		parsed, perr := parseServiceList(infoService)
+		if perr != nil {
+			return perr
+		}
+		requested = append(requested, parsed...)
+	}
+
+	// --watch is an interactive text view. The global --json flag always wins and
+	// prints a single snapshot instead.
+	if infoWatch && !cliout.IsJSON() {
+		if infoInterval < minInfoWatchInterval {
+			return fmt.Errorf("--interval must be at least %s, got %s", minInfoWatchInterval, infoInterval)
+		}
+		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return watchInfo(ctx, os.Stdout, cwd, requested, infoInterval)
+	}
+
+	cliout.CommandHeader("info", "Show information about services")
 
 	ctx := context.Background()
 
@@ -98,15 +136,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	// Get Azure environment values for environment variable display
 	azureEnv := getAzureEnvironmentValues()
 
-	// Filter to the requested services from positional args and/or --service.
-	requested := append([]string{}, args...)
-	if infoService != "" {
-		parsed, perr := parseServiceList(infoService)
-		if perr != nil {
-			return perr
-		}
-		requested = append(requested, parsed...)
-	}
+	// Filter to the requested services.
 	if len(requested) > 0 {
 		allServices, err = filterServicesByName(allServices, requested)
 		if err != nil {
@@ -122,6 +152,114 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	// Default output
 	printInfoDefault(cwd, allServices, azureEnv)
 	return nil
+}
+
+// gatherInfoServices returns the best available service information, preferring
+// live state from the dashboard and falling back to azure.yaml definitions.
+// Unlike the snapshot path it does not print warnings, so the watch loop stays
+// clean frame to frame.
+func gatherInfoServices(ctx context.Context, cwd string) []*serviceinfo.ServiceInfo {
+	if client, err := dashboard.NewClient(ctx, cwd); err == nil {
+		if services, err := client.GetServices(ctx); err == nil {
+			return services
+		}
+	}
+	services, _ := serviceinfo.GetServiceInfo(cwd)
+	return services
+}
+
+// watchInfo renders service info to w immediately and then again on every tick
+// until the context is canceled (for example by Ctrl+C).
+func watchInfo(ctx context.Context, w io.Writer, cwd string, requested []string, interval time.Duration) error {
+	render := func() error {
+		services := gatherInfoServices(ctx, cwd)
+		if len(requested) > 0 {
+			filtered, err := filterServicesByName(services, requested)
+			if err != nil {
+				return err
+			}
+			services = filtered
+		}
+		renderInfoFrame(w, cwd, services, time.Now())
+		return nil
+	}
+
+	if err := render(); err != nil {
+		return err
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			_, _ = fmt.Fprintln(w, "\nStopped watching.")
+			return nil
+		case <-ticker.C:
+			if err := render(); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// renderInfoFrame clears the screen and writes a single info frame with a
+// refresh timestamp header. It is used by the --watch loop.
+func renderInfoFrame(w io.Writer, projectDir string, services []*serviceinfo.ServiceInfo, refreshedAt time.Time) {
+	// Clear the screen so each refresh replaces the previous frame.
+	_, _ = fmt.Fprint(w, "\033[H\033[2J")
+	_, _ = fmt.Fprintf(w, "azd app info (refreshed %s, press Ctrl+C to stop)\n", refreshedAt.Format("15:04:05"))
+	_, _ = fmt.Fprintf(w, "Project: %s\n\n", projectDir)
+	for _, line := range infoWatchLines(services) {
+		_, _ = fmt.Fprintln(w, line)
+	}
+}
+
+// infoWatchLines builds the plain-text body of a watch frame, one service per
+// block, highlighting the live runtime values (status, port, PID, CPU, memory).
+func infoWatchLines(services []*serviceinfo.ServiceInfo) []string {
+	if len(services) == 0 {
+		return []string{"No services defined in azure.yaml"}
+	}
+
+	lines := make([]string, 0, len(services)*2)
+	for _, svc := range services {
+		status := statusUnknown
+		health := statusUnknown
+		if svc.Local != nil {
+			if svc.Local.Status != "" {
+				status = svc.Local.Status
+			}
+			if svc.Local.Health != "" {
+				health = svc.Local.Health
+			}
+		}
+		lines = append(lines, fmt.Sprintf("%s  [%s/%s]", svc.Name, status, health))
+
+		if svc.Local != nil && svc.Local.Status == statusRunning {
+			detail := make([]string, 0, 4)
+			if svc.Local.Port > 0 {
+				detail = append(detail, fmt.Sprintf("port %d", svc.Local.Port))
+			}
+			if svc.Local.PID > 0 {
+				detail = append(detail, fmt.Sprintf("pid %d", svc.Local.PID))
+			}
+			if svc.Local.CPUPercent > 0 {
+				detail = append(detail, fmt.Sprintf("cpu %s", formatCPUPercent(svc.Local.CPUPercent)))
+			}
+			if svc.Local.MemoryBytes > 0 {
+				detail = append(detail, fmt.Sprintf("mem %s", formatMemoryBytes(svc.Local.MemoryBytes)))
+			}
+			if len(detail) > 0 {
+				lines = append(lines, "  "+strings.Join(detail, "  "))
+			}
+			if svc.Local.URL != "" {
+				lines = append(lines, "  "+svc.Local.URL)
+			}
+		}
+	}
+	return lines
 }
 
 // filterServicesByName returns only the services whose names are in the
