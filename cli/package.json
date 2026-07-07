@@ -3,6 +3,6 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@radix-ui/react-tooltip": "^1.2.11"
+    "@radix-ui/react-tooltip": "^1.2.12"
   }
 }
