@@ -25,6 +25,7 @@ var (
 	envFile    string
 	envAll     bool
 	envExplain bool
+	envDiff    bool
 )
 
 // NewEnvCommand creates the env command.
@@ -62,10 +63,13 @@ Examples:
   # Explain where each effective value came from
   azd app env api --explain
 
+  # Compare the resolved environment of two services
+  azd app env --diff api web
+
   # Resolved environment for every service
   azd app env --all`,
 		SilenceUsage:      true,
-		Args:              cobra.MaximumNArgs(1),
+		Args:              cobra.MaximumNArgs(2),
 		RunE:              runEnv,
 		ValidArgsFunction: completeServiceArgs,
 	}
@@ -75,6 +79,7 @@ Examples:
 	cmd.Flags().StringVar(&envFile, "env-file", "", "Path to a .env file to merge, matching azd app run")
 	cmd.Flags().BoolVar(&envAll, "all", false, "Print the resolved environment for every service")
 	cmd.Flags().BoolVar(&envExplain, "explain", false, "Show the source of each effective value and any sources it overrode")
+	cmd.Flags().BoolVar(&envDiff, "diff", false, "Compare the resolved environment of two services (pass two service names)")
 
 	return cmd
 }
@@ -95,6 +100,16 @@ func runEnv(_ *cobra.Command, args []string) error {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+
+	// --diff compares two services and takes exactly two service names.
+	if envDiff {
+		return runEnvDiff(azureYaml, names, args)
+	}
+
+	// Two arguments are only valid with --diff.
+	if len(args) > 1 {
+		return fmt.Errorf("expected at most one service name; use --diff to compare two services")
+	}
 
 	// --all cannot be combined with a specific service name.
 	if envAll && len(args) > 0 {
