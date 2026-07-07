@@ -83,7 +83,7 @@ func TestDepsCommand_Flags(t *testing.T) {
 	}
 
 	// Verify flags exist
-	flags := []string{"verbose", "clean", "no-cache", "force", "dry-run", "service"}
+	flags := []string{"verbose", "clean", "no-cache", "force", "dry-run", "check", "service"}
 	for _, flagName := range flags {
 		if cmd.Flags().Lookup(flagName) == nil {
 			t.Errorf("Flag %q not found", flagName)
