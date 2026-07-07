@@ -140,10 +140,28 @@ func (e *logsExecutor) buildLogFilterInternal(cwd string) (*service.LogFilter, e
 	includeBuiltins := !e.opts.noBuiltins
 
 	// Build the filter
+	var (
+		filter *service.LogFilter
+		filErr error
+	)
 	if includeBuiltins {
-		return service.NewLogFilterWithBuiltins(customPatterns)
+		filter, filErr = service.NewLogFilterWithBuiltins(customPatterns)
+	} else {
+		filter, filErr = service.NewLogFilter(customPatterns)
 	}
-	return service.NewLogFilter(customPatterns)
+	if filErr != nil {
+		return nil, filErr
+	}
+
+	// Apply the positive include pattern from --grep, if any. Exclude patterns
+	// still win, so a line matching both is dropped.
+	if e.opts.grep != "" {
+		if err := filter.AddIncludePattern(e.opts.grep); err != nil {
+			return nil, fmt.Errorf("invalid --grep pattern: %w", err)
+		}
+	}
+
+	return filter, nil
 }
 
 // getOrCreateSignalChan gets or creates a signal channel with proper cleanup.

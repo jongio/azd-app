@@ -151,6 +151,7 @@ type logsOptions struct {
 	output       string
 	file         string
 	exclude      string
+	grep         string
 	noBuiltins   bool
 	contextLines int    // Number of context lines before/after matching entries (0-10)
 	source       string // Log source: "local", "azure", or "all"
@@ -250,6 +251,12 @@ Examples:
   # Filter by log level
   azd app logs --level error
 
+  # Only show lines matching a pattern
+  azd app logs --grep "timeout|refused"
+
+  # Only show POST requests, hiding health checks
+  azd app logs --grep "POST " --exclude "/health"
+
   # View errors with 3 lines of context before and after
   azd app logs --level error --context 3
 
@@ -294,6 +301,7 @@ Examples:
 	_ = cmd.Flags().MarkHidden("format")
 	cmd.Flags().StringVar(&opts.file, "file", "", "Write logs to file instead of stdout")
 	cmd.Flags().StringVar(&opts.exclude, "exclude", "", "Regex patterns to exclude (comma-separated)")
+	cmd.Flags().StringVar(&opts.grep, "grep", "", "Only show log lines matching this regex (applied after --exclude)")
 	cmd.Flags().BoolVar(&opts.noBuiltins, "no-builtins", false, "Disable built-in filter patterns")
 	cmd.Flags().IntVar(&opts.contextLines, "context", 0, "Number of context lines before/after matching entries (0-10, requires --level)")
 	cmd.Flags().StringVar(&opts.source, "source", "local", "Log source: 'local' (default), 'azure', or 'all'")

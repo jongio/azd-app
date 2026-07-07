@@ -354,6 +354,41 @@ func TestLogsExecutor_BuildLogFilterInternal(t *testing.T) {
 			t.Error("Expected built-in patterns")
 		}
 	})
+
+	t.Run("with grep include pattern", func(t *testing.T) {
+		opts := &logsOptions{
+			grep:       "POST ",
+			noBuiltins: true,
+		}
+		executor := &logsExecutor{opts: opts}
+
+		filter, err := executor.buildLogFilterInternal(tmpDir)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if filter.IncludePatternCount() != 1 {
+			t.Errorf("Expected 1 include pattern, got %d", filter.IncludePatternCount())
+		}
+		if filter.ShouldFilter("GET /health 200") == false {
+			t.Error("Expected non-matching line to be filtered out")
+		}
+		if filter.ShouldFilter("POST /orders 201") == true {
+			t.Error("Expected matching line to pass")
+		}
+	})
+
+	t.Run("invalid grep pattern errors", func(t *testing.T) {
+		opts := &logsOptions{
+			grep:       "(",
+			noBuiltins: true,
+		}
+		executor := &logsExecutor{opts: opts}
+
+		_, err := executor.buildLogFilterInternal(tmpDir)
+		if err == nil {
+			t.Error("Expected an error for an invalid --grep pattern")
+		}
+	})
 }
 
 // ==================== Execute tests ====================
