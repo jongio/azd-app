@@ -19,7 +19,7 @@ func TestNewEnvCommand(t *testing.T) {
 	assert.NotEmpty(t, cmd.Short)
 	require.NotNil(t, cmd.RunE)
 
-	for _, name := range []string{"format", "no-mask", "env-file", "all", "explain"} {
+	for _, name := range []string{"format", "no-mask", "env-file", "all", "explain", "write", "out"} {
 		assert.NotNil(t, cmd.Flags().Lookup(name), "expected --%s flag", name)
 	}
 }
@@ -220,6 +220,147 @@ func TestRunEnvCommand(t *testing.T) {
 	})
 }
 
+func TestRunEnvWrite(t *testing.T) {
+	originalFormat := cliout.GetFormat()
+	defer func() { _ = cliout.SetFormat(string(originalFormat)) }()
+
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(originalDir) }()
+
+	// chdirTemp changes into dir and registers a cleanup to restore the original
+	// directory. Because t.TempDir registers its RemoveAll cleanup first, the
+	// LIFO cleanup order restores CWD before the temp dir is removed, which
+	// matters on Windows where an in-use directory cannot be deleted.
+	chdirTemp := func(t *testing.T, dir string) {
+		require.NoError(t, os.Chdir(dir))
+		t.Cleanup(func() { _ = os.Chdir(originalDir) })
+	}
+
+	t.Run("writes a single service .env into its project directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeEnvTestAzureYaml(t, tmpDir)
+		chdirTemp(t, tmpDir)
+		resetEnvFlags()
+		t.Setenv("SERVICE_ENV_MARKER", "marker-value")
+
+		_, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"api", "--write"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+
+		data, readErr := os.ReadFile(filepath.Join(tmpDir, "api", ".env"))
+		require.NoError(t, readErr)
+		assert.Contains(t, string(data), "SERVICE_ENV_MARKER=marker-value")
+	})
+
+	t.Run("all with out writes one file per service", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeEnvTestAzureYaml(t, tmpDir)
+		chdirTemp(t, tmpDir)
+		resetEnvFlags()
+		outDir := filepath.Join(tmpDir, "envout")
+
+		_, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"--all", "--write", "--out", outDir})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+
+		assert.FileExists(t, filepath.Join(outDir, "api.env"))
+		assert.FileExists(t, filepath.Join(outDir, "web.env"))
+	})
+
+	t.Run("json format writes valid json", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeEnvTestAzureYaml(t, tmpDir)
+		chdirTemp(t, tmpDir)
+		resetEnvFlags()
+		t.Setenv("SERVICE_ENV_MARKER", "marker-value")
+
+		_, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"api", "--write", "--format", "json"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+
+		data, readErr := os.ReadFile(filepath.Join(tmpDir, "api", ".env"))
+		require.NoError(t, readErr)
+		var parsed map[string]string
+		require.NoError(t, json.Unmarshal(data, &parsed))
+		assert.Equal(t, "marker-value", parsed["SERVICE_ENV_MARKER"])
+	})
+
+	t.Run("masks secrets by default and keeps raw with no-mask", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeEnvTestAzureYaml(t, tmpDir)
+		chdirTemp(t, tmpDir)
+		t.Setenv("DB_PASSWORD", "supersecret")
+
+		resetEnvFlags()
+		_, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"api", "--write"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+		masked, readErr := os.ReadFile(filepath.Join(tmpDir, "api", ".env"))
+		require.NoError(t, readErr)
+		assert.NotContains(t, string(masked), "supersecret")
+
+		resetEnvFlags()
+		_, runErr = captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"api", "--write", "--no-mask"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+		raw, readErr := os.ReadFile(filepath.Join(tmpDir, "api", ".env"))
+		require.NoError(t, readErr)
+		assert.Contains(t, string(raw), "DB_PASSWORD=supersecret")
+	})
+
+	t.Run("write without a service or all errors", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeEnvTestAzureYaml(t, tmpDir)
+		chdirTemp(t, tmpDir)
+		resetEnvFlags()
+		cmd := NewEnvCommand()
+		cmd.SetArgs([]string{"--write"})
+		runErr := cmd.Execute()
+		require.Error(t, runErr)
+		assert.Contains(t, runErr.Error(), "specify a service name or --all")
+	})
+
+	t.Run("out without write errors", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeEnvTestAzureYaml(t, tmpDir)
+		chdirTemp(t, tmpDir)
+		resetEnvFlags()
+		cmd := NewEnvCommand()
+		cmd.SetArgs([]string{"api", "--out", "somewhere"})
+		runErr := cmd.Execute()
+		require.Error(t, runErr)
+		assert.Contains(t, runErr.Error(), "--out requires --write")
+	})
+
+	t.Run("unknown service errors", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeEnvTestAzureYaml(t, tmpDir)
+		chdirTemp(t, tmpDir)
+		resetEnvFlags()
+		cmd := NewEnvCommand()
+		cmd.SetArgs([]string{"nope", "--write"})
+		runErr := cmd.Execute()
+		require.Error(t, runErr)
+		assert.Contains(t, runErr.Error(), `service "nope" not found`)
+	})
+}
+
 func TestRenderAllEnv(t *testing.T) {
 	resolved := map[string]map[string]string{
 		"api": {"GREETING": "hello", "DB_PASSWORD": "supersecret"},
@@ -281,6 +422,8 @@ func resetEnvFlags() {
 	envFile = ""
 	envAll = false
 	envExplain = false
+	envWrite = false
+	envOut = ""
 	_ = cliout.SetFormat("default")
 }
 
