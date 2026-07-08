@@ -12,7 +12,12 @@ import (
 type LogFilter struct {
 	patterns    []*regexp.Regexp
 	rawPatterns []string
-	mu          sync.RWMutex
+	// includePatterns, when non-empty, restrict output to messages that match at
+	// least one of them. Exclude patterns still win: a message matching both an
+	// exclude and an include pattern is filtered out.
+	includePatterns    []*regexp.Regexp
+	rawIncludePatterns []string
+	mu                 sync.RWMutex
 }
 
 // BuiltInLogFilters contains patterns for common noise that doesn't indicate real problems.
@@ -75,7 +80,10 @@ func NewLogFilterWithBuiltins(customPatterns []string) (*LogFilter, error) {
 	return NewLogFilter(allPatterns)
 }
 
-// ShouldFilter returns true if the message matches any filter pattern.
+// ShouldFilter returns true if the message should be dropped from output. A
+// message is dropped when it matches any exclude pattern, or when include
+// patterns are set and the message matches none of them. Exclude patterns take
+// precedence over include patterns.
 func (lf *LogFilter) ShouldFilter(message string) bool {
 	if lf == nil {
 		return false
@@ -89,7 +97,45 @@ func (lf *LogFilter) ShouldFilter(message string) bool {
 			return true
 		}
 	}
+
+	if len(lf.includePatterns) > 0 {
+		for _, re := range lf.includePatterns {
+			if re.MatchString(message) {
+				return false
+			}
+		}
+		return true
+	}
+
 	return false
+}
+
+// AddIncludePattern adds a pattern that a message must match to be shown. When
+// any include pattern is present, messages that match none of them are filtered
+// out. Patterns are compiled case-insensitively, matching exclude patterns.
+func (lf *LogFilter) AddIncludePattern(pattern string) error {
+	if len(pattern) > maxPatternLength {
+		return fmt.Errorf("log filter pattern exceeds maximum length of %d characters", maxPatternLength)
+	}
+
+	re, err := regexp.Compile("(?i)" + pattern)
+	if err != nil {
+		return err
+	}
+
+	lf.mu.Lock()
+	defer lf.mu.Unlock()
+
+	lf.includePatterns = append(lf.includePatterns, re)
+	lf.rawIncludePatterns = append(lf.rawIncludePatterns, pattern)
+	return nil
+}
+
+// IncludePatternCount returns the number of include patterns in the filter.
+func (lf *LogFilter) IncludePatternCount() int {
+	lf.mu.RLock()
+	defer lf.mu.RUnlock()
+	return len(lf.includePatterns)
 }
 
 // AddPattern adds a new pattern to the filter.

@@ -83,6 +83,70 @@ func TestLogFilter_NilFilter(t *testing.T) {
 	}
 }
 
+func TestLogFilter_IncludePatterns(t *testing.T) {
+	t.Run("only matching lines pass when include set", func(t *testing.T) {
+		lf, err := NewLogFilter(nil)
+		if err != nil {
+			t.Fatalf("NewLogFilter() error = %v", err)
+		}
+		if err := lf.AddIncludePattern("POST "); err != nil {
+			t.Fatalf("AddIncludePattern() error = %v", err)
+		}
+
+		if lf.ShouldFilter("GET /healthz 200") == false {
+			t.Error("non-matching line should be filtered out when an include pattern is set")
+		}
+		if lf.ShouldFilter("POST /orders 201") == true {
+			t.Error("matching line should pass when it matches the include pattern")
+		}
+	})
+
+	t.Run("include is case insensitive", func(t *testing.T) {
+		lf, _ := NewLogFilter(nil)
+		if err := lf.AddIncludePattern("error"); err != nil {
+			t.Fatalf("AddIncludePattern() error = %v", err)
+		}
+		if lf.ShouldFilter("Fatal ERROR occurred") == true {
+			t.Error("include pattern should match case-insensitively")
+		}
+	})
+
+	t.Run("exclude wins over include", func(t *testing.T) {
+		lf, err := NewLogFilter([]string{"/health"})
+		if err != nil {
+			t.Fatalf("NewLogFilter() error = %v", err)
+		}
+		if err := lf.AddIncludePattern("GET "); err != nil {
+			t.Fatalf("AddIncludePattern() error = %v", err)
+		}
+
+		// Matches both include ("GET ") and exclude ("/health"): exclude wins.
+		if lf.ShouldFilter("GET /health 200") == false {
+			t.Error("a line matching both include and exclude should be filtered out")
+		}
+		// Matches include, not exclude: passes.
+		if lf.ShouldFilter("GET /orders 200") == true {
+			t.Error("a line matching include but not exclude should pass")
+		}
+	})
+
+	t.Run("invalid include pattern errors", func(t *testing.T) {
+		lf, _ := NewLogFilter(nil)
+		if err := lf.AddIncludePattern("("); err == nil {
+			t.Error("expected an error for an invalid regex include pattern")
+		}
+	})
+
+	t.Run("include count reflects added patterns", func(t *testing.T) {
+		lf, _ := NewLogFilter(nil)
+		_ = lf.AddIncludePattern("a")
+		_ = lf.AddIncludePattern("b")
+		if got := lf.IncludePatternCount(); got != 2 {
+			t.Errorf("IncludePatternCount() = %d, want 2", got)
+		}
+	})
+}
+
 func TestNewLogFilterWithBuiltins(t *testing.T) {
 	lf, err := NewLogFilterWithBuiltins(nil)
 	if err != nil {
