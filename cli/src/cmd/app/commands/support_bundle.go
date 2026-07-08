@@ -113,6 +113,9 @@ func runSupportBundle(ctx context.Context, opts *supportBundleOptions) error {
 		}
 		return writeJSONRedacted(path, services)
 	})
+	addFile("requirements.json", func(path string) error {
+		return writeRequirementsReport(path, azureYamlPath)
+	})
 	addFile("health.json", func(path string) error {
 		return writeHealthReport(ctx, path, projectDir, opts.service)
 	})
@@ -244,6 +247,56 @@ func writeLogSnapshot(ctx context.Context, path, projectDir string, opts *suppor
 		collected.EntriesWithContext[i].Message = redactSecretText(collected.EntriesWithContext[i].Message)
 	}
 	return writeJSONRedacted(path, collected)
+}
+
+func writeRequirementsReport(path, azureYamlPath string) error {
+	azureYaml, err := loadSupportBundleReqs(azureYamlPath)
+	if err != nil {
+		return err
+	}
+
+	reqs := effectiveSupportBundleReqs(azureYaml)
+	if len(reqs) == 0 {
+		return writeJSON(path, ReqsResult{Satisfied: true, Reqs: []ReqResult{}})
+	}
+
+	results, allSatisfied := checkSupportBundleReqs(reqs)
+	return writeJSON(path, ReqsResult{Satisfied: allSatisfied, Reqs: results})
+}
+
+func loadSupportBundleReqs(azureYamlPath string) (*AzureYaml, error) {
+	data, err := os.ReadFile(azureYamlPath) // #nosec G304 -- path is discovered by findAzureYaml.
+	if err != nil {
+		return nil, err
+	}
+
+	var azureYaml AzureYaml
+	if err := yaml.Unmarshal(data, &azureYaml); err != nil {
+		return nil, err
+	}
+	return &azureYaml, nil
+}
+
+func effectiveSupportBundleReqs(azureYaml *AzureYaml) []Prerequisite {
+	if azureYaml == nil {
+		return nil
+	}
+
+	reqs := append([]Prerequisite(nil), azureYaml.Reqs...)
+	if azureYaml.hasContainerServices() && !azureYaml.hasDockerReq() {
+		reqs = append(reqs, Prerequisite{Name: toolDocker, MinVersion: "20.0.0", CheckRunning: true})
+	}
+	return reqs
+}
+
+func checkSupportBundleReqs(reqs []Prerequisite) ([]ReqResult, bool) {
+	originalFormat := cliout.GetFormat()
+	_ = cliout.SetFormat("json")
+	defer func() {
+		_ = cliout.SetFormat(string(originalFormat))
+	}()
+
+	return performReqsCheck(reqs)
 }
 
 func writeJSONRedacted(path string, value any) error {

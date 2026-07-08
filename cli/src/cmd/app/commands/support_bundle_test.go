@@ -70,6 +70,9 @@ func TestRunSupportBundleCreatesFiles(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), []byte(`
 name: bundle-test
+reqs:
+  - name: azd-app-missing-tool
+    minVersion: 1.0.0
 services:
   api:
     host: local
@@ -87,7 +90,7 @@ services:
 		t.Fatalf("runSupportBundle failed: %v", err)
 	}
 
-	for _, name := range []string{"manifest.json", "azure.yaml.redacted", "services.json", "health.json", "logs.json"} {
+	for _, name := range []string{"manifest.json", "azure.yaml.redacted", "services.json", "requirements.json", "health.json", "logs.json"} {
 		if _, err := os.Stat(filepath.Join(outDir, name)); err != nil {
 			t.Fatalf("%s was not created: %v", name, err)
 		}
@@ -109,5 +112,20 @@ services:
 	}
 	if strings.Contains(string(redacted), "secretvalue123") {
 		t.Fatalf("support bundle contains unredacted secret:\n%s", string(redacted))
+	}
+
+	var reqs ReqsResult
+	reqData, err := os.ReadFile(filepath.Join(outDir, "requirements.json"))
+	if err != nil {
+		t.Fatalf("read requirements: %v", err)
+	}
+	if err := json.Unmarshal(reqData, &reqs); err != nil {
+		t.Fatalf("requirements.json is invalid JSON: %v", err)
+	}
+	if reqs.Satisfied {
+		t.Fatal("requirements should record the failed missing-tool check")
+	}
+	if len(reqs.Reqs) != 1 || reqs.Reqs[0].Name != "azd-app-missing-tool" {
+		t.Fatalf("unexpected requirement results: %#v", reqs.Reqs)
 	}
 }
