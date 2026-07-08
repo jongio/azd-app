@@ -15,10 +15,11 @@ import (
 )
 
 const (
-	graphOutputText    = "text"
-	graphOutputJSON    = "json"
-	graphOutputMermaid = "mermaid"
-	graphOutputDOT     = "dot"
+	graphOutputText     = "text"
+	graphOutputJSON     = "json"
+	graphOutputMarkdown = "markdown"
+	graphOutputMermaid  = "mermaid"
+	graphOutputDOT      = "dot"
 )
 
 type graphOptions struct {
@@ -57,9 +58,9 @@ func NewGraphCommand() *cobra.Command {
 		Short: "Show the service dependency graph",
 		Long: `Show services, resources, dependency edges, and startup levels from azure.yaml.
 
-Use --format to change the output. text and json print to stdout. mermaid and dot
-emit a diagram you can drop into a README or an architecture doc. Combine with
---output-file to write the result to a file instead of stdout.
+Use --output to change the output. text, json, and markdown print to stdout.
+mermaid and dot emit a diagram you can drop into a README or an architecture doc.
+Combine with --output-file to write the result to a file instead of stdout.
 
 Pass --focus <service> to narrow the graph to one service, everything it depends
 on, and everything that depends on it. This works with every output format.
@@ -69,10 +70,13 @@ Examples:
   azd app graph
 
   # Mermaid flowchart written to a file
-  azd app graph --format mermaid --output-file docs/services.mmd
+  azd app graph --output mermaid --output-file docs/services.mmd
 
   # Graphviz DOT to stdout
-  azd app graph --format dot
+  azd app graph --output dot
+
+  # Markdown tables for docs or issue comments
+  azd app graph --output markdown
 
   # Just the api service and its connected nodes
   azd app graph --focus api`,
@@ -81,7 +85,7 @@ Examples:
 			return runGraph(opts)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, mermaid, or dot")
+	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, markdown, mermaid, or dot")
 	cmd.Flags().StringVar(&opts.outputFile, "output-file", "", "Write output to this file instead of stdout")
 	cmd.Flags().StringVar(&opts.focus, "focus", "", "Limit the graph to a service, its dependencies, and its dependents")
 	return cmd
@@ -98,9 +102,9 @@ func runGraph(opts *graphOptions) error {
 		opts.output = graphOutputText
 	}
 	switch opts.output {
-	case graphOutputText, graphOutputJSON, graphOutputMermaid, graphOutputDOT:
+	case graphOutputText, graphOutputJSON, graphOutputMarkdown, graphOutputMermaid, graphOutputDOT:
 	default:
-		return fmt.Errorf("invalid output format: %s (must be text, json, mermaid, or dot)", opts.output)
+		return fmt.Errorf("invalid output format: %s (must be text, json, markdown, mermaid, or dot)", opts.output)
 	}
 
 	azureYamlPath, err := findAzureYaml()
@@ -156,6 +160,8 @@ func renderGraph(w io.Writer, format string, result graphResult) error {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		return enc.Encode(result)
+	case graphOutputMarkdown:
+		renderGraphMarkdown(w, result)
 	case graphOutputMermaid:
 		renderGraphMermaid(w, result)
 	case graphOutputDOT:
@@ -326,6 +332,72 @@ func printGraphText(w io.Writer, result graphResult) {
 	for _, edge := range result.Edges {
 		_, _ = fmt.Fprintf(w, "  %s -> %s\n", edge.From, edge.To)
 	}
+}
+
+func renderGraphMarkdown(w io.Writer, result graphResult) {
+	_, _ = fmt.Fprintf(w, "# Dependency graph for `%s`\n\n", escapeMarkdownCell(result.Project))
+
+	_, _ = fmt.Fprintln(w, "## Startup levels")
+	if len(result.Levels) == 0 {
+		_, _ = fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w, "No service startup levels found.")
+	} else {
+		_, _ = fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w, "| Level | Nodes |")
+		_, _ = fmt.Fprintln(w, "| --- | --- |")
+		for i, level := range result.Levels {
+			_, _ = fmt.Fprintf(w, "| %d | %s |\n", i, escapeMarkdownCell(joinGraphNames(level)))
+		}
+	}
+
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, "## Nodes")
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, "| Name | Type | Level | Host | Language | Project |")
+	_, _ = fmt.Fprintln(w, "| --- | --- | --- | --- | --- | --- |")
+	for _, node := range result.Nodes {
+		_, _ = fmt.Fprintf(
+			w,
+			"| %s | %s | %d | %s | %s | %s |\n",
+			escapeMarkdownCell(node.Name),
+			escapeMarkdownCell(node.Type),
+			node.Level,
+			escapeMarkdownCell(markdownValue(node.Host)),
+			escapeMarkdownCell(markdownValue(node.Language)),
+			escapeMarkdownCell(markdownValue(node.Project)),
+		)
+	}
+
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, "## Dependencies")
+	_, _ = fmt.Fprintln(w)
+	if len(result.Edges) == 0 {
+		_, _ = fmt.Fprintln(w, "No dependency edges.")
+		return
+	}
+	_, _ = fmt.Fprintln(w, "| From | To |")
+	_, _ = fmt.Fprintln(w, "| --- | --- |")
+	for _, edge := range result.Edges {
+		_, _ = fmt.Fprintf(w, "| %s | %s |\n", escapeMarkdownCell(edge.From), escapeMarkdownCell(edge.To))
+	}
+}
+
+func markdownValue(value string) string {
+	if value == "" {
+		return "n/a"
+	}
+	return value
+}
+
+func escapeMarkdownCell(value string) string {
+	replacer := strings.NewReplacer(
+		"\\", "\\\\",
+		"|", "\\|",
+		"\r\n", " ",
+		"\n", " ",
+		"\r", " ",
+	)
+	return replacer.Replace(value)
 }
 
 func joinGraphNames(names []string) string {
