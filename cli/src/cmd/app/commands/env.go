@@ -2,8 +2,10 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -25,6 +27,8 @@ var (
 	envFile    string
 	envAll     bool
 	envExplain bool
+	envWrite   bool
+	envOut     string
 )
 
 // NewEnvCommand creates the env command.
@@ -62,6 +66,12 @@ Examples:
   # Explain where each effective value came from
   azd app env api --explain
 
+  # Write the resolved environment to api/.env
+  azd app env api --write
+
+  # Write one .env file per service into the build/env folder
+  azd app env --all --write --out build/env
+
   # Resolved environment for every service
   azd app env --all`,
 		SilenceUsage:      true,
@@ -75,6 +85,8 @@ Examples:
 	cmd.Flags().StringVar(&envFile, "env-file", "", "Path to a .env file to merge, matching azd app run")
 	cmd.Flags().BoolVar(&envAll, "all", false, "Print the resolved environment for every service")
 	cmd.Flags().BoolVar(&envExplain, "explain", false, "Show the source of each effective value and any sources it overrode")
+	cmd.Flags().BoolVar(&envWrite, "write", false, "Write the resolved environment to a .env file instead of printing it")
+	cmd.Flags().StringVar(&envOut, "out", "", "Destination folder for --write files (writes <service>.env); defaults to each service directory")
 
 	return cmd
 }
@@ -99,6 +111,18 @@ func runEnv(_ *cobra.Command, args []string) error {
 	// --all cannot be combined with a specific service name.
 	if envAll && len(args) > 0 {
 		return fmt.Errorf("cannot combine --all with a service name")
+	}
+
+	// --out only makes sense together with --write.
+	if envOut != "" && !envWrite {
+		return fmt.Errorf("--out requires --write")
+	}
+
+	if envWrite {
+		if !envAll && len(args) == 0 {
+			return fmt.Errorf("specify a service name or --all with --write")
+		}
+		return runEnvWrite(azureYaml, names, args)
 	}
 
 	if envAll {
@@ -198,6 +222,116 @@ func renderAllEnv(resolvedByService map[string]map[string]string, names []string
 		}
 		fmt.Printf("# %s\n", name)
 		fmt.Print(formatEnv(resolvedByService[name], format, mask))
+	}
+	return nil
+}
+
+// runEnvWrite resolves the environment for the selected services and writes each
+// one to a .env file. Every service is resolved before any file is written so a
+// resolution or path error is reported without leaving a partial set of files.
+// The default destination is each service's own directory (<service>/.env); when
+// --out is set the files go to <out>/<service>.env instead.
+func runEnvWrite(azureYaml *service.AzureYaml, names []string, args []string) error {
+	format, err := resolveEnvFormat(envFormat)
+	if err != nil {
+		return err
+	}
+	mask := !envNoMask
+
+	var selected []string
+	if envAll {
+		selected = names
+	} else {
+		serviceName := args[0]
+		if _, ok := azureYaml.Services[serviceName]; !ok {
+			if len(names) == 0 {
+				return fmt.Errorf("service %q not found. No services are defined in azure.yaml", serviceName)
+			}
+			return fmt.Errorf("service %q not found. Available services: %s",
+				serviceName, strings.Join(names, ", "))
+		}
+		selected = []string{serviceName}
+	}
+
+	if len(selected) == 0 {
+		cliout.Info("No services are defined in azure.yaml")
+		return nil
+	}
+
+	type envTarget struct {
+		name    string
+		path    string
+		content string
+	}
+
+	targets := make([]envTarget, 0, len(selected))
+	for _, name := range selected {
+		svc := azureYaml.Services[name]
+
+		path, perr := envWriteTargetPath(svc, name, envOut)
+		if perr != nil {
+			return perr
+		}
+
+		resolved, rerr := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
+		if rerr != nil {
+			return fmt.Errorf("failed to resolve environment for %q: %w", name, rerr)
+		}
+
+		content, cerr := envFileContent(resolved, format, mask)
+		if cerr != nil {
+			return cerr
+		}
+
+		targets = append(targets, envTarget{name: name, path: path, content: content})
+	}
+
+	for _, t := range targets {
+		if err := writeEnvFile(t.path, t.content); err != nil {
+			return err
+		}
+		cliout.Info("Wrote %s", t.path)
+	}
+	return nil
+}
+
+// envWriteTargetPath returns the file path for a service's --write output. With
+// an explicit outDir the file is <outDir>/<service>.env; otherwise it is
+// <service-project-dir>/.env. A service without a project directory has no
+// natural destination, so the caller must supply --out.
+func envWriteTargetPath(svc service.Service, name, outDir string) (string, error) {
+	if outDir != "" {
+		return filepath.Join(outDir, name+".env"), nil
+	}
+	if svc.Project == "" {
+		return "", fmt.Errorf("service %q has no project directory; use --out to choose a destination", name)
+	}
+	return filepath.Join(svc.Project, ".env"), nil
+}
+
+// envFileContent renders the resolved environment for a --write file. The json
+// format writes an indented object; dotenv and shell reuse the same rendering as
+// the printed output. Secret-shaped values are masked when mask is true.
+func envFileContent(resolved map[string]string, format string, mask bool) (string, error) {
+	if format == envFormatJSON {
+		b, err := json.MarshalIndent(maskEnv(resolved, mask), "", "  ")
+		if err != nil {
+			return "", fmt.Errorf("failed to encode environment as json: %w", err)
+		}
+		return string(b) + "\n", nil
+	}
+	return formatEnv(resolved, format, mask), nil
+}
+
+// writeEnvFile creates the parent directory if needed and writes the file with
+// owner-only permissions, since the content can include secret values.
+func writeEnvFile(path, content string) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("failed to create directory %q: %w", dir, err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		return fmt.Errorf("failed to write %q: %w", path, err)
 	}
 	return nil
 }
