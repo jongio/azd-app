@@ -20,6 +20,7 @@ type DepsOptions struct {
 	NoCache  bool
 	Force    bool
 	DryRun   bool     // Show what would be installed without installing
+	Check    bool     // Verify dependencies are installed without installing (non-zero exit if missing)
 	Services []string // Filter to specific services by name
 }
 
@@ -218,9 +219,23 @@ func NewDepsCommand() *cobra.Command {
 	commandOrchestrator := newCommandOrchestrator()
 
 	cmd := &cobra.Command{
-		Use:          "deps",
-		Short:        "Install dependencies for services defined in azure.yaml",
-		Long:         `Installs dependencies for services defined in azure.yaml. Only service project paths are checked (Node.js, Python, .NET). Requires azure.yaml with a 'services' section.`,
+		Use:   "deps",
+		Short: "Install dependencies for services defined in azure.yaml",
+		Long: `Installs dependencies for services defined in azure.yaml. Only service project paths are checked (Node.js, Python, .NET). Requires azure.yaml with a 'services' section.
+
+Examples:
+  # Install dependencies for every service
+  azd app deps
+
+  # Show what would be installed without installing
+  azd app deps --dry-run
+
+  # Verify dependencies are installed without installing anything.
+  # Exits non-zero if any service is missing its dependencies, for CI gating.
+  azd app deps --check
+
+  # Check a single service
+  azd app deps --check --service api`,
 		SilenceUsage: true,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			// Try to get the output flag from parent or self
@@ -236,6 +251,11 @@ func NewDepsCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check mode: verify dependencies are installed without installing anything.
+			if opts.Check {
+				return runDepsCheck(opts, os.Stdout)
+			}
+
 			// Handle --force flag (combines --clean and --no-cache)
 			if opts.Force {
 				opts.Clean = true
@@ -259,6 +279,7 @@ func NewDepsCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.NoCache, "no-cache", false, "Force fresh dependency installation and bypass cached results")
 	cmd.Flags().BoolVarP(&opts.Force, "force", "f", false, "Force clean reinstall (combines --clean and --no-cache)")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Show what would be installed without actually installing")
+	cmd.Flags().BoolVar(&opts.Check, "check", false, "Verify dependencies are installed without installing; exits non-zero if any are missing")
 	cmd.Flags().StringSliceVarP(&opts.Services, "service", "s", nil, "Install dependencies only for specific services (can be specified multiple times)")
 
 	return cmd
