@@ -15,7 +15,7 @@ One command starts all services, manages dependencies, and provides real-time mo
 [![Go Reference](https://pkg.go.dev/badge/github.com/jongio/azd-app/cli.svg)](https://pkg.go.dev/github.com/jongio/azd-app/cli)
 [![govulncheck](https://img.shields.io/badge/govulncheck-passing-brightgreen)](https://github.com/jongio/azd-app/actions/workflows/govulncheck.yml)
 [![golangci-lint](https://img.shields.io/badge/golangci--lint-enabled-blue)](https://github.com/jongio/azd-app/actions/workflows/ci.yml)
-[![Go Version](https://img.shields.io/badge/go-1.26.4-blue)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/go-1.26.5-blue)](https://go.dev/)
 [![Platform Support](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey)](https://github.com/jongio/azd-app)
 
 <br />
