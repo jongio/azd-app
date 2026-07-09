@@ -8,7 +8,7 @@ Thank you for your interest in contributing to azd-app! This document provides g
 
 Before contributing, ensure you have the following installed:
 
-- **Go**: 1.26.4 or later
+- **Go**: 1.26.5 or later
 - **Node.js**: 22.0.0 or later
 - **pnpm**: 9.0.0 or later  
 - **PowerShell**: 7.4 or later (recommended: 7.5.4 for full compatibility)
@@ -17,7 +17,7 @@ Before contributing, ensure you have the following installed:
 
 You can verify your versions:
 ```bash
-go version                  # Should be 1.26.4+
+go version                  # Should be 1.26.5+
 node --version             # Should be v22.0.0+
 pnpm --version             # Should be 9.0.0+
 pwsh --version            # Should be 7.4+ or 7.5.4
