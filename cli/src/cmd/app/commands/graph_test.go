@@ -333,6 +333,64 @@ func TestRenderGraphDOT(t *testing.T) {
 	}
 }
 
+func TestRenderGraphMarkdown(t *testing.T) {
+	var buf bytes.Buffer
+	renderGraphMarkdown(&buf, sampleGraphResult())
+	out := buf.String()
+
+	for _, want := range []string{
+		"# Dependency graph for `project`",
+		"## Startup levels",
+		"| Level | Nodes |",
+		"| 0 | db |",
+		"## Nodes",
+		"| api | service | 1 | local | go | n/a |",
+		"| db | resource | 0 | n/a | n/a | n/a |",
+		"## Dependencies",
+		"| api | db |",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("markdown output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestRunGraphMarkdownOutputFile(t *testing.T) {
+	dir := t.TempDir()
+	azureYaml := []byte(`
+name: graph-test
+services:
+  api:
+    host: local
+    language: go
+    project: ./api
+`)
+	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), azureYaml, 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "api"), 0o750); err != nil {
+		t.Fatalf("mkdir api: %v", err)
+	}
+	t.Chdir(dir)
+
+	outputFile := filepath.Join(dir, "graph.md")
+	var buf bytes.Buffer
+	err := runGraph(&graphOptions{output: graphOutputMarkdown, outputFile: outputFile, writer: &buf})
+	if err != nil {
+		t.Fatalf("runGraph failed: %v", err)
+	}
+	if !strings.Contains(buf.String(), "Wrote markdown graph") {
+		t.Fatalf("expected output-file confirmation, got:\n%s", buf.String())
+	}
+	data, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("read output file: %v", err)
+	}
+	if !strings.Contains(string(data), "# Dependency graph") {
+		t.Fatalf("markdown output file missing heading:\n%s", string(data))
+	}
+}
+
 func TestEscapeMermaidLabel(t *testing.T) {
 	tests := []struct {
 		in   string
