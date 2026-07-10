@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jongio/azd-core/cliout"
 )
 
 func TestNewSupportBundleCommand(t *testing.T) {
@@ -16,10 +18,110 @@ func TestNewSupportBundleCommand(t *testing.T) {
 	if cmd.Use != "support-bundle" {
 		t.Fatalf("Use = %q, want support-bundle", cmd.Use)
 	}
-	for _, name := range []string{"output", "tail", "service"} {
+	for _, name := range []string{"output", "tail", "service", "dry-run"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("%s flag not found", name)
 		}
+	}
+}
+
+func TestRunSupportBundleDryRunText(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), []byte(`
+	name: bundle-test
+	services:
+	  api:
+	    host: local
+	    language: go
+	`), 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+	t.Chdir(dir)
+	outDir := filepath.Join(dir, "bundle")
+
+	if err := cliout.SetFormat("default"); err != nil {
+		t.Fatalf("set output format: %v", err)
+	}
+	out, err := captureStdout(t, func() error {
+		return runSupportBundle(t.Context(), &supportBundleOptions{
+			output:  outDir,
+			tail:    0,
+			service: "api",
+			dryRun:  true,
+		})
+	})
+	if err != nil {
+		t.Fatalf("dry-run failed: %v", err)
+	}
+
+	if _, statErr := os.Stat(outDir); !os.IsNotExist(statErr) {
+		t.Fatalf("dry-run wrote output folder, stat error: %v", statErr)
+	}
+	for _, want := range []string{"Support bundle dry run", outDir, "manifest.json", "azure.yaml.redacted", "logs.json", "Service: api"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("dry-run output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestRunSupportBundleDryRunJSON(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), []byte("name: bundle-test\nservices: {}\n"), 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+	t.Chdir(dir)
+	outDir := filepath.Join(dir, "bundle")
+
+	originalFormat := cliout.GetFormat()
+	if err := cliout.SetFormat("json"); err != nil {
+		t.Fatalf("set output format: %v", err)
+	}
+	t.Cleanup(func() { _ = cliout.SetFormat(string(originalFormat)) })
+
+	out, err := captureStdout(t, func() error {
+		return runSupportBundle(t.Context(), &supportBundleOptions{
+			output: outDir,
+			tail:   5,
+			dryRun: true,
+		})
+	})
+	if err != nil {
+		t.Fatalf("dry-run failed: %v", err)
+	}
+
+	var plan supportBundlePlan
+	if err := json.Unmarshal([]byte(out), &plan); err != nil {
+		t.Fatalf("dry-run JSON is invalid: %v\n%s", err, out)
+	}
+	if !plan.DryRun {
+		t.Fatal("dryRun was false")
+	}
+	if plan.OutputDir != outDir {
+		t.Fatalf("outputDir = %q, want %q", plan.OutputDir, outDir)
+	}
+	if plan.Tail != 5 {
+		t.Fatalf("tail = %d, want 5", plan.Tail)
+	}
+	if len(plan.Files) != len(plannedSupportBundleFiles()) {
+		t.Fatalf("files = %#v", plan.Files)
+	}
+	if _, statErr := os.Stat(outDir); !os.IsNotExist(statErr) {
+		t.Fatalf("dry-run wrote output folder, stat error: %v", statErr)
+	}
+}
+
+func TestRunSupportBundleDryRunValidatesInputs(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), []byte("name: bundle-test\nservices: {}\n"), 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+	t.Chdir(dir)
+
+	if err := runSupportBundle(t.Context(), &supportBundleOptions{tail: -1, dryRun: true}); err == nil || !strings.Contains(err.Error(), "--tail must be zero or greater") {
+		t.Fatalf("expected tail validation error, got %v", err)
+	}
+	if err := runSupportBundle(t.Context(), &supportBundleOptions{tail: 0, service: "../api", dryRun: true}); err == nil || !strings.Contains(err.Error(), "invalid service name") {
+		t.Fatalf("expected service validation error, got %v", err)
 	}
 }
 

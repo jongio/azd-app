@@ -32,6 +32,15 @@ type supportBundleOptions struct {
 	output  string
 	tail    int
 	service string
+	dryRun  bool
+}
+
+type supportBundlePlan struct {
+	DryRun    bool     `json:"dryRun"`
+	OutputDir string   `json:"outputDir"`
+	Files     []string `json:"files"`
+	Tail      int      `json:"tail"`
+	Service   string   `json:"service,omitempty"`
 }
 
 type supportBundleManifest struct {
@@ -50,9 +59,11 @@ type supportBundleManifest struct {
 func NewSupportBundleCommand() *cobra.Command {
 	opts := &supportBundleOptions{tail: defaultSupportBundleTail}
 	cmd := &cobra.Command{
-		Use:          "support-bundle",
-		Short:        "Collect local diagnostics for support",
-		Long:         "Collect sanitized project, service, health, and log diagnostics into a local folder for issue reports.",
+		Use:   "support-bundle",
+		Short: "Collect local diagnostics for support",
+		Long: `Collect sanitized project, service, health, and log diagnostics into a local folder for issue reports.
+
+Use --dry-run to preview the output folder and file list without writing files.`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSupportBundle(cmd.Context(), opts)
@@ -61,6 +72,7 @@ func NewSupportBundleCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&opts.output, "output", "o", "", "Output folder path")
 	cmd.Flags().IntVar(&opts.tail, "tail", defaultSupportBundleTail, "Recent log lines per service to include")
 	cmd.Flags().StringVarP(&opts.service, "service", "s", "", "Include logs and health for specific service(s), comma-separated")
+	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "Show the bundle plan without writing files")
 	return cmd
 }
 
@@ -71,6 +83,9 @@ func runSupportBundle(ctx context.Context, opts *supportBundleOptions) error {
 	if opts.tail < 0 {
 		return fmt.Errorf("--tail must be zero or greater")
 	}
+	if _, err := parseServiceList(opts.service); err != nil {
+		return err
+	}
 
 	azureYamlPath, err := findAzureYaml()
 	if err != nil {
@@ -80,6 +95,15 @@ func runSupportBundle(ctx context.Context, opts *supportBundleOptions) error {
 	outputDir, err := resolveSupportBundleOutput(projectDir, opts.output)
 	if err != nil {
 		return err
+	}
+	if opts.dryRun {
+		return renderSupportBundlePlan(supportBundlePlan{
+			DryRun:    true,
+			OutputDir: outputDir,
+			Files:     plannedSupportBundleFiles(),
+			Tail:      opts.tail,
+			Service:   opts.service,
+		})
 	}
 	if err := os.MkdirAll(outputDir, 0o750); err != nil {
 		return fmt.Errorf("failed to create support bundle folder: %w", err)
@@ -131,6 +155,34 @@ func runSupportBundle(ctx context.Context, opts *supportBundleOptions) error {
 	cliout.Info("Included %d file(s)", len(manifest.Files)+1)
 	if len(manifest.Warnings) > 0 {
 		cliout.Warning("Completed with %d warning(s). See manifest.json.", len(manifest.Warnings))
+	}
+	return nil
+}
+
+func plannedSupportBundleFiles() []string {
+	return []string{
+		"manifest.json",
+		"azure.yaml.redacted",
+		"services.json",
+		"requirements.json",
+		"health.json",
+		"logs.json",
+	}
+}
+
+func renderSupportBundlePlan(plan supportBundlePlan) error {
+	if cliout.IsJSON() {
+		return cliout.PrintJSON(plan)
+	}
+	cliout.Info("Support bundle dry run")
+	cliout.Item("Output: %s", plan.OutputDir)
+	cliout.Item("Tail: %d", plan.Tail)
+	if plan.Service != "" {
+		cliout.Item("Service: %s", plan.Service)
+	}
+	cliout.Info("Files that would be written:")
+	for _, name := range plan.Files {
+		cliout.Item("%s", name)
 	}
 	return nil
 }
