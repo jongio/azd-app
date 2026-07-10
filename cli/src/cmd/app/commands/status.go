@@ -25,6 +25,7 @@ const minStatusWatchInterval = time.Second
 var (
 	statusWatch    bool
 	statusInterval time.Duration
+	statusService  string
 )
 
 type statusReport struct {
@@ -51,6 +52,9 @@ Examples:
   # One-time snapshot
   azd app status
 
+  # Show one service
+  azd app status --service api
+
   # Live view, refreshed every 2 seconds
   azd app status --watch
 
@@ -61,11 +65,16 @@ Examples:
 	}
 	cmd.Flags().BoolVar(&statusWatch, "watch", false, "Refresh the status on an interval until interrupted")
 	cmd.Flags().DurationVar(&statusInterval, "interval", 2*time.Second, "Refresh interval for --watch (minimum 1s)")
+	cmd.Flags().StringVarP(&statusService, "service", "s", "", "Filter to specific service(s), comma-separated")
 	return cmd
 }
 
 func runStatus(cmd *cobra.Command, _ []string) error {
 	projectDir, err := findProjectDir()
+	if err != nil {
+		return err
+	}
+	requested, err := parseServiceList(statusService)
 	if err != nil {
 		return err
 	}
@@ -78,7 +87,7 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 		}
 		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
-		return watchStatus(ctx, os.Stdout, projectDir, statusInterval)
+		return watchStatus(ctx, os.Stdout, projectDir, statusInterval, requested)
 	}
 
 	cliout.CommandHeader("status", "Show app status")
@@ -86,6 +95,12 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	report, err := buildStatusReport(projectDir)
 	if err != nil {
 		return err
+	}
+	if len(requested) > 0 {
+		report, err = filterStatusReport(report, requested)
+		if err != nil {
+			return err
+		}
 	}
 
 	if cliout.IsJSON() {
@@ -98,11 +113,17 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 
 // watchStatus renders the status to w immediately and then again on every tick
 // until the context is canceled (for example by Ctrl+C).
-func watchStatus(ctx context.Context, w io.Writer, projectDir string, interval time.Duration) error {
+func watchStatus(ctx context.Context, w io.Writer, projectDir string, interval time.Duration, requested []string) error {
 	render := func() error {
 		report, err := buildStatusReport(projectDir)
 		if err != nil {
 			return err
+		}
+		if len(requested) > 0 {
+			report, err = filterStatusReport(report, requested)
+			if err != nil {
+				return err
+			}
 		}
 		renderStatusReport(w, report, time.Now())
 		return nil
@@ -166,6 +187,32 @@ func buildStatusReport(projectDir string) (statusReport, error) {
 		StartTime:    st.StartTime,
 		Services:     statusServices(projectDir, st.Services),
 	}, nil
+}
+
+func filterStatusReport(report statusReport, requested []string) (statusReport, error) {
+	if len(requested) == 0 || !report.Running {
+		return report, nil
+	}
+
+	available := make([]string, 0, len(report.Services))
+	byName := make(map[string]runstate.ServiceState, len(report.Services))
+	for _, svc := range report.Services {
+		available = append(available, svc.Name)
+		byName[svc.Name] = svc
+	}
+	sort.Strings(available)
+
+	filtered := make([]runstate.ServiceState, 0, len(requested))
+	for _, name := range requested {
+		resolved, err := resolveServiceName(name, available)
+		if err != nil {
+			return statusReport{}, err
+		}
+		filtered = append(filtered, byName[resolved])
+	}
+
+	report.Services = filtered
+	return report, nil
 }
 
 func statusServices(projectDir string, fallback []runstate.ServiceState) []runstate.ServiceState {
