@@ -19,7 +19,7 @@ func TestNewEnvCommand(t *testing.T) {
 	assert.NotEmpty(t, cmd.Short)
 	require.NotNil(t, cmd.RunE)
 
-	for _, name := range []string{"format", "no-mask", "env-file", "all", "explain", "diff", "write", "out"} {
+	for _, name := range []string{"format", "no-mask", "env-file", "all", "explain", "diff", "write", "out", "keys"} {
 		assert.NotNil(t, cmd.Flags().Lookup(name), "expected --%s flag", name)
 	}
 }
@@ -208,6 +208,106 @@ func TestRunEnvCommand(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(out), &parsed))
 		assert.Contains(t, parsed, "api")
 		assert.Contains(t, parsed, "web")
+	})
+
+	t.Run("keys prints sorted variable names for a service", func(t *testing.T) {
+		resetEnvFlags()
+		t.Setenv("Z_SERVICE_ENV_MARKER", "z-value")
+		t.Setenv("A_SERVICE_ENV_MARKER", "a-value")
+		out, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"api", "--keys"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+
+		lines := splitNonEmpty(out)
+		aIndex := indexOf(lines, "A_SERVICE_ENV_MARKER")
+		zIndex := indexOf(lines, "Z_SERVICE_ENV_MARKER")
+		require.NotEqual(t, -1, aIndex)
+		require.NotEqual(t, -1, zIndex)
+		assert.Less(t, aIndex, zIndex)
+		assert.NotContains(t, out, "a-value")
+		assert.NotContains(t, out, "z-value")
+	})
+
+	t.Run("all keys groups services", func(t *testing.T) {
+		resetEnvFlags()
+		t.Setenv("SERVICE_ENV_MARKER", "marker-value")
+		out, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"--all", "--keys"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+
+		assert.Contains(t, out, "# api")
+		assert.Contains(t, out, "# web")
+		assert.Contains(t, out, "SERVICE_ENV_MARKER")
+		assert.NotContains(t, out, "marker-value")
+	})
+
+	t.Run("all keys with json emits key arrays", func(t *testing.T) {
+		resetEnvFlags()
+		t.Setenv("SERVICE_ENV_MARKER", "marker-value")
+		out, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"--all", "--keys", "--format", "json"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+
+		var parsed map[string][]string
+		require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+		assert.Contains(t, parsed, "api")
+		assert.Contains(t, parsed["api"], "SERVICE_ENV_MARKER")
+		assert.Contains(t, parsed, "web")
+	})
+
+	t.Run("keys with json emits key array", func(t *testing.T) {
+		resetEnvFlags()
+		t.Setenv("SERVICE_ENV_MARKER", "marker-value")
+		out, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"api", "--keys", "--format", "json"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+
+		var parsed []string
+		require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+		assert.Contains(t, parsed, "SERVICE_ENV_MARKER")
+	})
+
+	t.Run("keys without service or all errors", func(t *testing.T) {
+		resetEnvFlags()
+		cmd := NewEnvCommand()
+		cmd.SetArgs([]string{"--keys"})
+		runErr := cmd.Execute()
+		require.Error(t, runErr)
+		assert.Contains(t, runErr.Error(), "specify a service name or --all")
+	})
+
+	t.Run("keys rejects incompatible flags", func(t *testing.T) {
+		tests := []struct {
+			name string
+			args []string
+			want string
+		}{
+			{"diff", []string{"--keys", "--diff", "api", "web"}, "cannot combine --keys with --diff"},
+			{"explain", []string{"api", "--keys", "--explain"}, "cannot combine --keys with --explain"},
+			{"write", []string{"api", "--keys", "--write"}, "cannot combine --keys with --write"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				resetEnvFlags()
+				cmd := NewEnvCommand()
+				cmd.SetArgs(tt.args)
+				runErr := cmd.Execute()
+				require.Error(t, runErr)
+				assert.Contains(t, runErr.Error(), tt.want)
+			})
+		}
 	})
 
 	t.Run("all with a service name errors", func(t *testing.T) {
@@ -425,6 +525,7 @@ func resetEnvFlags() {
 	envDiff = false
 	envWrite = false
 	envOut = ""
+	envKeys = false
 	_ = cliout.SetFormat("default")
 }
 
@@ -486,4 +587,13 @@ func splitNonEmpty(s string) []string {
 		}
 	}
 	return out
+}
+
+func indexOf(values []string, target string) int {
+	for i, value := range values {
+		if value == target {
+			return i
+		}
+	}
+	return -1
 }

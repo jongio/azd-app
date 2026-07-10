@@ -30,6 +30,7 @@ var (
 	envDiff    bool
 	envWrite   bool
 	envOut     string
+	envKeys    bool
 )
 
 // NewEnvCommand creates the env command.
@@ -70,6 +71,9 @@ Examples:
   # Compare the resolved environment of two services
   azd app env --diff api web
 
+  # List variable names without values
+  azd app env api --keys
+
   # Write the resolved environment to api/.env
   azd app env api --write
 
@@ -92,6 +96,7 @@ Examples:
 	cmd.Flags().BoolVar(&envDiff, "diff", false, "Compare the resolved environment of two services (pass two service names)")
 	cmd.Flags().BoolVar(&envWrite, "write", false, "Write the resolved environment to a .env file instead of printing it")
 	cmd.Flags().StringVar(&envOut, "out", "", "Destination folder for --write files (writes <service>.env); defaults to each service directory")
+	cmd.Flags().BoolVar(&envKeys, "keys", false, "Print variable names only")
 
 	return cmd
 }
@@ -115,6 +120,9 @@ func runEnv(_ *cobra.Command, args []string) error {
 
 	// --diff compares two services and takes exactly two service names.
 	if envDiff {
+		if envKeys {
+			return fmt.Errorf("cannot combine --keys with --diff")
+		}
 		return runEnvDiff(azureYaml, names, args)
 	}
 
@@ -131,6 +139,21 @@ func runEnv(_ *cobra.Command, args []string) error {
 	// --out only makes sense together with --write.
 	if envOut != "" && !envWrite {
 		return fmt.Errorf("--out requires --write")
+	}
+
+	if envKeys {
+		if envExplain {
+			return fmt.Errorf("cannot combine --keys with --explain")
+		}
+		if envWrite {
+			return fmt.Errorf("cannot combine --keys with --write")
+		}
+		if envAll {
+			return runEnvAllKeys(azureYaml, names)
+		}
+		if len(args) == 0 {
+			return fmt.Errorf("specify a service name or --all with --keys")
+		}
 	}
 
 	if envWrite {
@@ -179,6 +202,10 @@ func runEnv(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to resolve environment for %q: %w", serviceName, err)
 	}
 
+	if envKeys {
+		return renderEnvKeys(extractEnvKeys(resolved), format)
+	}
+
 	if format == envFormatJSON {
 		return cliout.PrintJSON(maskEnv(resolved, mask))
 	}
@@ -211,6 +238,66 @@ func runEnvAll(azureYaml *service.AzureYaml, names []string) error {
 	}
 
 	return renderAllEnv(resolvedByService, names, format, !envNoMask)
+}
+
+func runEnvAllKeys(azureYaml *service.AzureYaml, names []string) error {
+	format, err := resolveEnvFormat(envFormat)
+	if err != nil {
+		return err
+	}
+	if cliout.IsJSON() {
+		format = envFormatJSON
+	}
+
+	keysByService := make(map[string][]string, len(names))
+	for _, name := range names {
+		resolved, err := service.ResolveEnvironment(context.Background(), azureYaml.Services[name], getAzureEnvironmentValues(), envFile, nil)
+		if err != nil {
+			return fmt.Errorf("failed to resolve environment for %q: %w", name, err)
+		}
+		keysByService[name] = extractEnvKeys(resolved)
+	}
+
+	return renderAllEnvKeys(keysByService, names, format)
+}
+
+func extractEnvKeys(env map[string]string) []string {
+	keys := make([]string, 0, len(env))
+	for key := range env {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func renderEnvKeys(keys []string, format string) error {
+	if format == envFormatJSON {
+		return cliout.PrintJSON(keys)
+	}
+	for _, key := range keys {
+		fmt.Println(key)
+	}
+	return nil
+}
+
+func renderAllEnvKeys(keysByService map[string][]string, names []string, format string) error {
+	if format == envFormatJSON {
+		return cliout.PrintJSON(keysByService)
+	}
+	if len(names) == 0 {
+		fmt.Println("No services are defined")
+		return nil
+	}
+	for i, name := range names {
+		if i > 0 {
+			fmt.Println()
+		}
+		fmt.Printf("# %s\n", name)
+		for _, key := range keysByService[name] {
+			fmt.Println(key)
+		}
+	}
+	return nil
 }
 
 // renderAllEnv writes the resolved environment for every service. The json format
