@@ -22,15 +22,16 @@ const (
 )
 
 var (
-	envFormat  string
-	envNoMask  bool
-	envFile    string
-	envAll     bool
-	envExplain bool
-	envDiff    bool
-	envWrite   bool
-	envOut     string
-	envKeys    bool
+	envFormat   string
+	envNoMask   bool
+	envFile     string
+	envAll      bool
+	envExplain  bool
+	envDiff     bool
+	envWrite    bool
+	envOut      string
+	envKeys     bool
+	envPrefixes []string
 )
 
 // NewEnvCommand creates the env command.
@@ -74,6 +75,9 @@ Examples:
   # List variable names without values
   azd app env api --keys
 
+  # Only print Azure variables for one service
+  azd app env api --prefix AZURE_
+
   # Write the resolved environment to api/.env
   azd app env api --write
 
@@ -97,6 +101,7 @@ Examples:
 	cmd.Flags().BoolVar(&envWrite, "write", false, "Write the resolved environment to a .env file instead of printing it")
 	cmd.Flags().StringVar(&envOut, "out", "", "Destination folder for --write files (writes <service>.env); defaults to each service directory")
 	cmd.Flags().BoolVar(&envKeys, "keys", false, "Print variable names only")
+	cmd.Flags().StringSliceVar(&envPrefixes, "prefix", nil, "Only include variables whose names start with the given prefix (repeatable)")
 
 	return cmd
 }
@@ -111,6 +116,10 @@ func runEnv(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load azure.yaml: %w", err)
 	}
+	prefixes, err := normalizeEnvPrefixes(envPrefixes)
+	if err != nil {
+		return err
+	}
 
 	names := make([]string, 0, len(azureYaml.Services))
 	for name := range azureYaml.Services {
@@ -122,6 +131,9 @@ func runEnv(_ *cobra.Command, args []string) error {
 	if envDiff {
 		if envKeys {
 			return fmt.Errorf("cannot combine --keys with --diff")
+		}
+		if len(prefixes) > 0 {
+			return fmt.Errorf("cannot combine --prefix with --diff")
 		}
 		return runEnvDiff(azureYaml, names, args)
 	}
@@ -149,7 +161,7 @@ func runEnv(_ *cobra.Command, args []string) error {
 			return fmt.Errorf("cannot combine --keys with --write")
 		}
 		if envAll {
-			return runEnvAllKeys(azureYaml, names)
+			return runEnvAllKeys(azureYaml, names, prefixes)
 		}
 		if len(args) == 0 {
 			return fmt.Errorf("specify a service name or --all with --keys")
@@ -160,11 +172,11 @@ func runEnv(_ *cobra.Command, args []string) error {
 		if !envAll && len(args) == 0 {
 			return fmt.Errorf("specify a service name or --all with --write")
 		}
-		return runEnvWrite(azureYaml, names, args)
+		return runEnvWrite(azureYaml, names, args, prefixes)
 	}
 
 	if envAll {
-		return runEnvAll(azureYaml, names)
+		return runEnvAll(azureYaml, names, prefixes)
 	}
 
 	// No service name: list the available services and exit.
@@ -194,20 +206,25 @@ func runEnv(_ *cobra.Command, args []string) error {
 	mask := !envNoMask
 
 	if envExplain {
-		return runEnvExplain(serviceName, svc, mask)
+		return runEnvExplain(serviceName, svc, mask, prefixes)
 	}
 
 	resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
 	if err != nil {
 		return fmt.Errorf("failed to resolve environment for %q: %w", serviceName, err)
 	}
+	resolved = filterEnvByPrefixes(resolved, prefixes)
 
 	if envKeys {
-		return renderEnvKeys(extractEnvKeys(resolved), format)
+		return renderEnvKeys(extractEnvKeys(resolved), format, prefixes)
 	}
 
 	if format == envFormatJSON {
 		return cliout.PrintJSON(maskEnv(resolved, mask))
+	}
+	if len(resolved) == 0 && len(prefixes) > 0 {
+		cliout.Info("No environment variables match prefix %s", formatEnvPrefixes(prefixes))
+		return nil
 	}
 
 	fmt.Print(formatEnv(resolved, format, mask))
@@ -217,7 +234,7 @@ func runEnv(_ *cobra.Command, args []string) error {
 // runEnvAll resolves and prints the environment for every service. Every service
 // is resolved before any output is written so a resolution failure is reported
 // without emitting a partial dump.
-func runEnvAll(azureYaml *service.AzureYaml, names []string) error {
+func runEnvAll(azureYaml *service.AzureYaml, names []string, prefixes []string) error {
 	format, err := resolveEnvFormat(envFormat)
 	if err != nil {
 		return err
@@ -234,13 +251,14 @@ func runEnvAll(azureYaml *service.AzureYaml, names []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to resolve environment for %q: %w", name, err)
 		}
+		resolved = filterEnvByPrefixes(resolved, prefixes)
 		resolvedByService[name] = resolved
 	}
 
 	return renderAllEnv(resolvedByService, names, format, !envNoMask)
 }
 
-func runEnvAllKeys(azureYaml *service.AzureYaml, names []string) error {
+func runEnvAllKeys(azureYaml *service.AzureYaml, names []string, prefixes []string) error {
 	format, err := resolveEnvFormat(envFormat)
 	if err != nil {
 		return err
@@ -255,10 +273,55 @@ func runEnvAllKeys(azureYaml *service.AzureYaml, names []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to resolve environment for %q: %w", name, err)
 		}
-		keysByService[name] = extractEnvKeys(resolved)
+		keysByService[name] = extractEnvKeys(filterEnvByPrefixes(resolved, prefixes))
 	}
 
 	return renderAllEnvKeys(keysByService, names, format)
+}
+
+func normalizeEnvPrefixes(prefixes []string) ([]string, error) {
+	normalized := make([]string, 0, len(prefixes))
+	for _, prefix := range prefixes {
+		prefix = strings.TrimSpace(prefix)
+		if prefix == "" {
+			return nil, fmt.Errorf("--prefix values cannot be empty")
+		}
+		normalized = append(normalized, prefix)
+	}
+	return normalized, nil
+}
+
+func filterEnvByPrefixes(env map[string]string, prefixes []string) map[string]string {
+	if len(prefixes) == 0 {
+		return env
+	}
+	filtered := make(map[string]string)
+	for key, value := range env {
+		if envKeyHasPrefix(key, prefixes) {
+			filtered[key] = value
+		}
+	}
+	return filtered
+}
+
+func envKeyHasPrefix(key string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func formatEnvPrefixes(prefixes []string) string {
+	if len(prefixes) == 1 {
+		return fmt.Sprintf("%q", prefixes[0])
+	}
+	quoted := make([]string, 0, len(prefixes))
+	for _, prefix := range prefixes {
+		quoted = append(quoted, fmt.Sprintf("%q", prefix))
+	}
+	return strings.Join(quoted, ", ")
 }
 
 func extractEnvKeys(env map[string]string) []string {
@@ -270,9 +333,13 @@ func extractEnvKeys(env map[string]string) []string {
 	return keys
 }
 
-func renderEnvKeys(keys []string, format string) error {
+func renderEnvKeys(keys []string, format string, prefixes []string) error {
 	if format == envFormatJSON {
 		return cliout.PrintJSON(keys)
+	}
+	if len(keys) == 0 && len(prefixes) > 0 {
+		cliout.Info("No environment variables match prefix %s", formatEnvPrefixes(prefixes))
+		return nil
 	}
 	for _, key := range keys {
 		fmt.Println(key)
@@ -333,7 +400,7 @@ func renderAllEnv(resolvedByService map[string]map[string]string, names []string
 // resolution or path error is reported without leaving a partial set of files.
 // The default destination is each service's own directory (<service>/.env); when
 // --out is set the files go to <out>/<service>.env instead.
-func runEnvWrite(azureYaml *service.AzureYaml, names []string, args []string) error {
+func runEnvWrite(azureYaml *service.AzureYaml, names []string, args []string, prefixes []string) error {
 	format, err := resolveEnvFormat(envFormat)
 	if err != nil {
 		return err
@@ -379,6 +446,7 @@ func runEnvWrite(azureYaml *service.AzureYaml, names []string, args []string) er
 		if rerr != nil {
 			return fmt.Errorf("failed to resolve environment for %q: %w", name, rerr)
 		}
+		resolved = filterEnvByPrefixes(resolved, prefixes)
 
 		content, cerr := envFileContent(resolved, format, mask)
 		if cerr != nil {
@@ -448,11 +516,12 @@ type envExplainEntry struct {
 
 // runEnvExplain prints each effective variable with the source that won and,
 // when a higher-priority source replaced a lower one, the sources it overrode.
-func runEnvExplain(serviceName string, svc service.Service, mask bool) error {
+func runEnvExplain(serviceName string, svc service.Service, mask bool, prefixes []string) error {
 	resolved, prov, err := service.ResolveEnvironmentWithSources(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
 	if err != nil {
 		return fmt.Errorf("failed to resolve environment for %q: %w", serviceName, err)
 	}
+	resolved = filterEnvByPrefixes(resolved, prefixes)
 
 	masked := maskEnv(resolved, mask)
 	keys := make([]string, 0, len(masked))
@@ -478,6 +547,9 @@ func runEnvExplain(serviceName string, svc service.Service, mask bool) error {
 		} else {
 			fmt.Printf("    source: %s\n", p.Source)
 		}
+	}
+	if len(keys) == 0 && len(prefixes) > 0 {
+		cliout.Info("No environment variables match prefix %s", formatEnvPrefixes(prefixes))
 	}
 	return nil
 }
