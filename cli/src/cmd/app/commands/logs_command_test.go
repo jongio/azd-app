@@ -29,6 +29,7 @@ func TestValidateLogsOptions(t *testing.T) {
 		{"valid since 1h", 100, "text", "all", "1h", "local", 0, false, ""},
 		{"valid source azure", 100, "text", "all", "", "azure", 0, false, ""},
 		{"valid source all", 100, "text", "all", "", "all", 0, false, ""},
+		{"summary with follow", 100, "text", "all", "", "local", 0, true, "--summary cannot be combined with --follow"},
 		{"negative tail", -1, "text", "all", "", "local", 0, true, "--tail must be a positive"},
 		{"invalid format", 100, "xml", "all", "", "local", 0, true, "--output must be"},
 		{"invalid level", 100, "text", "trace", "", "local", 0, true, "--level must be one of"},
@@ -52,6 +53,10 @@ func TestValidateLogsOptions(t *testing.T) {
 				since:        tt.since,
 				source:       tt.source,
 				contextLines: tt.contextLines,
+			}
+			if tt.name == "summary with follow" {
+				opts.summary = true
+				opts.follow = true
 			}
 
 			err := validateLogsOptions(opts)
@@ -239,7 +244,7 @@ func TestLogsCommandStructure(t *testing.T) {
 	t.Run("flags exist", func(t *testing.T) {
 		flags := []string{
 			"follow", "service", "tail", "since", "timestamps",
-			"no-color", "level", "output", "format", "file", "exclude", "no-builtins", "context",
+			"no-color", "level", "output", "format", "file", "exclude", "no-builtins", "context", "summary",
 		}
 		for _, flag := range flags {
 			if cmd.Flags().Lookup(flag) == nil {

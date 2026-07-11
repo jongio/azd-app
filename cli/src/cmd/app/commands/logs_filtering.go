@@ -260,6 +260,10 @@ func getFilterConfig(azureYaml *service.AzureYaml, err error) *service.LogFilter
 
 // validateLogsOptions validates command-line flag values.
 func validateLogsOptions(opts *logsOptions) error {
+	if opts.summary && opts.follow {
+		return fmt.Errorf("--summary cannot be combined with --follow")
+	}
+
 	// Validate tail is positive
 	if opts.tail < 0 {
 		return fmt.Errorf("--tail must be a positive number, got %d", opts.tail)

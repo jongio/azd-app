@@ -157,6 +157,7 @@ type logsOptions struct {
 	source       string // Log source: "local", "azure", or "all"
 	redact       bool
 	alerts       bool // Enable log-pattern alert rules
+	summary      bool // Print counts by service and level instead of raw logs
 }
 
 // logsExecutor encapsulates the logs command execution with injectable dependencies.
@@ -272,6 +273,9 @@ Examples:
   # Output errors as JSON with context
   azd app logs --level error --context 3 --output json
 
+  # Show counts by service and level
+  azd app logs --summary
+
   # View logs from Azure-deployed services
   azd app logs --source azure
 
@@ -307,6 +311,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.source, "source", "local", "Log source: 'local' (default), 'azure', or 'all'")
 	cmd.Flags().BoolVar(&opts.redact, "redact", false, "Redact secret-shaped values before printing logs")
 	cmd.Flags().BoolVar(&opts.alerts, "alerts", false, "Raise alerts for log lines matching built-in patterns (panic, unhandled exception, fatal)")
+	cmd.Flags().BoolVar(&opts.summary, "summary", false, "Show counts by service and level instead of raw log entries")
 
 	registerServiceFlagCompletion(cmd, "service")
 
@@ -383,6 +388,15 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	}
 	if cleanup != nil {
 		defer cleanup()
+	}
+
+	if e.opts.summary {
+		if collected.HasContext {
+			displayLogSummary(buildLogSummaryFromContextLogs(collected.EntriesWithContext), outputWriter, e.opts.output == jsonOutputVal)
+		} else {
+			displayLogSummary(buildLogSummaryFromEntries(collected.Entries), outputWriter, e.opts.output == jsonOutputVal)
+		}
+		return nil
 	}
 
 	// Display logs
