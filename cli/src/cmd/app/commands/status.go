@@ -33,6 +33,7 @@ type statusReport struct {
 	PID          int                     `json:"pid,omitempty"`
 	DashboardURL string                  `json:"dashboardUrl,omitempty"`
 	StartTime    time.Time               `json:"startTime,omitempty"`
+	Uptime       string                  `json:"uptime,omitempty"`
 	Services     []runstate.ServiceState `json:"services,omitempty"`
 }
 
@@ -41,8 +42,8 @@ func NewStatusCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show whether azd app run is active",
-		Long: `Show whether azd app run is active, along with its PID, dashboard URL, and
-running services.
+		Long: `Show whether azd app run is active, along with its PID, dashboard URL,
+uptime, and running services.
 
 Pass --watch to refresh the status on an interval until you press Ctrl+C, which
 is handy for keeping an eye on services while they start. The global --json flag
@@ -180,13 +181,17 @@ func buildStatusReport(projectDir string) (statusReport, error) {
 		dashboardURL = fmt.Sprintf("http://localhost:%d", port)
 	}
 
-	return statusReport{
+	report := statusReport{
 		Running:      true,
 		PID:          st.PID,
 		DashboardURL: dashboardURL,
 		StartTime:    st.StartTime,
 		Services:     statusServices(projectDir, st.Services),
-	}, nil
+	}
+	if !st.StartTime.IsZero() {
+		report.Uptime = formatUptime(time.Since(st.StartTime))
+	}
+	return report, nil
 }
 
 func filterStatusReport(report statusReport, requested []string) (statusReport, error) {
@@ -278,6 +283,9 @@ func statusTextLines(report statusReport) []string {
 	if !report.StartTime.IsZero() {
 		lines = append(lines, fmt.Sprintf("Started: %s", report.StartTime.Format(time.RFC3339)))
 	}
+	if report.Uptime != "" {
+		lines = append(lines, fmt.Sprintf("Uptime: %s", report.Uptime))
+	}
 
 	if len(report.Services) == 0 {
 		lines = append(lines, "Services: none")
@@ -290,6 +298,31 @@ func statusTextLines(report statusReport) []string {
 	}
 
 	return lines
+}
+
+// formatUptime renders a duration as a compact human-readable string such as
+// "45s", "3m12s", "1h04m", or "2d03h". Negative durations are clamped to zero.
+// The largest two units are shown so the value stays short at any scale.
+func formatUptime(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	totalSeconds := int64(d / time.Second)
+	days := totalSeconds / 86400
+	hours := (totalSeconds % 86400) / 3600
+	minutes := (totalSeconds % 3600) / 60
+	seconds := totalSeconds % 60
+
+	switch {
+	case days > 0:
+		return fmt.Sprintf("%dd%02dh", days, hours)
+	case hours > 0:
+		return fmt.Sprintf("%dh%02dm", hours, minutes)
+	case minutes > 0:
+		return fmt.Sprintf("%dm%02ds", minutes, seconds)
+	default:
+		return fmt.Sprintf("%ds", seconds)
+	}
 }
 
 func formatStatusService(svc runstate.ServiceState) string {
