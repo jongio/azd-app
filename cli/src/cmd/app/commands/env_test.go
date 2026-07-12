@@ -36,6 +36,8 @@ func TestResolveEnvFormat(t *testing.T) {
 		{"shell", envFormatShell, false},
 		{"json", envFormatJSON, false},
 		{" json ", envFormatJSON, false},
+		{"github-actions", envFormatGitHubActions, false},
+		{"GitHub-Actions", envFormatGitHubActions, false},
 		{"yaml", "", true},
 	}
 	for _, tt := range tests {
@@ -100,6 +102,74 @@ func TestFormatEnv(t *testing.T) {
 		out := formatEnv(env, envFormatDotenv, true)
 		assert.NotContains(t, out, "supersecret")
 		assert.Contains(t, out, "DB_PASSWORD=su***et")
+	})
+}
+
+func TestFormatGitHubEnv(t *testing.T) {
+	t.Run("single-line values are sorted KEY=value", func(t *testing.T) {
+		env := map[string]string{
+			"B_KEY": "two",
+			"A_KEY": "one",
+		}
+		out, err := formatGitHubEnv(env, false)
+		require.NoError(t, err)
+		lines := splitNonEmpty(out)
+		require.Len(t, lines, 2)
+		assert.Equal(t, "A_KEY=one", lines[0])
+		assert.Equal(t, "B_KEY=two", lines[1])
+	})
+
+	t.Run("values with special shell characters are not quoted or escaped", func(t *testing.T) {
+		env := map[string]string{"URL": "postgres://user:pw@host:5432/db?x=1"}
+		out, err := formatGitHubEnv(env, false)
+		require.NoError(t, err)
+		assert.Equal(t, "URL=postgres://user:pw@host:5432/db?x=1\n", out)
+	})
+
+	t.Run("multiline values use a heredoc block with a matching delimiter", func(t *testing.T) {
+		value := "line one\nline two\nline three"
+		env := map[string]string{"CERT": value}
+		out, err := formatGitHubEnv(env, false)
+		require.NoError(t, err)
+
+		lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+		require.GreaterOrEqual(t, len(lines), 5)
+
+		header := lines[0]
+		require.True(t, strings.HasPrefix(header, "CERT<<"), "header was %q", header)
+		delim := strings.TrimPrefix(header, "CERT<<")
+		assert.NotEmpty(t, delim)
+		assert.False(t, strings.Contains(value, delim), "delimiter must not appear in the value")
+
+		body := strings.Join(lines[1:len(lines)-1], "\n")
+		assert.Equal(t, value, body)
+		assert.Equal(t, delim, lines[len(lines)-1], "block must close with the delimiter")
+	})
+
+	t.Run("masking applies before formatting", func(t *testing.T) {
+		env := map[string]string{"DB_PASSWORD": "supersecret"}
+		out, err := formatGitHubEnv(env, true)
+		require.NoError(t, err)
+		assert.NotContains(t, out, "supersecret")
+		assert.Contains(t, out, "DB_PASSWORD=su***et")
+	})
+}
+
+func TestGithubEnvDelimiter(t *testing.T) {
+	t.Run("delimiter is never a substring of the value", func(t *testing.T) {
+		value := "some multiline\ncontent"
+		delim, err := githubEnvDelimiter(value)
+		require.NoError(t, err)
+		assert.True(t, strings.HasPrefix(delim, "ghadelimiter_"))
+		assert.False(t, strings.Contains(value, delim))
+	})
+
+	t.Run("delimiters are randomized between calls", func(t *testing.T) {
+		a, err := githubEnvDelimiter("value")
+		require.NoError(t, err)
+		b, err := githubEnvDelimiter("value")
+		require.NoError(t, err)
+		assert.NotEqual(t, a, b)
 	})
 }
 
