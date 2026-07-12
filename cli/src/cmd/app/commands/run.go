@@ -31,6 +31,7 @@ var (
 	runServiceFilter     string
 	runScale             []string
 	runEnvFile           string
+	runEnvInline         []string
 	runVerbose           bool
 	runDryRun            bool
 	runDetach            bool
@@ -62,6 +63,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&runServiceFilter, "service", "s", "", "Run specific service(s) only (comma-separated)")
 	cmd.Flags().StringSliceVar(&runScale, "scale", nil, "Run multiple instances of a service, e.g. --scale worker=3 (repeatable, comma-separated)")
 	cmd.Flags().StringVar(&runEnvFile, "env-file", "", "Load environment variables from .env file")
+	cmd.Flags().StringArrayVar(&runEnvInline, "env", nil, "Set an environment variable inline as KEY=VALUE (repeatable, overrides --env-file)")
 	cmd.Flags().BoolVarP(&runVerbose, "verbose", "v", false, "Enable verbose logging")
 	cmd.Flags().BoolVar(&runDryRun, "dry-run", false, "Show what would be run without starting services")
 	cmd.Flags().StringVar(&runRuntime, "runtime", runtimeModeAzd, "Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run)")
@@ -395,17 +397,39 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 	return runtimes, nil
 }
 
-// loadEnvironmentVariables loads environment variables from --env-file if specified.
+// loadEnvironmentVariables loads environment variables from --env-file (if
+// specified) and merges any inline --env KEY=VALUE overrides on top. Inline
+// values take precedence over values loaded from the file.
 func loadEnvironmentVariables() (map[string]string, error) {
-	if runEnvFile == "" {
-		return make(map[string]string), nil
+	envVars := make(map[string]string)
+
+	if runEnvFile != "" {
+		loaded, err := service.LoadDotEnv(runEnvFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load env file: %w", err)
+		}
+		envVars = loaded
 	}
 
-	envVars, err := service.LoadDotEnv(runEnvFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load env file: %w", err)
+	if err := mergeInlineEnv(envVars, runEnvInline); err != nil {
+		return nil, err
 	}
+
 	return envVars, nil
+}
+
+// mergeInlineEnv parses KEY=VALUE entries and merges them into envVars,
+// overriding any existing keys. Each entry must contain '=' and a non-empty
+// key. The value may be empty or contain additional '=' characters.
+func mergeInlineEnv(envVars map[string]string, entries []string) error {
+	for _, entry := range entries {
+		key, value, found := strings.Cut(entry, "=")
+		if !found || key == "" {
+			return fmt.Errorf("invalid --env value %q: expected KEY=VALUE", entry)
+		}
+		envVars[key] = value
+	}
+	return nil
 }
 
 // buildServiceSummaries composes URL summaries for display, preferring rich data from serviceinfo.

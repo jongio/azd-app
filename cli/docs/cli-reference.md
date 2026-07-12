@@ -338,6 +338,9 @@ azd app run --verbose
 # Load environment variables from custom file
 azd app run --env-file .env.local
 
+# Override a single variable inline (repeatable, wins over --env-file)
+azd app run --env LOG_LEVEL=debug --env FEATURE_X=on
+
 # Combine multiple flags
 azd app run -s web -v --runtime aspire
 
@@ -352,6 +355,7 @@ azd app run --force
 | `--service` | `-s` | string | | Run specific service(s) only (comma-separated) |
 | `--runtime` | | string | `azd` | Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run) |
 | `--env-file` | | string | | Load environment variables from .env file |
+| `--env` | | stringArray | | Set an environment variable inline as KEY=VALUE (repeatable, overrides --env-file) |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show what would be run without starting services |
 | `--no-timing` | | bool | `false` | Hide the per-service startup timing summary shown after services are ready |
