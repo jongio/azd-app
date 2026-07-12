@@ -426,6 +426,56 @@ func TestEscapeDOTString(t *testing.T) {
 	}
 }
 
+func TestRenderGraphD2(t *testing.T) {
+	var buf bytes.Buffer
+	renderGraphD2(&buf, sampleGraphResult())
+	out := buf.String()
+
+	if !strings.HasPrefix(out, "direction: right") {
+		t.Fatalf("d2 output should start with direction: right:\n%s", out)
+	}
+	for _, want := range []string{
+		"napi_0: \"api (service)\"",
+		"ndb_1: \"db (resource)\" {",
+		"shape: cylinder",
+		"napi_0 -> ndb_1",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("d2 output missing %q:\n%s", want, out)
+		}
+	}
+	// Service nodes must not carry a shape block.
+	if strings.Contains(out, "napi_0: \"api (service)\" {") {
+		t.Fatalf("service node should not have a shape block:\n%s", out)
+	}
+}
+
+func TestRenderGraphD2Dispatch(t *testing.T) {
+	var buf bytes.Buffer
+	if err := renderGraph(&buf, graphOutputD2, sampleGraphResult()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "napi_0 -> ndb_1") {
+		t.Fatalf("renderGraph did not dispatch to d2:\n%s", buf.String())
+	}
+}
+
+func TestEscapeD2Label(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"plain", "plain"},
+		{"say \"hi\"", "say 'hi'"},
+		{"line\nbreak", "line break"},
+	}
+	for _, tt := range tests {
+		if got := escapeD2Label(tt.in); got != tt.want {
+			t.Errorf("escapeD2Label(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestRunGraphInvalidFormat(t *testing.T) {
 	var buf bytes.Buffer
 	err := runGraph(&graphOptions{output: "svg", writer: &buf})
