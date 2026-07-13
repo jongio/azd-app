@@ -67,6 +67,7 @@ azd app run --environment production
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
 | `add` | Add a well-known container service to azure.yaml | [→ Full Spec](commands/add.md) |
+| `config` | Show the effective resolved configuration for each service | [→ Full Spec](commands/config.md) |
 | `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
 | `test` | Run tests for all services with coverage aggregation | [→ Full Spec](commands/test.md) |
 | `start` | Start stopped services | [→ Full Spec](commands/start.md) |
@@ -304,6 +305,46 @@ azd app add redis --output json
 - `postgres` - PostgreSQL database
 
 **→ [See full add command specification](commands/add.md)** for examples and configuration details.
+
+---
+
+## `azd app config`
+
+Show the configuration azd app resolved from azure.yaml for each service.
+
+### Usage
+
+```bash
+azd app config [service] [flags]
+```
+
+### Examples
+
+```bash
+# Configuration for every service
+azd app config
+
+# Configuration for a single service
+azd app config api
+
+# JSON object keyed by service name
+azd app config --output json
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `default` | Output format (default, json) |
+
+### Behavior
+
+- Prints the host, effective service type (marked `explicit` or `inferred`), language, project path, run command, image, ports, and dependencies (uses) for each service.
+- Lists which optional blocks are configured on a service: `docker`, `healthcheck`, `restart`, `resources`, `logs`, `local`, `azure`.
+- Pass a service name to limit output to that service. An unknown name returns an error listing the available services.
+- `--output json` emits an object keyed by service name.
+
+**→ [See full config command specification](commands/config.md)** for details.
 
 ---
 
