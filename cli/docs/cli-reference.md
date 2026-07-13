@@ -75,6 +75,7 @@ azd app run --environment production
 | `health` | Monitor health status of services (static or streaming mode) | [→ Full Spec](commands/health.md) |
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
+| `ports` | List the host ports each service binds and flag duplicate bindings | [→ Full Spec](commands/ports.md) |
 | `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
@@ -1049,6 +1050,40 @@ api
 ```
 
 **→ [See full info command specification](commands/info.md)** for service registry details and detailed documentation.
+
+---
+
+## `azd app ports`
+
+Reads `azure.yaml` and lists the host port each service binds. An explicit host port is shown as its number; a port left for the tool to assign is shown as `auto`. When two bindings claim the same explicit host port the command reports the conflict and exits non-zero, so it works as a preflight check before `azd app run`.
+
+### Usage
+
+```bash
+azd app ports [flags]
+```
+
+### Examples
+
+```bash
+# List host ports for every service
+azd app ports
+
+# JSON object keyed by service name
+azd app ports --output json
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `text` | Output format: `text` or `json` |
+
+### Notes
+
+- Each binding is printed as `host -> container/protocol`. Ports without an explicit host binding show `auto`.
+- A host port claimed by more than one binding (across services or within one service) is marked `(conflict)` and listed in a warning.
+- The command exits non-zero when any conflict is found, so it can gate a run in scripts and CI.
 
 ---
 
