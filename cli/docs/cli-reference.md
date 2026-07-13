@@ -75,6 +75,7 @@ azd app run --environment production
 | `health` | Monitor health status of services (static or streaming mode) | [→ Full Spec](commands/health.md) |
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
+| `hooks` | List the lifecycle hooks configured in azure.yaml | [→ Full Spec](commands/hooks.md) |
 | `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
@@ -1049,6 +1050,49 @@ api
 ```
 
 **→ [See full info command specification](commands/info.md)** for service registry details and detailed documentation.
+
+---
+
+## `azd app hooks`
+
+Reads `azure.yaml` and lists the project-level lifecycle hooks. For each configured hook it shows the command it runs, the shell it uses, and any per-platform override for Windows or POSIX. Use it to confirm what will run around a `run` or `stop` without opening the file.
+
+### Usage
+
+```bash
+azd app hooks [flags]
+```
+
+### Examples
+
+```bash
+# List configured hooks
+azd app hooks
+
+# JSON array of hooks
+azd app hooks --output json
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `text` | Output format: `text` or `json` |
+
+### Lifecycle hooks
+
+| Hook | When it runs |
+|------|--------------|
+| `prerun` | before services start |
+| `postrun` | after services stop following a run |
+| `prestop` | before services are stopped |
+| `poststop` | after services are stopped |
+
+### Notes
+
+- Hooks are listed in lifecycle order. Hooks that are not configured are omitted.
+- A hook with a Windows or POSIX override shows the override command and shell on its own line.
+- When no hooks are configured the command prints a short message and exits zero.
 
 ---
 
