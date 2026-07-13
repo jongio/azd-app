@@ -104,6 +104,7 @@ func main() {
 		commands.NewProxyCommand(),
 		commands.NewCertCommand(),
 		commands.NewAddCommand(),
+		commands.NewRemoveCommand(),
 		commands.NewSupportBundleCommand(),
 		commands.NewGraphCommand(),
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
