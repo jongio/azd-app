@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/jongio/azd-core/cliout"
 	"github.com/spf13/cobra"
@@ -43,10 +44,11 @@ var dotnetBuildArtifacts = []string{"bin", "obj"}
 
 // cleanOptions holds the options for the clean command.
 type cleanOptions struct {
-	deps     bool
-	dryRun   bool
-	services []string
-	writer   io.Writer
+	deps      bool
+	dryRun    bool
+	olderThan time.Duration
+	services  []string
+	writer    io.Writer
 }
 
 // cleanTarget is a single directory clean will remove (or would remove in dry-run).
@@ -91,6 +93,9 @@ Examples:
   # Also remove dependency directories
   azd app clean --deps
 
+  # Only remove artifacts untouched for at least 24 hours
+  azd app clean --older-than 24h
+
   # Limit to one service
   azd app clean --service api`,
 		SilenceUsage: true,
@@ -107,6 +112,7 @@ Examples:
 
 	cmd.Flags().BoolVar(&opts.deps, "deps", false, "Also remove dependency directories (node_modules, .venv)")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "List what would be removed and the reclaimable size without deleting")
+	cmd.Flags().DurationVar(&opts.olderThan, "older-than", 0, "Only remove artifacts older than this duration (for example, 24h)")
 	cmd.Flags().StringSliceVarP(&opts.services, "service", "s", nil, "Limit to specific services (can be specified multiple times)")
 
 	return cmd
@@ -118,6 +124,9 @@ func runClean(opts *cleanOptions) error {
 	}
 	if opts.writer == nil {
 		opts.writer = os.Stdout
+	}
+	if opts.olderThan < 0 {
+		return fmt.Errorf("--older-than must be zero or greater")
 	}
 
 	searchRoot, err := getSearchRoot()
@@ -139,6 +148,9 @@ func runClean(opts *cleanOptions) error {
 	}
 
 	targets := collectCleanTargets(projects, opts.deps)
+	if opts.olderThan > 0 {
+		targets = filterCleanTargetsByAge(targets, opts.olderThan, time.Now())
+	}
 
 	// Compute sizes for reporting.
 	var total int64
@@ -249,6 +261,24 @@ func collectCleanTargets(projects DetectedProjects, includeDeps bool) []cleanTar
 
 	sort.Slice(targets, func(i, j int) bool { return targets[i].Path < targets[j].Path })
 	return targets
+}
+
+func filterCleanTargetsByAge(targets []cleanTarget, olderThan time.Duration, now time.Time) []cleanTarget {
+	if olderThan <= 0 {
+		return targets
+	}
+	cutoff := now.Add(-olderThan)
+	filtered := make([]cleanTarget, 0, len(targets))
+	for _, target := range targets {
+		info, err := os.Stat(target.Path)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+		if info.ModTime().Before(cutoff) || info.ModTime().Equal(cutoff) {
+			filtered = append(filtered, target)
+		}
+	}
+	return filtered
 }
 
 // safeToRemove verifies a path is a known artifact directory that lives inside the

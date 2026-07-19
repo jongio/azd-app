@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	types "github.com/jongio/azd-core/projecttype"
 )
@@ -18,7 +19,7 @@ func TestNewCleanCommand(t *testing.T) {
 	if cmd.Use != "clean" {
 		t.Fatalf("Use = %q, want clean", cmd.Use)
 	}
-	for _, name := range []string{"deps", "dry-run", "service"} {
+	for _, name := range []string{"deps", "dry-run", "older-than", "service"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Errorf("flag %q not found", name)
 		}
@@ -72,6 +73,7 @@ func TestCollectCleanTargets(t *testing.T) {
 			t.Errorf("expected build target %s to be collected", want)
 		}
 	}
+
 	if paths[filepath.Join(nodeDir, "node_modules")] {
 		t.Error("node_modules should not be collected without --deps")
 	}
@@ -95,6 +97,36 @@ func TestCollectCleanTargets(t *testing.T) {
 		if filepath.Base(tgt.Path) == "dist" && tgt.Category != cleanCategoryBuild {
 			t.Errorf("dist category = %q, want %q", tgt.Category, cleanCategoryBuild)
 		}
+	}
+}
+
+func TestFilterCleanTargetsByAge(t *testing.T) {
+	root := t.TempDir()
+	stale := filepath.Join(root, "stale", "dist")
+	recent := filepath.Join(root, "recent", "dist")
+	mkdirAll(t, stale)
+	mkdirAll(t, recent)
+
+	now := time.Date(2026, 7, 19, 12, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(stale, now.Add(-48*time.Hour), now.Add(-48*time.Hour)); err != nil {
+		t.Fatalf("chtimes stale: %v", err)
+	}
+	if err := os.Chtimes(recent, now.Add(-2*time.Hour), now.Add(-2*time.Hour)); err != nil {
+		t.Fatalf("chtimes recent: %v", err)
+	}
+
+	targets := []cleanTarget{
+		{Path: stale, Category: cleanCategoryBuild},
+		{Path: recent, Category: cleanCategoryBuild},
+	}
+	got := filterCleanTargetsByAge(targets, 24*time.Hour, now)
+	if len(got) != 1 || got[0].Path != stale {
+		t.Fatalf("filterCleanTargetsByAge returned %+v, want only %s", got, stale)
+	}
+
+	got = filterCleanTargetsByAge(targets, 0, now)
+	if len(got) != 2 {
+		t.Fatalf("disabled age filter returned %d targets, want 2", len(got))
 	}
 }
 
@@ -239,7 +271,18 @@ func TestRunCleanWithDepsRemovesNodeModules(t *testing.T) {
 	if err := runClean(&cleanOptions{deps: true, writer: &buf}); err != nil {
 		t.Fatalf("runClean --deps failed: %v", err)
 	}
+
 	if _, err := os.Stat(filepath.Join(serviceDir, "node_modules")); !os.IsNotExist(err) {
 		t.Errorf("node_modules should be removed with --deps, stat err = %v", err)
+	}
+}
+
+func TestRunCleanRejectsNegativeOlderThan(t *testing.T) {
+	root, _ := setupCleanProject(t)
+	t.Chdir(root)
+
+	err := runClean(&cleanOptions{olderThan: -time.Second, writer: &bytes.Buffer{}})
+	if err == nil || !strings.Contains(err.Error(), "--older-than must be zero or greater") {
+		t.Fatalf("runClean error = %v, want --older-than validation", err)
 	}
 }
