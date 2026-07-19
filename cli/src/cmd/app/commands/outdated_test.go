@@ -36,7 +36,7 @@ func TestNewOutdatedCommand(t *testing.T) {
 	if cmd.Use != "outdated" {
 		t.Fatalf("Use = %q, want outdated", cmd.Use)
 	}
-	for _, name := range []string{"service", "format", "exit-code"} {
+	for _, name := range []string{"service", "manager", "format", "exit-code"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Errorf("flag %q not found", name)
 		}
@@ -335,6 +335,47 @@ func TestResolveOutdatedTargets(t *testing.T) {
 	}
 	if targets[0].Service != "web" || targets[0].Manager != managerNpm || !targets[0].Supported {
 		t.Errorf("unexpected target: %+v", targets[0])
+	}
+}
+
+func TestNormalizeOutdatedManagerFilter(t *testing.T) {
+	filter, err := normalizeOutdatedManagerFilter([]string{"npm,pip", " Go "})
+	if err != nil {
+		t.Fatalf("normalizeOutdatedManagerFilter: %v", err)
+	}
+	for _, want := range []string{managerNpm, managerPip, managerGo} {
+		if !filter[want] {
+			t.Fatalf("manager %q missing from filter %#v", want, filter)
+		}
+	}
+	if filter[managerYarn] {
+		t.Fatalf("unexpected yarn in filter %#v", filter)
+	}
+
+	if _, err := normalizeOutdatedManagerFilter([]string{"brew"}); err == nil || !strings.Contains(err.Error(), "invalid --manager") {
+		t.Fatalf("expected invalid manager error, got %v", err)
+	}
+	if _, err := normalizeOutdatedManagerFilter([]string{","}); err == nil || !strings.Contains(err.Error(), "requires at least one") {
+		t.Fatalf("expected empty manager error, got %v", err)
+	}
+}
+
+func TestFilterOutdatedTargetsByManager(t *testing.T) {
+	targets := []outdatedTarget{
+		{Service: "web", Manager: managerNpm},
+		{Service: "api", Manager: managerPip},
+		{Service: "worker", Manager: managerGo},
+		{Service: "legacy", Manager: ""},
+	}
+	filtered := filterOutdatedTargetsByManager(targets, map[string]bool{managerNpm: true, managerGo: true})
+	if len(filtered) != 2 {
+		t.Fatalf("got %d filtered targets, want 2: %+v", len(filtered), filtered)
+	}
+	if filtered[0].Service != "web" || filtered[1].Service != "worker" {
+		t.Fatalf("unexpected filtered targets: %+v", filtered)
+	}
+	if got := filterOutdatedTargetsByManager(targets, nil); len(got) != len(targets) {
+		t.Fatalf("nil filter returned %d targets, want %d", len(got), len(targets))
 	}
 }
 
