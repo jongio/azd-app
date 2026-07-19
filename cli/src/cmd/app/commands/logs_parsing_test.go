@@ -291,6 +291,39 @@ func TestParseLogLevelFromString(t *testing.T) {
 	}
 }
 
+func TestParseMinLevel(t *testing.T) {
+	tests := []struct {
+		input  string
+		want   service.LogLevel
+		wantOK bool
+	}{
+		{"debug", service.LogLevelDebug, true},
+		{"DEBUG", service.LogLevelDebug, true},
+		{"info", service.LogLevelInfo, true},
+		{"Info", service.LogLevelInfo, true},
+		{"warn", service.LogLevelWarn, true},
+		{"warning", service.LogLevelWarn, true},
+		{"WARN", service.LogLevelWarn, true},
+		{"error", service.LogLevelError, true},
+		{"ERROR", service.LogLevelError, true},
+		{"all", LogLevelAll, false},
+		{"", LogLevelAll, false},
+		{"trace", LogLevelAll, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, ok := parseMinLevel(tt.input)
+			if ok != tt.wantOK {
+				t.Errorf("parseMinLevel(%q) ok = %v, want %v", tt.input, ok, tt.wantOK)
+			}
+			if got != tt.want {
+				t.Errorf("parseMinLevel(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func BenchmarkParseLogLine(b *testing.B) {
 	line := "[2024-01-15 10:30:45.123] [INFO] [OUT] Server started on port 3000 with configuration loaded"
 	b.ResetTimer()

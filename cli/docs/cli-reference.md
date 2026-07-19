@@ -909,6 +909,9 @@ azd app logs --since 5m
 # Filter by log level
 azd app logs --level error
 
+# Show every entry at warn severity or higher
+azd app logs --min-level warn
+
 # Show errors with 3 lines of context before and after
 azd app logs --level error --context 3
 
@@ -937,6 +940,7 @@ azd app logs --no-color
 | `--timestamps` | | bool | `true` | Show timestamps with each log entry |
 | `--no-color` | | bool | `false` | Disable colored output |
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
+| `--min-level` | | string | | Show entries at this severity or higher (debug < info < warn < error); cannot be combined with --level or --context |
 | `--context` | | int | `0` | Number of context lines before/after matching entries (0-10, requires --level) |
 | `--format` | | string | `text` | Output format (text, json) |
 | `--file` | | string | | Write logs to file instead of stdout |

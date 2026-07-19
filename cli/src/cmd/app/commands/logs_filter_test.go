@@ -42,6 +42,78 @@ func TestFilterLogsByLevel(t *testing.T) {
 	}
 }
 
+func TestLogLevelSeverity(t *testing.T) {
+	// Severity order must be debug < info < warn < error regardless of the raw
+	// iota order of the LogLevel constants.
+	debug := logLevelSeverity(service.LogLevelDebug)
+	info := logLevelSeverity(service.LogLevelInfo)
+	warn := logLevelSeverity(service.LogLevelWarn)
+	logErr := logLevelSeverity(service.LogLevelError)
+	if debug >= info || info >= warn || warn >= logErr {
+		t.Errorf("severity order wrong: debug=%d info=%d warn=%d error=%d", debug, info, warn, logErr)
+	}
+}
+
+func TestMeetsMinLevel(t *testing.T) {
+	tests := []struct {
+		name       string
+		entryLevel service.LogLevel
+		minLevel   service.LogLevel
+		want       bool
+	}{
+		{"error meets warn", service.LogLevelError, service.LogLevelWarn, true},
+		{"warn meets warn", service.LogLevelWarn, service.LogLevelWarn, true},
+		{"info below warn", service.LogLevelInfo, service.LogLevelWarn, false},
+		{"debug below warn", service.LogLevelDebug, service.LogLevelWarn, false},
+		{"debug meets debug", service.LogLevelDebug, service.LogLevelDebug, true},
+		{"info meets debug", service.LogLevelInfo, service.LogLevelDebug, true},
+		{"error meets error", service.LogLevelError, service.LogLevelError, true},
+		{"warn below error", service.LogLevelWarn, service.LogLevelError, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := meetsMinLevel(tt.entryLevel, tt.minLevel); got != tt.want {
+				t.Errorf("meetsMinLevel(%v, %v) = %v, want %v", tt.entryLevel, tt.minLevel, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFilterLogsByMinLevel(t *testing.T) {
+	now := time.Now()
+	logs := []service.LogEntry{
+		{Service: "api", Level: service.LogLevelDebug, Message: "debug msg", Timestamp: now},
+		{Service: "api", Level: service.LogLevelInfo, Message: "info msg", Timestamp: now},
+		{Service: "api", Level: service.LogLevelWarn, Message: "warn msg", Timestamp: now},
+		{Service: "api", Level: service.LogLevelError, Message: "error msg", Timestamp: now},
+	}
+
+	tests := []struct {
+		name      string
+		minLevel  service.LogLevel
+		wantCount int
+	}{
+		{"min debug keeps all", service.LogLevelDebug, 4},
+		{"min info drops debug", service.LogLevelInfo, 3},
+		{"min warn keeps warn and error", service.LogLevelWarn, 2},
+		{"min error keeps error only", service.LogLevelError, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filtered := filterLogsByMinLevel(logs, tt.minLevel)
+			if len(filtered) != tt.wantCount {
+				t.Errorf("filterLogsByMinLevel() returned %d entries, want %d", len(filtered), tt.wantCount)
+			}
+		})
+	}
+
+	t.Run("empty slice", func(t *testing.T) {
+		if got := filterLogsByMinLevel([]service.LogEntry{}, service.LogLevelInfo); len(got) != 0 {
+			t.Errorf("expected 0 entries, got %d", len(got))
+		}
+	})
+}
+
 func TestFilterLogsByLevelEdgeCases(t *testing.T) {
 	now := time.Now()
 

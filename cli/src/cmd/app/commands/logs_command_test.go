@@ -172,6 +172,53 @@ func TestValidateLogsOptions(t *testing.T) {
 	})
 }
 
+func TestValidateLogsOptionsMinLevel(t *testing.T) {
+	tests := []struct {
+		name         string
+		level        string
+		minLevel     string
+		contextLines int
+		wantErr      bool
+		errSubstr    string
+	}{
+		{"min-level debug", "all", "debug", 0, false, ""},
+		{"min-level info", "all", "info", 0, false, ""},
+		{"min-level warn", "all", "warn", 0, false, ""},
+		{"min-level error", "all", "error", 0, false, ""},
+		{"min-level warning alias", "all", "warning", 0, false, ""},
+		{"min-level uppercase", "all", "WARN", 0, false, ""},
+		{"empty min-level is unset", "all", "", 0, false, ""},
+		{"invalid min-level", "all", "trace", 0, true, "--min-level must be one of"},
+		{"min-level with level rejected", "error", "warn", 0, true, "cannot be combined with --level"},
+		{"min-level with context rejected", "all", "warn", 3, true, "cannot be combined with --context"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := &logsOptions{
+				tail:         100,
+				output:       "text",
+				level:        tt.level,
+				minLevel:     tt.minLevel,
+				source:       "local",
+				contextLines: tt.contextLines,
+			}
+
+			err := validateLogsOptions(opts)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("validateLogsOptions() expected error containing %q, got nil", tt.errSubstr)
+				} else if !strings.Contains(err.Error(), tt.errSubstr) {
+					t.Errorf("validateLogsOptions() error = %v, want error containing %q", err, tt.errSubstr)
+				}
+			} else if err != nil {
+				t.Errorf("validateLogsOptions() unexpected error: %v", err)
+			}
+		})
+	}
+}
+
 func TestLogsConstants(t *testing.T) {
 	t.Run("defaultTailLines", func(t *testing.T) {
 		if defaultTailLines != 100 {
