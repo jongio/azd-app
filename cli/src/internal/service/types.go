@@ -2,6 +2,7 @@
 package service
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -139,11 +140,14 @@ type Service struct {
 	Host               string              `yaml:"host"`
 	Language           string              `yaml:"language,omitempty"`
 	Project            string              `yaml:"project,omitempty"`
-	Command            string              `yaml:"command,omitempty"`    // Full command to run (e.g., "uvicorn main:app --reload"). Primary way to override.
+	Command            string              `yaml:"command,omitempty"`    // Full command to run (e.g., "uvicorn main:app --reload"). Primary way to override. May also be given as a YAML sequence.
+	CommandArgs        []string            `yaml:"-"`                    // Populated from array-form `command:`; preferred token list for container services.
 	Entrypoint         string              `yaml:"entrypoint,omitempty"` // Advanced: executable only, use with command for args. Rarely needed.
 	Image              string              `yaml:"image,omitempty"`
+	PullPolicy         string              `yaml:"pull_policy,omitempty"` // Container image pull policy: "", "missing", "always", "never".
 	Docker             *DockerConfig       `yaml:"docker,omitempty"`
 	Ports              []string            `yaml:"ports,omitempty"`       // Docker Compose style: ["8080"] or ["3000:8080"]
+	Volumes            []string            `yaml:"volumes,omitempty"`     // Docker Compose style volume mounts: ["name:/path", "./host:/path[:mode]"]
 	Environment        Environment         `yaml:"environment,omitempty"` // Docker Compose style: supports map, array of strings, or array of objects
 	Uses               []string            `yaml:"uses,omitempty"`
 	Logs               *ServiceLogsConfig  `yaml:"logs,omitempty"`        // Service-level logging configuration
@@ -208,10 +212,12 @@ type serviceRaw struct {
 	Language    string              `yaml:"language,omitempty"`
 	Project     string              `yaml:"project,omitempty"`
 	Entrypoint  string              `yaml:"entrypoint,omitempty"`
-	Command     string              `yaml:"command,omitempty"`
+	Command     any                 `yaml:"command,omitempty"`
 	Image       string              `yaml:"image,omitempty"`
+	PullPolicy  string              `yaml:"pull_policy,omitempty"`
 	Docker      *DockerConfig       `yaml:"docker,omitempty"`
 	Ports       []string            `yaml:"ports,omitempty"`
+	Volumes     []string            `yaml:"volumes,omitempty"`
 	Environment Environment         `yaml:"environment,omitempty"`
 	Uses        []string            `yaml:"uses,omitempty"`
 	Logs        *ServiceLogsConfig  `yaml:"logs,omitempty"`
@@ -237,10 +243,11 @@ func (s *Service) UnmarshalYAML(unmarshal func(any) error) error {
 	s.Language = raw.Language
 	s.Project = raw.Project
 	s.Entrypoint = raw.Entrypoint
-	s.Command = raw.Command
 	s.Image = raw.Image
+	s.PullPolicy = raw.PullPolicy
 	s.Docker = raw.Docker
 	s.Ports = raw.Ports
+	s.Volumes = raw.Volumes
 	s.Environment = raw.Environment
 	s.Uses = raw.Uses
 	s.Logs = raw.Logs
@@ -251,6 +258,25 @@ func (s *Service) UnmarshalYAML(unmarshal func(any) error) error {
 	s.Local = raw.Local
 	s.Azure = raw.Azure
 	s.URL = raw.URL
+
+	// Command may be a string ("npm run dev") or a YAML sequence
+	// (["postgres", "-c", "x=y"]). Normalize to Command (string form, used by the
+	// process run path) and CommandArgs (token list, preferred for containers).
+	switch cmd := raw.Command.(type) {
+	case string:
+		s.Command = cmd
+	case []any:
+		args := make([]string, 0, len(cmd))
+		for _, item := range cmd {
+			args = append(args, fmt.Sprintf("%v", item))
+		}
+		s.CommandArgs = args
+		s.Command = strings.Join(args, " ")
+	case nil:
+		// no command specified
+	default:
+		return fmt.Errorf("invalid command: must be a string or a sequence of strings")
+	}
 
 	// Handle backward compatibility: root-level URL migrates to azure.customUrl
 	if s.URL != "" {
@@ -430,6 +456,19 @@ func (s *Service) GetContainerImage() string {
 		return s.Docker.Image
 	}
 	return ""
+}
+
+// RunsAsLocalProcess reports whether `azd app run` should run this service as a
+// local process instead of a container. A top-level `image:` service is always a
+// container (a prebuilt image/emulator, whose `command` is a container command
+// override). A service that only builds an image for deployment (`docker.*`)
+// runs locally as a process when an explicit local `command` or `type: process`
+// is configured — its `docker.*`/image is then used only by `azd deploy`.
+func (s *Service) RunsAsLocalProcess() bool {
+	if s.Image != "" {
+		return false
+	}
+	return s.Command != "" || len(s.CommandArgs) > 0 || s.Type == ServiceTypeProcess
 }
 
 // IsWatchMode returns true if this is a process service in watch mode.
@@ -647,6 +686,11 @@ type ServiceRuntime struct {
 	Command               string
 	Args                  []string
 	Image                 string // Container image reference (for type=container services)
+	PullPolicy            string // Image pull policy for container services: "", "missing", "always", "never"
+	Volumes               []string      // Resolved Docker volume specs for container services
+	Ports                 []PortMapping // All port mappings for container services (multi-port); Port remains the primary
+	Network               string        // User-defined Docker network for container-to-container DNS
+	NetworkAliases        []string      // DNS aliases for this container on Network
 	WorkingDir            string
 	Port                  int
 	Protocol              string
