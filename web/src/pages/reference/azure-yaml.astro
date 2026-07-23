@@ -1709,14 +1709,22 @@ const resourceTypesExample = `resources:
           <h3 class="text-lg font-bold mb-2">📦 Container Service Properties</h3>
           <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">image</code> - Docker image name (makes it a container service)</li>
-            <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">ports</code> - Port mappings in "host:container" format</li>
+            <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">ports</code> - Port mappings in "host:container" format (every listed port is published)</li>
+            <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">command</code> - Override the container command (string or array of args)</li>
+            <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">pull_policy</code> - When to pull the image: missing, always, or never</li>
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">environment</code> - Environment variables for container</li>
-            <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">volumes</code> - Persistent volume mounts</li>
+            <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">volumes</code> - Named volumes and bind mounts (bind paths resolve relative to the project)</li>
+            <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">uses</code> - Start after the listed services are healthy (like Compose depends_on)</li>
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">docker.path</code> - Path to Dockerfile for building</li>
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">docker.context</code> - Build context directory</li>
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">docker.platform</code> - Target platform (linux/amd64, linux/arm64)</li>
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">docker.buildArgs</code> - Build-time arguments</li>
           </ul>
+          <p class="mt-3 text-neutral-700 dark:text-neutral-300">
+            Container services in a project share a Docker network and resolve each other by
+            service name — e.g. <code class="px-1 bg-white dark:bg-neutral-800 rounded">BLOB_SERVER: azurite</code>
+            connects to the <code class="px-1 bg-white dark:bg-neutral-800 rounded">azurite</code> container.
+          </p>
         </div>
 
         <h3 class="text-2xl font-bold mb-4 mt-10">All Docker Build Properties</h3>
