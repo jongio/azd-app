@@ -1,7 +1,10 @@
 // Package testing provides test execution and coverage aggregation for multi-language projects.
 package testing
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Coverage threshold constants for UI display.
 const (
@@ -60,6 +63,23 @@ type ServiceTestConfig struct {
 	E2E *TestTypeConfig `yaml:"e2e" json:"e2e"`
 	// Coverage configuration
 	Coverage *CoverageConfig `yaml:"coverage" json:"coverage"`
+}
+
+// HasExplicitCommand reports whether the service declares an explicit test
+// command for at least one test type (unit, integration, or e2e). A service
+// with an explicit command is testable regardless of its detected language,
+// which lets container/`docker` (or language-less) services opt into
+// `azd app test` by specifying `test.<type>.command` in azure.yaml.
+func (c *ServiceTestConfig) HasExplicitCommand() bool {
+	if c == nil {
+		return false
+	}
+	for _, t := range []*TestTypeConfig{c.Unit, c.Integration, c.E2E} {
+		if t != nil && strings.TrimSpace(t.Command) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // TestTypeConfig represents configuration for a specific test type.
