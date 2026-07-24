@@ -113,6 +113,7 @@ func main() {
 		commands.NewAddCommand(),
 		commands.NewSupportBundleCommand(),
 		commands.NewGraphCommand(),
+		commands.NewDoctorCommand(),
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
 	)
 
