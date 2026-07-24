@@ -142,12 +142,23 @@ func resolveVolumeSpec(spec, projectDir string) (string, error) {
 	}
 	resolved = filepath.Clean(resolved)
 
-	// For relative binds, ensure the resolved path stays within the project tree.
+	// For relative binds, canonicalize symlinks before the containment check so
+	// that a symlink pointing outside the project tree is correctly rejected
+	// (CWE-59 mitigation).
 	if sourceWasRelative {
 		absProject, err := filepath.Abs(projectDir)
 		if err != nil {
 			absProject = filepath.Clean(projectDir)
 		}
+
+		// Resolve symlinks on both sides to compare canonical paths.
+		if canonical, err := filepath.EvalSymlinks(resolved); err == nil {
+			resolved = canonical
+		}
+		if canonicalProject, err := filepath.EvalSymlinks(absProject); err == nil {
+			absProject = canonicalProject
+		}
+
 		rel, err := filepath.Rel(absProject, resolved)
 		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			return "", fmt.Errorf("volume %q escapes the project directory", spec)

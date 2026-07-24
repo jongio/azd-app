@@ -2,6 +2,8 @@ package service
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
@@ -107,8 +109,14 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 		return nil, fmt.Errorf("image %q is not present locally and pull_policy=never", image)
 	}
 
-	// Check if container already exists
-	containerName := fmt.Sprintf("azd-%s", runtime.Name)
+	// Derive a project-scoped container name so containers from different
+	// projects never collide. Uses the same hash as the network name.
+	projectRoot := projectNetworkDir(projectDir)
+	absRoot, _ := filepath.Abs(projectRoot)
+	absRoot = filepath.Clean(absRoot)
+	sum := sha256.Sum256([]byte(absRoot))
+	projHash := hex.EncodeToString(sum[:])[:8]
+	containerName := fmt.Sprintf("azd-%s-%s", runtime.Name, projHash)
 
 	// reconnectToNetwork idempotently attaches a reused container to the project
 	// network so sibling DNS keeps working after a fast restart.

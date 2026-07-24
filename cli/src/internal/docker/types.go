@@ -90,7 +90,7 @@ const DefaultProtocol = "tcp"
 // imageNameRegex validates Docker image names.
 // Pattern: [registry/][namespace/]name[:tag][@digest]
 // Examples: nginx, nginx:latest, docker.io/library/nginx:1.21, mcr.microsoft.com/azure-storage/azurite
-var imageNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9](:[a-zA-Z0-9._-]+)?(@sha256:[a-fA-F0-9]{64})?$`)
+var imageNameRegex = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._/-]*[a-zA-Z0-9])?(:[a-zA-Z0-9._-]+)?(@sha256:[a-fA-F0-9]{64})?$`)
 
 // containerNameRegex validates Docker container names.
 // Pattern: [a-zA-Z0-9][a-zA-Z0-9_.-]* (must start with alphanumeric)

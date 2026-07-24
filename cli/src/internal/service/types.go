@@ -998,7 +998,7 @@ func (s *Service) GetPortMappings() ([]PortMapping, bool) {
 	hasExplicitPort := false
 
 	// Determine if this is a Docker/containerized service
-	isDocker := s.Docker != nil
+	isDocker := s.IsContainerService()
 
 	for _, portSpec := range s.Ports {
 		mapping, err := ParsePortSpec(portSpec, isDocker)

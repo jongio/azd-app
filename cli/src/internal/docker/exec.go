@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -384,26 +385,35 @@ func (c *ExecClient) Logs(containerID string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("failed to start docker logs: %w", err)
 	}
 
-	// Create pipe to combine stdout and stderr concurrently
-	// io.MultiReader reads sequentially which blocks on stdout in follow mode
+	// Create pipe to combine stdout and stderr with line-level atomicity.
+	// Each goroutine reads complete lines and writes them as a single call to
+	// the PipeWriter, preventing mid-line interleaving when both streams are
+	// active simultaneously.
 	pr, pw := io.Pipe()
 
-	// Copy both streams concurrently to the pipe writer
+	// Copy both streams concurrently with line-aware writes
 	go func() {
 		var wg sync.WaitGroup
 		wg.Add(2)
 
-		// Copy stdout
-		go func() {
+		// scanLines reads complete lines from src and writes each as an atomic
+		// call to pw. A shared mutex is not needed because PipeWriter.Write is
+		// already serialized, and each Write call carries a full line.
+		scanLines := func(src io.Reader) {
 			defer wg.Done()
-			_, _ = io.Copy(pw, stdout)
-		}()
+			scanner := bufio.NewScanner(src)
+			scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+			for scanner.Scan() {
+				line := scanner.Bytes()
+				buf := make([]byte, len(line)+1)
+				copy(buf, line)
+				buf[len(line)] = '\n'
+				_, _ = pw.Write(buf)
+			}
+		}
 
-		// Copy stderr
-		go func() {
-			defer wg.Done()
-			_, _ = io.Copy(pw, stderr)
-		}()
+		go scanLines(stdout)
+		go scanLines(stderr)
 
 		// Wait for both to complete, then close the writer
 		wg.Wait()
