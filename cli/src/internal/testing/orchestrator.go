@@ -560,6 +560,25 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 		return nil, fmt.Errorf("failed to detect test config: %w", err)
 	}
 
+	// Expand "all" for services that declare explicit per-type commands: run
+	// each configured type and aggregate. The language runners only honor an
+	// explicit command for a specific test type (unit/integration/e2e), not the
+	// "all" pseudo-type, so without this an explicit-command service would fall
+	// back to the framework's default command on `azd app test` (no --type).
+	if strings.EqualFold(testType, testFilterAll) && config.HasExplicitCommand() {
+		return o.runExplicitTypes(service, config)
+	}
+
+	// For a service whose language isn't a recognized test language, only run a
+	// requested type that has its own explicit command. Without this guard the
+	// framework runner (chosen from `framework` in newRunnerForService) would
+	// fall through to its default command (e.g. `npm test`) for a type the
+	// service never configured. (The "all" path above already skips unconfigured
+	// types via runExplicitTypes.)
+	if !isRecognizedTestLanguage(service.Language) && !typeHasExplicitCommand(config, testType) {
+		return &TestResult{Service: service.Name, TestType: testType, Success: true}, nil
+	}
+
 	// Get test type config for setup/teardown
 	var typeConfig *TestTypeConfig
 	switch testType {
@@ -590,19 +609,11 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 		}
 	}()
 
-	// Create appropriate test runner based on language
-	var runner TestRunner
-	switch strings.ToLower(service.Language) {
-	case "js", langJavaScript, langTypeScript, "ts":
-		runner = NewNodeTestRunner(service.Dir, config)
-	case langPython, "py":
-		runner = NewPythonTestRunner(service.Dir, config)
-	case langCSharp, dotnetCommand, langFSharp, "cs", "fs":
-		runner = NewDotnetTestRunner(service.Dir, config)
-	case "go", langGolang:
-		runner = NewGoTestRunner(service.Dir, config)
-	default:
-		return nil, fmt.Errorf("unsupported language: %s", service.Language)
+	// Create the appropriate test runner (by language, or by framework for
+	// explicit-command services whose language is not a test language).
+	runner, err := newRunnerForService(service, config)
+	if err != nil {
+		return nil, err
 	}
 
 	// Execute tests (coverage flag from config)
@@ -622,6 +633,125 @@ func (o *TestOrchestrator) executeServiceTests(service ServiceInfo, testType str
 
 	result.Service = service.Name
 	return result, nil
+}
+
+// isRecognizedTestLanguage reports whether a service language maps to one of the
+// built-in language test runners (Node, Python, .NET, Go).
+func isRecognizedTestLanguage(language string) bool {
+	switch strings.ToLower(language) {
+	case "js", langJavaScript, langTypeScript, "ts",
+		langPython, "py",
+		langCSharp, dotnetCommand, langFSharp, "cs", "fs",
+		"go", langGolang:
+		return true
+	}
+	return false
+}
+
+// typeHasExplicitCommand reports whether the service declares an explicit command
+// for the given test type (unit/integration/e2e).
+func typeHasExplicitCommand(config *ServiceTestConfig, testType string) bool {
+	if config == nil {
+		return false
+	}
+	var t *TestTypeConfig
+	switch strings.ToLower(testType) {
+	case testTypeUnit:
+		t = config.Unit
+	case testTypeIntegration:
+		t = config.Integration
+	case testTypeE2E:
+		t = config.E2E
+	}
+	return t != nil && strings.TrimSpace(t.Command) != ""
+}
+
+// newRunnerForService selects a test runner for a service. It dispatches on the
+// service's language first; when the language is not a recognized test language
+// but the service declares an explicit `test:` command, it falls back to the
+// runner implied by the configured framework (defaulting to the Node runner,
+// which honors an explicit command and reports pass/fail from the exit code).
+func newRunnerForService(service ServiceInfo, config *ServiceTestConfig) (TestRunner, error) {
+	switch strings.ToLower(service.Language) {
+	case "js", langJavaScript, langTypeScript, "ts":
+		return NewNodeTestRunner(service.Dir, config), nil
+	case langPython, "py":
+		return NewPythonTestRunner(service.Dir, config), nil
+	case langCSharp, dotnetCommand, langFSharp, "cs", "fs":
+		return NewDotnetTestRunner(service.Dir, config), nil
+	case "go", langGolang:
+		return NewGoTestRunner(service.Dir, config), nil
+	}
+
+	// Unrecognized language (e.g. `docker` or unset): honor an explicit command
+	// by selecting a runner from the configured framework.
+	if config.HasExplicitCommand() {
+		switch strings.ToLower(config.Framework) {
+		case frameworkPytest:
+			return NewPythonTestRunner(service.Dir, config), nil
+		case frameworkXUnit, "nunit", "mstest", dotnetCommand:
+			return NewDotnetTestRunner(service.Dir, config), nil
+		case frameworkGoTest, "go", langGolang:
+			return NewGoTestRunner(service.Dir, config), nil
+		default:
+			// vitest/jest/mocha/npm or unspecified: the Node runner runs the
+			// explicit command and derives success from the process exit code.
+			return NewNodeTestRunner(service.Dir, config), nil
+		}
+	}
+
+	return nil, fmt.Errorf("unsupported language: %s", service.Language)
+}
+
+// runExplicitTypes runs each explicitly-configured test type (unit, then
+// integration, then e2e) for a service and aggregates the results into a single
+// "all" result. Used to expand a `--type all` request for services that declare
+// explicit per-type commands so each configured command is actually run.
+func (o *TestOrchestrator) runExplicitTypes(service ServiceInfo, config *ServiceTestConfig) (*TestResult, error) {
+	aggregate := &TestResult{
+		Service:  service.Name,
+		TestType: testFilterAll,
+		Success:  true,
+	}
+
+	ordered := []struct {
+		name string
+		cfg  *TestTypeConfig
+	}{
+		{testTypeUnit, config.Unit},
+		{testTypeIntegration, config.Integration},
+		{testTypeE2E, config.E2E},
+	}
+
+	for _, t := range ordered {
+		if t.cfg == nil || strings.TrimSpace(t.cfg.Command) == "" {
+			continue
+		}
+
+		res, err := o.executeServiceTests(service, t.name)
+		if err != nil {
+			aggregate.Success = false
+			if aggregate.Error == "" {
+				aggregate.Error = err.Error()
+			}
+			if o.config != nil && o.config.FailFast {
+				return aggregate, err
+			}
+			continue
+		}
+
+		aggregate.Passed += res.Passed
+		aggregate.Failed += res.Failed
+		aggregate.Skipped += res.Skipped
+		aggregate.Total += res.Total
+		aggregate.Duration += res.Duration
+		aggregate.Failures = append(aggregate.Failures, res.Failures...)
+		if !res.Success {
+			aggregate.Success = false
+		}
+	}
+
+	return aggregate, nil
 }
 
 // executeWithTimeout runs tests with a timeout.

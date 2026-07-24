@@ -45,6 +45,20 @@ func ValidateService(service ServiceInfo) ServiceValidation {
 		return validation
 	}
 
+	// An explicit `test:` block with a command makes a service testable
+	// regardless of its language. This lets container/`docker` (or
+	// language-less) services opt into `azd app test` by declaring
+	// `test.<type>.command` in azure.yaml; the runner is then selected by the
+	// configured `framework` (see executeServiceTests).
+	if service.Config.HasExplicitCommand() {
+		validation.CanTest = true
+		validation.Framework = service.Config.Framework
+		if validation.Framework == "" {
+			validation.Framework = "custom"
+		}
+		return validation
+	}
+
 	// Validate based on language
 	switch strings.ToLower(service.Language) {
 	case "js", langJavaScript, langTypeScript, "ts":

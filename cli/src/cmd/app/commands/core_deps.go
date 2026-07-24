@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
@@ -382,6 +383,12 @@ func detectProjectsFromAzureYaml(searchRoot string) ([]types.NodeProject, []type
 	var pythonProjects []types.PythonProject
 	var dotnetProjects []types.DotnetProject
 
+	// Dedupe by resolved project directory: a monorepo often points several
+	// services at one directory (e.g. `project: .` on each), and each would
+	// otherwise be collected — then installed, and rendered as its own progress
+	// bar — once per service. Collapsing to the unique directory installs it once.
+	seenDirs := make(map[string]bool)
+
 	for _, svc := range azureYaml.Services {
 		projectDir := svc.Project
 		if projectDir == "" {
@@ -402,6 +409,12 @@ func detectProjectsFromAzureYaml(searchRoot string) ([]types.NodeProject, []type
 		if _, err := os.Stat(projectDir); os.IsNotExist(err) {
 			return nil, nil, nil, fmt.Errorf("service project directory %q does not exist - check the 'project' path in azure.yaml", projectDir)
 		}
+
+		// Skip a directory already collected via another service (see seenDirs).
+		if seenDirs[absProjectDir] {
+			continue
+		}
+		seenDirs[absProjectDir] = true
 
 		// Check for Node.js project (package.json)
 		if _, err := os.Stat(filepath.Join(projectDir, "package.json")); err == nil {
@@ -574,6 +587,46 @@ func isSubdirectory(path string, parentPaths map[string]bool) bool {
 	return false
 }
 
+// serviceDirsFromAzureYaml maps each azure.yaml service's project directory to
+// the names of the services that use it, so a shared directory can be labeled
+// with the services it covers. Returns nil when azure.yaml can't be read (the
+// caller then falls back to directory-name labels).
+func serviceDirsFromAzureYaml(searchRoot string) map[string][]string {
+	azureYamlPath, err := detector.FindAzureYaml(searchRoot)
+	if err != nil || azureYamlPath == "" {
+		return nil
+	}
+	azureYaml, err := service.ParseAzureYaml(filepath.Dir(azureYamlPath))
+	if err != nil {
+		return nil
+	}
+	byDir := make(map[string][]string)
+	for name, svc := range azureYaml.Services {
+		if svc.Project == "" {
+			continue
+		}
+		byDir[svc.Project] = append(byDir[svc.Project], name)
+	}
+	return byDir
+}
+
+// groupedNodeLabel renders an install label that names the services sharing a
+// directory, e.g. "web, ingest, +6 more (npm)". Names are sorted for stable
+// output and truncated so the line stays readable.
+func groupedNodeLabel(services []string, packageManager string) string {
+	names := append([]string(nil), services...)
+	sort.Strings(names)
+
+	const maxShown = 3
+	shown := names
+	suffix := ""
+	if len(names) > maxShown {
+		shown = names[:maxShown]
+		suffix = fmt.Sprintf(", +%d more", len(names)-maxShown)
+	}
+	return strings.Join(shown, ", ") + suffix + " (" + packageManager + ")"
+}
+
 // runParallelInstallation runs the parallel installer for non-JSON mode.
 func runParallelInstallation(projects DetectedProjects, verbose bool) error {
 	parallelInstaller := installer.NewParallelInstaller()
@@ -586,7 +639,14 @@ func runParallelInstallation(projects DetectedProjects, verbose bool) error {
 	filteredNodeProjects := workspaceHandler.FilterNodeProjects(projects.Node)
 
 	for _, project := range filteredNodeProjects {
-		parallelInstaller.AddNodeProject(project)
+		// When several services share one project dir, label the (single) install
+		// with those service names so it's clear it covers all of them, not just
+		// the directory. A single service keeps the default directory label.
+		if services := projects.ServicesByDir[project.Dir]; len(services) > 1 {
+			parallelInstaller.AddNodeProjectLabeled(project, groupedNodeLabel(services, project.PackageManager))
+		} else {
+			parallelInstaller.AddNodeProject(project)
+		}
 	}
 	for _, project := range projects.Python {
 		parallelInstaller.AddPythonProject(project)
