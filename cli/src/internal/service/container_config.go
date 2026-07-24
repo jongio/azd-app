@@ -137,32 +137,35 @@ func resolveVolumeSpec(spec, projectDir string) (string, error) {
 	// Bind mount: resolve the host source to an absolute path.
 	sourceWasRelative := !filepath.IsAbs(source)
 	resolved := source
-	if sourceWasRelative {
-		resolved = filepath.Join(projectDir, source)
-	}
-	resolved = filepath.Clean(resolved)
 
-	// For relative binds, canonicalize symlinks before the containment check so
-	// that a symlink pointing outside the project tree is correctly rejected
-	// (CWE-59 mitigation).
+	// For relative binds, canonicalize the project directory first so that
+	// symlinks in path prefixes (e.g., /var -> /private/var on macOS) don't
+	// cause false containment rejections. Then resolve the source under the
+	// canonical project directory so the containment check compares canonical
+	// paths on both sides (CWE-59 mitigation).
 	if sourceWasRelative {
 		absProject, err := filepath.Abs(projectDir)
 		if err != nil {
 			absProject = filepath.Clean(projectDir)
 		}
-
-		// Resolve symlinks on both sides to compare canonical paths.
-		if canonical, err := filepath.EvalSymlinks(resolved); err == nil {
-			resolved = canonical
-		}
 		if canonicalProject, err := filepath.EvalSymlinks(absProject); err == nil {
 			absProject = canonicalProject
+		}
+
+		resolved = filepath.Clean(filepath.Join(absProject, source))
+
+		// If the resolved path itself is a symlink, canonicalize it so a
+		// symlink that points outside the project tree is correctly rejected.
+		if canonical, err := filepath.EvalSymlinks(resolved); err == nil {
+			resolved = canonical
 		}
 
 		rel, err := filepath.Rel(absProject, resolved)
 		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			return "", fmt.Errorf("volume %q escapes the project directory", spec)
 		}
+	} else {
+		resolved = filepath.Clean(resolved)
 	}
 
 	return resolved + ":" + rest, nil
