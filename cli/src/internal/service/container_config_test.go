@@ -60,7 +60,13 @@ func TestResolveVolumeSpec_RelativeBindResolves(t *testing.T) {
 	projectDir := t.TempDir()
 	got, err := resolveVolumeSpec("./config.json:/app/config.json", projectDir)
 	require.NoError(t, err)
-	want := filepath.Join(projectDir, "config.json") + ":/app/config.json"
+	// Use the canonical project dir (EvalSymlinks) because the function
+	// canonicalizes symlinks in the prefix (e.g., /var -> /private/var on macOS).
+	canonical, cErr := filepath.EvalSymlinks(projectDir)
+	if cErr != nil {
+		canonical = projectDir
+	}
+	want := filepath.Join(canonical, "config.json") + ":/app/config.json"
 	assert.Equal(t, want, got)
 }
 

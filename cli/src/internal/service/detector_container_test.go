@@ -34,9 +34,14 @@ func TestDetectContainerRuntime_WiresContainerFields(t *testing.T) {
 	assert.Equal(t, 5432, rt.Ports[0].HostPort)
 
 	// Named volume passes through; relative bind resolves to an absolute path.
+	// Use canonical project dir because resolveVolumeSpec canonicalizes symlinks.
+	canonical, cErr := filepath.EvalSymlinks(projectDir)
+	if cErr != nil {
+		canonical = projectDir
+	}
 	require.Len(t, rt.Volumes, 2)
 	assert.Equal(t, "pgdata:/var/lib/postgresql/data", rt.Volumes[0])
-	wantBind := filepath.Join(projectDir, "init.sql") + ":/docker-entrypoint-initdb.d/init.sql"
+	wantBind := filepath.Join(canonical, "init.sql") + ":/docker-entrypoint-initdb.d/init.sql"
 	assert.Equal(t, wantBind, rt.Volumes[1])
 }
 
