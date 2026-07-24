@@ -685,8 +685,8 @@ type ServiceRuntime struct {
 	PackageManager        string
 	Command               string
 	Args                  []string
-	Image                 string // Container image reference (for type=container services)
-	PullPolicy            string // Image pull policy for container services: "", "missing", "always", "never"
+	Image                 string        // Container image reference (for type=container services)
+	PullPolicy            string        // Image pull policy for container services: "", "missing", "always", "never"
 	Volumes               []string      // Resolved Docker volume specs for container services
 	Ports                 []PortMapping // All port mappings for container services (multi-port); Port remains the primary
 	Network               string        // User-defined Docker network for container-to-container DNS

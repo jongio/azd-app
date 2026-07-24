@@ -313,9 +313,9 @@ func TestInferLogLevel(t *testing.T) {
 		{"trace information", false, LogLevelDebug},
 
 		// Word-boundary: identifiers must NOT misfire a level
-		{"errorReporter started", false, LogLevelInfo},   // not \berror\b
-		{"trace_worker_started", false, LogLevelInfo},    // not \btrace\b
-		{"warmup complete", false, LogLevelInfo},         // not \bwarn\b
+		{"errorReporter started", false, LogLevelInfo}, // not \berror\b
+		{"trace_worker_started", false, LogLevelInfo},  // not \btrace\b
+		{"warmup complete", false, LogLevelInfo},       // not \bwarn\b
 
 		// Structured JSON logs are authoritative (emitter's own level wins)
 		{`{"level":"info","msg":"trace_worker_started","role":"trace-worker"}`, false, LogLevelInfo},
