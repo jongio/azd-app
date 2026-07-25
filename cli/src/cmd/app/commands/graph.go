@@ -23,10 +23,11 @@ const (
 )
 
 type graphOptions struct {
-	output     string
-	outputFile string
-	focus      string
-	writer     io.Writer
+	output       string
+	outputFile   string
+	focus        string
+	servicesOnly bool
+	writer       io.Writer
 }
 
 type graphResult struct {
@@ -65,6 +66,10 @@ Combine with --output-file to write the result to a file instead of stdout.
 Pass --focus <service> to narrow the graph to one service, everything it depends
 on, and everything that depends on it. This works with every output format.
 
+Pass --services-only to omit resource nodes and show only service-to-service
+edges. This is useful for diagrams that need the app service shape without
+managed resources.
+
 Examples:
   # Human-readable text (default)
   azd app graph
@@ -79,7 +84,10 @@ Examples:
   azd app graph --output markdown
 
   # Just the api service and its connected nodes
-  azd app graph --focus api`,
+  azd app graph --focus api
+
+  # Service-only Mermaid diagram
+  azd app graph --services-only --output mermaid`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGraph(opts)
@@ -88,6 +96,7 @@ Examples:
 	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, markdown, mermaid, or dot")
 	cmd.Flags().StringVar(&opts.outputFile, "output-file", "", "Write output to this file instead of stdout")
 	cmd.Flags().StringVar(&opts.focus, "focus", "", "Limit the graph to a service, its dependencies, and its dependents")
+	cmd.Flags().BoolVar(&opts.servicesOnly, "services-only", false, "Show only services and service-to-service edges")
 	return cmd
 }
 
@@ -132,6 +141,9 @@ func runGraph(opts *graphOptions) error {
 			return err
 		}
 	}
+	if opts.servicesOnly {
+		result = filterGraphServicesOnly(result)
+	}
 
 	// When --output-file is set, buffer the rendered output and write it to disk.
 	writer := opts.writer
@@ -152,6 +164,47 @@ func runGraph(opts *graphOptions) error {
 		_, _ = fmt.Fprintf(opts.writer, "Wrote %s graph to %s\n", opts.output, opts.outputFile)
 	}
 	return nil
+}
+
+func filterGraphServicesOnly(result graphResult) graphResult {
+	keep := make(map[string]struct{}, len(result.Nodes))
+	nodes := make([]graphNode, 0, len(result.Nodes))
+	for _, n := range result.Nodes {
+		if n.Type != "service" {
+			continue
+		}
+		keep[n.Name] = struct{}{}
+		nodes = append(nodes, n)
+	}
+
+	edges := make([]graphEdge, 0, len(result.Edges))
+	for _, e := range result.Edges {
+		if _, ok := keep[e.From]; !ok {
+			continue
+		}
+		if _, ok := keep[e.To]; !ok {
+			continue
+		}
+		edges = append(edges, e)
+	}
+
+	levels := make([][]string, 0, len(result.Levels))
+	for _, level := range result.Levels {
+		filtered := make([]string, 0, len(level))
+		for _, name := range level {
+			if _, ok := keep[name]; ok {
+				filtered = append(filtered, name)
+			}
+		}
+		if len(filtered) > 0 {
+			levels = append(levels, filtered)
+		}
+	}
+
+	result.Nodes = nodes
+	result.Edges = edges
+	result.Levels = levels
+	return result
 }
 
 func renderGraph(w io.Writer, format string, result graphResult) error {
