@@ -26,6 +26,7 @@ func TestNewStatusCommand(t *testing.T) {
 	assert.NotNil(t, cmd.Flags().Lookup("watch"), "expected --watch flag")
 	assert.NotNil(t, cmd.Flags().Lookup("interval"), "expected --interval flag")
 	assert.NotNil(t, cmd.Flags().Lookup("service"), "expected --service flag")
+	assert.NotNil(t, cmd.Flags().Lookup("dashboard-url"), "expected --dashboard-url flag")
 }
 
 func TestRenderStatusReport(t *testing.T) {
@@ -170,6 +171,23 @@ func TestFilterStatusReportNotRunning(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, filtered.Running)
 	assert.Empty(t, filtered.Services)
+}
+
+func TestDashboardURLFromStatusReport(t *testing.T) {
+	url, err := dashboardURLFromStatusReport(statusReport{
+		Running:      true,
+		DashboardURL: "http://localhost:40000",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "http://localhost:40000", url)
+
+	_, err = dashboardURLFromStatusReport(statusReport{Running: false})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "app is not running")
+
+	_, err = dashboardURLFromStatusReport(statusReport{Running: true})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "dashboard URL is not available")
 }
 
 func TestBuildStatusReportStaleStateRemovesFile(t *testing.T) {
