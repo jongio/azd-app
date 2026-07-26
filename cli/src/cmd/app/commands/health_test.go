@@ -38,6 +38,7 @@ func TestHealthCommandFlags(t *testing.T) {
 		{"all flag", "all", "bool"},
 		{"verbose flag", "verbose", "bool"},
 		{"fail on degraded flag", "fail-on-degraded", "bool"},
+		{"summary only flag", "summary-only", "bool"},
 	}
 
 	for _, tt := range tests {
@@ -78,6 +79,28 @@ func TestHealthReportExitErrorFailOnDegraded(t *testing.T) {
 	}
 	if err.Error() != "1 service(s) degraded" {
 		t.Fatalf("healthReportExitError() error = %q", err.Error())
+	}
+}
+
+func TestHealthReportSummaryLines(t *testing.T) {
+	report := &healthcheck.HealthReport{
+		Summary: healthcheck.HealthSummary{
+			Healthy:   2,
+			Degraded:  1,
+			Unhealthy: 3,
+			Overall:   healthcheck.HealthStatusUnhealthy,
+		},
+	}
+
+	lines := healthReportSummaryLines(report)
+	if len(lines) != 2 {
+		t.Fatalf("healthReportSummaryLines() got %d lines, want 2", len(lines))
+	}
+	if lines[0] != "Overall Status: UNHEALTHY" {
+		t.Fatalf("healthReportSummaryLines()[0] = %q", lines[0])
+	}
+	if lines[1] != "Summary: 2 healthy, 1 degraded, 3 unhealthy" {
+		t.Fatalf("healthReportSummaryLines()[1] = %q", lines[1])
 	}
 }
 
