@@ -43,16 +43,25 @@ func stateDir(projectDir string) (string, error) {
 	return filepath.Join(base, azdconfig.ProjectHash(projectDir)), nil
 }
 
+// stateFileName is the run state file name within a project's state directory.
+const stateFileName = "run.json"
+
 // Path returns the run-state path for the given project.
 func Path(projectDir string) (string, error) {
 	dir, err := stateDir(projectDir)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "run.json"), nil
+	return filepath.Join(dir, stateFileName), nil
 }
 
 // Write persists the run state for a project.
+//
+// A detached run has the parent seed this file and the child rewrite it seconds
+// later, so writes are ordered in practice rather than concurrent. Replacing the
+// file atomically is deliberately not attempted: Windows refuses to rename over
+// a file a reader currently has open, which would trade a rare short read window
+// for a writer that can fail outright.
 func Write(projectDir string, st RunState) error {
 	path, err := Path(projectDir)
 	if err != nil {
