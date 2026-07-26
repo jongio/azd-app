@@ -93,8 +93,8 @@ github.com/charmbracelet/x/cellbuf v0.0.15 h1:ur3pZy0o6z/R7EylET877CBxaiE1Sp1GMx
 github.com/charmbracelet/x/cellbuf v0.0.15/go.mod h1:J1YVbR7MUuEGIFPCaaZ96KDl5NoS0DAWkskup+mOY+Q=
 github.com/charmbracelet/x/exp/golden v0.0.0-20260720091843-3eef36eaaa28 h1:j4J91nSGIlhtPch2Rs0+SWTxZ7AJXBU721dgwlmm22U=
 github.com/charmbracelet/x/exp/golden v0.0.0-20260720091843-3eef36eaaa28/go.mod h1:6fMpcW6iwN/kX+xJ52eqVWsDiBTe0UJD24JLoHFe+P0=
-github.com/charmbracelet/x/exp/slice v0.0.0-20260720091843-3eef36eaaa28 h1:fGQpqto9ryOmNMRHacdlSLxKg+l2E+yX0PpIxoBZAi0=
-github.com/charmbracelet/x/exp/slice v0.0.0-20260720091843-3eef36eaaa28/go.mod h1:vqEfX6xzqW1pKKZUUiFOKg0OQ7bCh54Q2vR/tserrRA=
+github.com/charmbracelet/x/exp/slice v0.0.0-20260726004341-482a56510f1b h1:VKASlRztdxT172siF4nJCwD1C+3mbveX41BiA96fIpA=
+github.com/charmbracelet/x/exp/slice v0.0.0-20260726004341-482a56510f1b/go.mod h1:vqEfX6xzqW1pKKZUUiFOKg0OQ7bCh54Q2vR/tserrRA=
 github.com/charmbracelet/x/term v0.2.2 h1:xVRT/S2ZcKdhhOuSP4t5cLi5o+JxklsoEObBSgfgZRk=
 github.com/charmbracelet/x/term v0.2.2/go.mod h1:kF8CY5RddLWrsgVwpw4kAa6TESp6EB5y3uxGLeCqzAI=
 github.com/cli/browser v1.3.0 h1:LejqCrpWr+1pRqmEPDGnTZOjsMe7sehifLynZJuqJpo=

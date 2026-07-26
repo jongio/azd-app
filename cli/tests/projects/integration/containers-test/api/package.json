@@ -10,8 +10,8 @@
   "license": "MIT",
   "dependencies": {
     "@azure/storage-blob": "^12.33.0",
-    "@azure/cosmos": "^4.9.3",
-    "redis": "^6.0.1",
+    "@azure/cosmos": "^4.10.0",
+    "redis": "^6.1.0",
     "pg": "^8.22.0"
   }
 }
