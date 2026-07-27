@@ -20,6 +20,7 @@ const (
 	graphOutputMarkdown = "markdown"
 	graphOutputMermaid  = "mermaid"
 	graphOutputDOT      = "dot"
+	graphOutputD2       = "d2"
 )
 
 type graphOptions struct {
@@ -59,7 +60,7 @@ func NewGraphCommand() *cobra.Command {
 		Long: `Show services, resources, dependency edges, and startup levels from azure.yaml.
 
 Use --output to change the output. text, json, and markdown print to stdout.
-mermaid and dot emit a diagram you can drop into a README or an architecture doc.
+mermaid, dot, and d2 emit a diagram you can drop into a README or an architecture doc.
 Combine with --output-file to write the result to a file instead of stdout.
 
 Pass --focus <service> to narrow the graph to one service, everything it depends
@@ -75,6 +76,9 @@ Examples:
   # Graphviz DOT to stdout
   azd app graph --output dot
 
+  # D2 diagram written to a file
+  azd app graph --output d2 --output-file docs/services.d2
+
   # Markdown tables for docs or issue comments
   azd app graph --output markdown
 
@@ -85,7 +89,7 @@ Examples:
 			return runGraph(opts)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, markdown, mermaid, or dot")
+	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, markdown, mermaid, dot, or d2")
 	cmd.Flags().StringVar(&opts.outputFile, "output-file", "", "Write output to this file instead of stdout")
 	cmd.Flags().StringVar(&opts.focus, "focus", "", "Limit the graph to a service, its dependencies, and its dependents")
 	return cmd
@@ -102,9 +106,9 @@ func runGraph(opts *graphOptions) error {
 		opts.output = graphOutputText
 	}
 	switch opts.output {
-	case graphOutputText, graphOutputJSON, graphOutputMarkdown, graphOutputMermaid, graphOutputDOT:
+	case graphOutputText, graphOutputJSON, graphOutputMarkdown, graphOutputMermaid, graphOutputDOT, graphOutputD2:
 	default:
-		return fmt.Errorf("invalid output format: %s (must be text, json, markdown, mermaid, or dot)", opts.output)
+		return fmt.Errorf("invalid output format: %s (must be text, json, markdown, mermaid, dot, or d2)", opts.output)
 	}
 
 	azureYamlPath, err := findAzureYaml()
@@ -166,6 +170,8 @@ func renderGraph(w io.Writer, format string, result graphResult) error {
 		renderGraphMermaid(w, result)
 	case graphOutputDOT:
 		renderGraphDOT(w, result)
+	case graphOutputD2:
+		renderGraphD2(w, result)
 	default:
 		printGraphText(w, result)
 	}
@@ -498,4 +504,43 @@ func renderGraphDOT(w io.Writer, result graphResult) {
 		_, _ = fmt.Fprintf(w, "    \"%s\" -> \"%s\";\n", escapeDOTString(edge.From), escapeDOTString(edge.To))
 	}
 	_, _ = fmt.Fprintln(w, "}")
+}
+
+// escapeD2Label makes a string safe to use inside a D2 double-quoted label.
+// D2 double-quoted strings cannot contain a literal double quote, so quotes are
+// swapped for single quotes and newlines are collapsed to spaces.
+func escapeD2Label(s string) string {
+	replacer := strings.NewReplacer(
+		"\"", "'",
+		"\n", " ",
+	)
+	return replacer.Replace(s)
+}
+
+func renderGraphD2(w io.Writer, result graphResult) {
+	ids := mermaidNodeIDs(result.Nodes)
+
+	_, _ = fmt.Fprintln(w, "direction: right")
+	for _, node := range result.Nodes {
+		label := node.Name
+		if node.Type != "" {
+			label += " (" + node.Type + ")"
+		}
+		id := ids[node.Name]
+		// Resources use a cylinder to read like a datastore, matching how the
+		// other diagram formats distinguish resources from services.
+		if node.Type == "resource" {
+			_, _ = fmt.Fprintf(w, "%s: \"%s\" {\n  shape: cylinder\n}\n", id, escapeD2Label(label))
+		} else {
+			_, _ = fmt.Fprintf(w, "%s: \"%s\"\n", id, escapeD2Label(label))
+		}
+	}
+	for _, edge := range result.Edges {
+		from, okFrom := ids[edge.From]
+		to, okTo := ids[edge.To]
+		if !okFrom || !okTo {
+			continue
+		}
+		_, _ = fmt.Fprintf(w, "%s -> %s\n", from, to)
+	}
 }
