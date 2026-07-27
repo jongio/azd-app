@@ -424,7 +424,7 @@ func (o *TestOrchestrator) ExecuteTestsWithValidation(testType string, serviceFi
 
 	validations := make([]ServiceValidation, 0, len(services))
 	for _, service := range services {
-		validation := ValidateService(service)
+		validation := ValidateServiceForType(service, testType)
 		validations = append(validations, validation)
 
 		o.emitProgress(ProgressEvent{
@@ -470,20 +470,11 @@ func (o *TestOrchestrator) ExecuteTestsWithValidation(testType string, serviceFi
 
 	// Execute tests for each testable service
 	for _, service := range testableServices {
-		// Find the validation for this service to get framework info
-		var framework string
-		for _, v := range validations {
-			if v.Name == service.Name {
-				framework = v.Framework
-				break
-			}
-		}
-
 		// Emit test start progress event
 		o.emitProgress(ProgressEvent{
 			Type:      ProgressEventTestStart,
 			Service:   service.Name,
-			Framework: framework,
+			Framework: runnerLabel(validations, service.Name),
 		})
 
 		testResult, err := o.executeServiceTests(service, testType)
@@ -651,19 +642,22 @@ func isRecognizedTestLanguage(language string) bool {
 // typeHasExplicitCommand reports whether the service declares an explicit command
 // for the given test type (unit/integration/e2e).
 func typeHasExplicitCommand(config *ServiceTestConfig, testType string) bool {
-	if config == nil {
-		return false
+	return config.explicitCommands()[strings.ToLower(strings.TrimSpace(testType))] != ""
+}
+
+// runnerLabel describes what will run for a service, so progress output does not
+// claim a framework was used when an explicit command takes over.
+func runnerLabel(validations []ServiceValidation, serviceName string) string {
+	for _, v := range validations {
+		if v.Name != serviceName {
+			continue
+		}
+		if v.Command != "" {
+			return customRunnerLabel
+		}
+		return v.Framework
 	}
-	var t *TestTypeConfig
-	switch strings.ToLower(testType) {
-	case testTypeUnit:
-		t = config.Unit
-	case testTypeIntegration:
-		t = config.Integration
-	case testTypeE2E:
-		t = config.E2E
-	}
-	return t != nil && strings.TrimSpace(t.Command) != ""
+	return ""
 }
 
 // newRunnerForService selects a test runner for a service. It dispatches on the
@@ -714,21 +708,14 @@ func (o *TestOrchestrator) runExplicitTypes(service ServiceInfo, config *Service
 		Success:  true,
 	}
 
-	ordered := []struct {
-		name string
-		cfg  *TestTypeConfig
-	}{
-		{testTypeUnit, config.Unit},
-		{testTypeIntegration, config.Integration},
-		{testTypeE2E, config.E2E},
-	}
+	commands := config.explicitCommands()
 
-	for _, t := range ordered {
-		if t.cfg == nil || strings.TrimSpace(t.cfg.Command) == "" {
+	for _, testType := range orderedTestTypes {
+		if commands[testType] == "" {
 			continue
 		}
 
-		res, err := o.executeServiceTests(service, t.name)
+		res, err := o.executeServiceTests(service, testType)
 		if err != nil {
 			aggregate.Success = false
 			if aggregate.Error == "" {
