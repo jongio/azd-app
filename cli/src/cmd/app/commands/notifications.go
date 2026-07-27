@@ -45,7 +45,9 @@ func newNotificationsListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List notification history",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cliout.CommandHeader("notifications list", "List notification history")
+			if !cliout.IsJSON() {
+				cliout.CommandHeader("notifications list", "List notification history")
+			}
 			ctx := cmd.Context()
 			dbPath := getNotificationDBPath()
 
@@ -68,6 +70,9 @@ func newNotificationsListCmd() *cobra.Command {
 				return fmt.Errorf("failed to query notifications: %w", err)
 			}
 
+			if cliout.IsJSON() {
+				return cliout.PrintJSON(records)
+			}
 			printNotifications(records)
 			return nil
 		},
@@ -135,7 +140,10 @@ func newNotificationsMarkReadCmd() *cobra.Command {
 }
 
 func newNotificationsClearCmd() *cobra.Command {
-	var olderThan string
+	var (
+		olderThan string
+		yes       bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "clear",
@@ -164,30 +172,32 @@ func newNotificationsClearCmd() *cobra.Command {
 				return nil
 			}
 
-			// Interactive confirmation with context-aware input
-			fmt.Print("Clear all notification history? (y/N): ")
+			if !yes {
+				// Interactive confirmation with context-aware input
+				fmt.Print("Clear all notification history? (y/N): ")
 
-			// Create a channel to read user input
-			responseChan := make(chan string, 1)
-			go func() {
+				// Create a channel to read user input
+				responseChan := make(chan string, 1)
+				go func() {
+					var response string
+					_, _ = fmt.Scanln(&response)
+					responseChan <- response
+				}()
+
+				// Wait for user input or context cancellation
 				var response string
-				_, _ = fmt.Scanln(&response)
-				responseChan <- response
-			}()
+				select {
+				case response = <-responseChan:
+					// User provided input
+				case <-ctx.Done():
+					fmt.Println("\nCanceled by context")
+					return ctx.Err()
+				}
 
-			// Wait for user input or context cancellation
-			var response string
-			select {
-			case response = <-responseChan:
-				// User provided input
-			case <-ctx.Done():
-				fmt.Println("\nCanceled by context")
-				return ctx.Err()
-			}
-
-			if response != "y" && response != "Y" {
-				fmt.Println("Canceled")
-				return nil
+				if response != "y" && response != "Y" {
+					fmt.Println("Canceled")
+					return nil
+				}
 			}
 
 			if err := db.ClearAll(ctx); err != nil {
@@ -200,8 +210,15 @@ func newNotificationsClearCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&olderThan, "older-than", "", "Clear notifications older than duration (e.g., 24h, 7d)")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Clear all notification history without prompting")
 
 	return cmd
+}
+
+type notificationStatsResult struct {
+	Total    int `json:"total"`
+	Unread   int `json:"unread"`
+	Critical int `json:"critical"`
 }
 
 func newNotificationsStatsCmd() *cobra.Command {
@@ -209,7 +226,9 @@ func newNotificationsStatsCmd() *cobra.Command {
 		Use:   "stats",
 		Short: "Show notification statistics",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cliout.CommandHeader("notifications stats", "Show notification statistics")
+			if !cliout.IsJSON() {
+				cliout.CommandHeader("notifications stats", "Show notification statistics")
+			}
 			ctx := cmd.Context()
 			dbPath := getNotificationDBPath()
 
@@ -222,6 +241,14 @@ func newNotificationsStatsCmd() *cobra.Command {
 			stats, err := db.GetStats(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get stats: %w", err)
+			}
+
+			if cliout.IsJSON() {
+				return cliout.PrintJSON(notificationStatsResult{
+					Total:    stats["total"],
+					Unread:   stats["unread"],
+					Critical: stats["critical"],
+				})
 			}
 
 			fmt.Println("Notification Statistics:")
