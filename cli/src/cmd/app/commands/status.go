@@ -23,9 +23,10 @@ import (
 const minStatusWatchInterval = time.Second
 
 var (
-	statusWatch    bool
-	statusInterval time.Duration
-	statusService  string
+	statusWatch        bool
+	statusInterval     time.Duration
+	statusService      string
+	statusDashboardURL bool
 )
 
 type statusReport struct {
@@ -66,6 +67,7 @@ Examples:
 	cmd.Flags().BoolVar(&statusWatch, "watch", false, "Refresh the status on an interval until interrupted")
 	cmd.Flags().DurationVar(&statusInterval, "interval", 2*time.Second, "Refresh interval for --watch (minimum 1s)")
 	cmd.Flags().StringVarP(&statusService, "service", "s", "", "Filter to specific service(s), comma-separated")
+	cmd.Flags().BoolVar(&statusDashboardURL, "dashboard-url", false, "Print only the dashboard URL for the active run")
 	return cmd
 }
 
@@ -90,8 +92,6 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 		return watchStatus(ctx, os.Stdout, projectDir, statusInterval, requested)
 	}
 
-	cliout.CommandHeader("status", "Show app status")
-
 	report, err := buildStatusReport(projectDir)
 	if err != nil {
 		return err
@@ -103,12 +103,32 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	if statusDashboardURL {
+		url, err := dashboardURLFromStatusReport(report)
+		if err != nil {
+			return err
+		}
+		fmt.Println(url)
+		return nil
+	}
+
 	if cliout.IsJSON() {
 		return cliout.PrintJSON(report)
 	}
 
+	cliout.CommandHeader("status", "Show app status")
 	printStatusReport(report)
 	return nil
+}
+
+func dashboardURLFromStatusReport(report statusReport) (string, error) {
+	if !report.Running {
+		return "", fmt.Errorf("app is not running")
+	}
+	if report.DashboardURL == "" {
+		return "", fmt.Errorf("dashboard URL is not available")
+	}
+	return report.DashboardURL, nil
 }
 
 // watchStatus renders the status to w immediately and then again on every tick
