@@ -77,6 +77,7 @@ type outdatedOptions struct {
 	managers []string
 	format   string
 	exitCode bool
+	ignore   []string
 	writer   io.Writer
 }
 
@@ -99,6 +100,10 @@ The package manager is detected per service:
 A service whose package manager is not installed is skipped with a warning
 rather than failing the whole run.
 
+Use --ignore to drop packages you have intentionally pinned so they do not show
+up as outdated or trip --exit-code. Names are matched case-insensitively; pass a
+comma-separated list or repeat the flag.
+
 Examples:
   # Report outdated dependencies for every service
   azd app outdated
@@ -113,7 +118,10 @@ Examples:
   azd app outdated --format json
 
   # Fail (non-zero exit) when anything is outdated, for CI gating
-  azd app outdated --exit-code`,
+  azd app outdated --exit-code
+
+  # Ignore packages you have pinned on purpose
+  azd app outdated --exit-code --ignore react,typescript`,
 		SilenceUsage: true,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if flag := cmd.InheritedFlags().Lookup("output"); flag != nil && flag.Value.String() != "" {
@@ -135,6 +143,7 @@ Examples:
 	cmd.Flags().StringSliceVar(&opts.managers, "manager", nil, "Limit to package managers: npm, pnpm, yarn, pip, dotnet, or go (comma-separated)")
 	cmd.Flags().StringVar(&opts.format, "format", "", "Output format: text (default) or json")
 	cmd.Flags().BoolVar(&opts.exitCode, "exit-code", false, "Return a non-zero exit code when any dependency is outdated")
+	cmd.Flags().StringSliceVar(&opts.ignore, "ignore", nil, "Package names to exclude from the report (comma-separated or repeated)")
 
 	return cmd
 }
@@ -163,6 +172,8 @@ func runOutdated(opts *outdatedOptions) error {
 	}
 	targets = filterOutdatedTargetsByManager(targets, managerFilter)
 
+	ignored := newIgnoreSet(opts.ignore)
+
 	result := outdatedResult{}
 	for _, t := range targets {
 		svc := serviceOutdated{Service: t.Service, Language: t.Language, Manager: t.Manager}
@@ -189,6 +200,7 @@ func runOutdated(opts *outdatedOptions) error {
 			result.Services = append(result.Services, svc)
 			continue
 		}
+		pkgs = filterIgnoredPackages(pkgs, ignored)
 		svc.Packages = pkgs
 		result.TotalOutdated += len(pkgs)
 		result.Services = append(result.Services, svc)
@@ -292,6 +304,40 @@ func resolveOutdatedTargets(searchRoot string, requested []string) ([]outdatedTa
 		})
 	}
 	return targets, nil
+}
+
+// newIgnoreSet builds a lookup of package names to exclude from the report. Each
+// entry is trimmed and lowercased so matching is case-insensitive, and empty
+// entries (from a trailing comma, say) are dropped.
+func newIgnoreSet(entries []string) map[string]struct{} {
+	if len(entries) == 0 {
+		return nil
+	}
+	set := make(map[string]struct{}, len(entries))
+	for _, entry := range entries {
+		name := strings.ToLower(strings.TrimSpace(entry))
+		if name == "" {
+			continue
+		}
+		set[name] = struct{}{}
+	}
+	return set
+}
+
+// filterIgnoredPackages returns the packages whose names are not in the ignore
+// set, preserving order. It returns the input unchanged when nothing is ignored.
+func filterIgnoredPackages(pkgs []outdatedPackage, ignored map[string]struct{}) []outdatedPackage {
+	if len(ignored) == 0 || len(pkgs) == 0 {
+		return pkgs
+	}
+	kept := make([]outdatedPackage, 0, len(pkgs))
+	for _, pkg := range pkgs {
+		if _, skip := ignored[strings.ToLower(strings.TrimSpace(pkg.Name))]; skip {
+			continue
+		}
+		kept = append(kept, pkg)
+	}
+	return kept
 }
 
 // resolveManager determines the display language and package manager for a
