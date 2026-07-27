@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	testrunner "github.com/jongio/azd-app/cli/src/internal/testing"
+	"github.com/jongio/azd-core/cliout"
 )
 
 // TestNewTestCommand verifies that the test command is created correctly.
@@ -499,4 +500,90 @@ func TestLoadAzdEnvironment(t *testing.T) {
 			t.Fatalf("loadAzdEnvironment() error = %v", err)
 		}
 	})
+}
+
+// Issue #557: an explicit test.<type>.command must be reported as the command
+// that will actually run. Reporting the framework instead told users their
+// configured command was being ignored, which is what made the execution bug
+// look like it was still present after it had been fixed.
+func TestDisplayValidationSummary_ExplicitCommandReportedOverFramework(t *testing.T) {
+	out, err := captureStdout(t, func() error {
+		displayValidationSummary([]testrunner.ServiceValidation{
+			{Name: "api", CanTest: true, Framework: "pytest", Command: "uv run pytest -q"},
+		})
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("captureStdout: %v", err)
+	}
+
+	if !strings.Contains(out, "uv run pytest -q") {
+		t.Errorf("summary must name the command that will run, got:\n%s", out)
+	}
+	if strings.Contains(out, "pytest detected") {
+		t.Errorf("summary must not claim framework detection when a command is set, got:\n%s", out)
+	}
+}
+
+// A service with no explicit command still reports its detected framework.
+func TestDisplayValidationSummary_FrameworkReportedWhenNoCommand(t *testing.T) {
+	out, err := captureStdout(t, func() error {
+		displayValidationSummary([]testrunner.ServiceValidation{
+			{Name: "web", CanTest: true, Framework: "vitest", TestFiles: 3},
+		})
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("captureStdout: %v", err)
+	}
+
+	if !strings.Contains(out, "vitest detected") {
+		t.Errorf("expected framework detection line, got:\n%s", out)
+	}
+	if !strings.Contains(out, "3 test files") {
+		t.Errorf("expected test file count, got:\n%s", out)
+	}
+}
+
+// Skipped services report why they were skipped and are excluded from the count.
+func TestDisplayValidationSummary_ReportsSkippedServices(t *testing.T) {
+	out, err := captureStdout(t, func() error {
+		displayValidationSummary([]testrunner.ServiceValidation{
+			{Name: "api", CanTest: true, Command: "go test ./..."},
+			{Name: "docs", CanTest: false, SkipReason: "no test framework detected"},
+		})
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("captureStdout: %v", err)
+	}
+
+	if !strings.Contains(out, "no test framework detected") {
+		t.Errorf("expected skip reason, got:\n%s", out)
+	}
+	if !strings.Contains(out, "1 testable services (1 skipped)") {
+		t.Errorf("expected testable/skipped counts, got:\n%s", out)
+	}
+}
+
+// JSON output is a machine contract, so the human summary must stay out of it.
+func TestDisplayValidationSummary_SilentInJSONMode(t *testing.T) {
+	if err := cliout.SetFormat("json"); err != nil {
+		t.Fatalf("SetFormat: %v", err)
+	}
+	t.Cleanup(func() { _ = cliout.SetFormat("default") })
+
+	out, err := captureStdout(t, func() error {
+		displayValidationSummary([]testrunner.ServiceValidation{
+			{Name: "api", CanTest: true, Command: "go test ./..."},
+		})
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("captureStdout: %v", err)
+	}
+
+	if strings.TrimSpace(out) != "" {
+		t.Errorf("JSON mode must emit no human summary, got:\n%s", out)
+	}
 }

@@ -74,6 +74,7 @@ type outdatedTarget struct {
 // outdatedOptions holds the options for the outdated command.
 type outdatedOptions struct {
 	services []string
+	managers []string
 	format   string
 	exitCode bool
 	writer   io.Writer
@@ -105,6 +106,9 @@ Examples:
   # Limit to one service
   azd app outdated --service api
 
+  # Limit to selected package managers
+  azd app outdated --manager npm,pip
+
   # Machine-readable output
   azd app outdated --format json
 
@@ -128,6 +132,7 @@ Examples:
 	}
 
 	cmd.Flags().StringSliceVarP(&opts.services, "service", "s", nil, "Limit to specific services (can be specified multiple times)")
+	cmd.Flags().StringSliceVar(&opts.managers, "manager", nil, "Limit to package managers: npm, pnpm, yarn, pip, dotnet, or go (comma-separated)")
 	cmd.Flags().StringVar(&opts.format, "format", "", "Output format: text (default) or json")
 	cmd.Flags().BoolVar(&opts.exitCode, "exit-code", false, "Return a non-zero exit code when any dependency is outdated")
 
@@ -147,10 +152,16 @@ func runOutdated(opts *outdatedOptions) error {
 		return fmt.Errorf("failed to determine project root: %w", err)
 	}
 
+	managerFilter, err := normalizeOutdatedManagerFilter(opts.managers)
+	if err != nil {
+		return err
+	}
+
 	targets, err := resolveOutdatedTargets(searchRoot, opts.services)
 	if err != nil {
 		return err
 	}
+	targets = filterOutdatedTargetsByManager(targets, managerFilter)
 
 	result := outdatedResult{}
 	for _, t := range targets {
@@ -195,6 +206,51 @@ func runOutdated(opts *outdatedOptions) error {
 		return fmt.Errorf("%d outdated dependenc%s found", result.TotalOutdated, pluralDeps(result.TotalOutdated))
 	}
 	return nil
+}
+
+func normalizeOutdatedManagerFilter(values []string) (map[string]bool, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+
+	valid := map[string]bool{
+		managerNpm:    true,
+		managerPnpm:   true,
+		managerYarn:   true,
+		managerPip:    true,
+		managerDotnet: true,
+		managerGo:     true,
+	}
+	filter := make(map[string]bool)
+	for _, value := range values {
+		for _, raw := range strings.Split(value, ",") {
+			manager := strings.ToLower(strings.TrimSpace(raw))
+			if manager == "" {
+				continue
+			}
+			if !valid[manager] {
+				return nil, fmt.Errorf("invalid --manager %q: expected npm, pnpm, yarn, pip, dotnet, or go", raw)
+			}
+			filter[manager] = true
+		}
+	}
+	if len(filter) == 0 {
+		return nil, fmt.Errorf("--manager requires at least one package manager")
+	}
+	return filter, nil
+}
+
+func filterOutdatedTargetsByManager(targets []outdatedTarget, managers map[string]bool) []outdatedTarget {
+	if len(managers) == 0 {
+		return targets
+	}
+	filtered := make([]outdatedTarget, 0, len(targets))
+	for _, target := range targets {
+		if managers[target.Manager] {
+			filtered = append(filtered, target)
+		}
+	}
+	return filtered
 }
 
 // resolveOutdatedTargets parses azure.yaml, optionally filters to the requested

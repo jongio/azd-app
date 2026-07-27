@@ -10,11 +10,11 @@
     "test": "echo \"No tests specified\""
   },
   "dependencies": {
-    "@azure/functions": "^4.16.1"
+    "@azure/functions": "^4.16.2"
   },
   "devDependencies": {
-    "@types/node": "^26.0.1",
+    "@types/node": "^26.1.1",
     "azure-functions-core-tools": "^4.12.1",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   }
 }

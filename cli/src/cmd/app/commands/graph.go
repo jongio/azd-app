@@ -20,14 +20,16 @@ const (
 	graphOutputMarkdown = "markdown"
 	graphOutputMermaid  = "mermaid"
 	graphOutputDOT      = "dot"
+	graphOutputD2       = "d2"
 	graphOutputPlantUML = "plantuml"
 )
 
 type graphOptions struct {
-	output     string
-	outputFile string
-	focus      string
-	writer     io.Writer
+	output       string
+	outputFile   string
+	focus        string
+	servicesOnly bool
+	writer       io.Writer
 }
 
 type graphResult struct {
@@ -60,12 +62,16 @@ func NewGraphCommand() *cobra.Command {
 		Long: `Show services, resources, dependency edges, and startup levels from azure.yaml.
 
 Use --output to change the output. text, json, and markdown print to stdout.
-mermaid, dot, and plantuml emit a diagram you can drop into a README or an
+mermaid, dot, d2, and plantuml emit a diagram you can drop into a README or an
 architecture doc. Combine with --output-file to write the result to a file
 instead of stdout.
 
 Pass --focus <service> to narrow the graph to one service, everything it depends
 on, and everything that depends on it. This works with every output format.
+
+Pass --services-only to omit resource nodes and show only service-to-service
+edges. This is useful for diagrams that need the app service shape without
+managed resources.
 
 Examples:
   # Human-readable text (default)
@@ -77,6 +83,9 @@ Examples:
   # Graphviz DOT to stdout
   azd app graph --output dot
 
+  # D2 diagram written to a file
+  azd app graph --output d2 --output-file docs/services.d2
+
   # PlantUML component diagram written to a file
   azd app graph --output plantuml --output-file docs/services.puml
 
@@ -84,15 +93,19 @@ Examples:
   azd app graph --output markdown
 
   # Just the api service and its connected nodes
-  azd app graph --focus api`,
+  azd app graph --focus api
+
+  # Service-only Mermaid diagram
+  azd app graph --services-only --output mermaid`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGraph(opts)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, markdown, mermaid, dot, or plantuml")
+	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, markdown, mermaid, dot, d2, or plantuml")
 	cmd.Flags().StringVar(&opts.outputFile, "output-file", "", "Write output to this file instead of stdout")
 	cmd.Flags().StringVar(&opts.focus, "focus", "", "Limit the graph to a service, its dependencies, and its dependents")
+	cmd.Flags().BoolVar(&opts.servicesOnly, "services-only", false, "Show only services and service-to-service edges")
 	return cmd
 }
 
@@ -107,9 +120,9 @@ func runGraph(opts *graphOptions) error {
 		opts.output = graphOutputText
 	}
 	switch opts.output {
-	case graphOutputText, graphOutputJSON, graphOutputMarkdown, graphOutputMermaid, graphOutputDOT, graphOutputPlantUML:
+	case graphOutputText, graphOutputJSON, graphOutputMarkdown, graphOutputMermaid, graphOutputDOT, graphOutputD2, graphOutputPlantUML:
 	default:
-		return fmt.Errorf("invalid output format: %s (must be text, json, markdown, mermaid, dot, or plantuml)", opts.output)
+		return fmt.Errorf("invalid output format: %s (must be text, json, markdown, mermaid, dot, d2, or plantuml)", opts.output)
 	}
 
 	azureYamlPath, err := findAzureYaml()
@@ -137,6 +150,9 @@ func runGraph(opts *graphOptions) error {
 			return err
 		}
 	}
+	if opts.servicesOnly {
+		result = filterGraphServicesOnly(result)
+	}
 
 	// When --output-file is set, buffer the rendered output and write it to disk.
 	writer := opts.writer
@@ -159,6 +175,47 @@ func runGraph(opts *graphOptions) error {
 	return nil
 }
 
+func filterGraphServicesOnly(result graphResult) graphResult {
+	keep := make(map[string]struct{}, len(result.Nodes))
+	nodes := make([]graphNode, 0, len(result.Nodes))
+	for _, n := range result.Nodes {
+		if n.Type != "service" {
+			continue
+		}
+		keep[n.Name] = struct{}{}
+		nodes = append(nodes, n)
+	}
+
+	edges := make([]graphEdge, 0, len(result.Edges))
+	for _, e := range result.Edges {
+		if _, ok := keep[e.From]; !ok {
+			continue
+		}
+		if _, ok := keep[e.To]; !ok {
+			continue
+		}
+		edges = append(edges, e)
+	}
+
+	levels := make([][]string, 0, len(result.Levels))
+	for _, level := range result.Levels {
+		filtered := make([]string, 0, len(level))
+		for _, name := range level {
+			if _, ok := keep[name]; ok {
+				filtered = append(filtered, name)
+			}
+		}
+		if len(filtered) > 0 {
+			levels = append(levels, filtered)
+		}
+	}
+
+	result.Nodes = nodes
+	result.Edges = edges
+	result.Levels = levels
+	return result
+}
+
 func renderGraph(w io.Writer, format string, result graphResult) error {
 	switch format {
 	case graphOutputJSON:
@@ -171,6 +228,8 @@ func renderGraph(w io.Writer, format string, result graphResult) error {
 		renderGraphMermaid(w, result)
 	case graphOutputDOT:
 		renderGraphDOT(w, result)
+	case graphOutputD2:
+		renderGraphD2(w, result)
 	case graphOutputPlantUML:
 		renderGraphPlantUML(w, result)
 	default:
@@ -507,6 +566,17 @@ func renderGraphDOT(w io.Writer, result graphResult) {
 	_, _ = fmt.Fprintln(w, "}")
 }
 
+// escapeD2Label makes a string safe to use inside a D2 double-quoted label.
+// D2 double-quoted strings cannot contain a literal double quote, so quotes are
+// swapped for single quotes and newlines are collapsed to spaces.
+func escapeD2Label(s string) string {
+	replacer := strings.NewReplacer(
+		"\"", "'",
+		"\n", " ",
+	)
+	return replacer.Replace(s)
+}
+
 // escapePlantUMLLabel escapes a label for use inside a double-quoted PlantUML
 // element name. PlantUML has no escape for a literal double quote inside a
 // quoted name, so double quotes are replaced with single quotes; newlines
@@ -517,6 +587,34 @@ func escapePlantUMLLabel(s string) string {
 		"\n", "\\n",
 	)
 	return replacer.Replace(s)
+}
+
+func renderGraphD2(w io.Writer, result graphResult) {
+	ids := mermaidNodeIDs(result.Nodes)
+
+	_, _ = fmt.Fprintln(w, "direction: right")
+	for _, node := range result.Nodes {
+		label := node.Name
+		if node.Type != "" {
+			label += " (" + node.Type + ")"
+		}
+		id := ids[node.Name]
+		// Resources use a cylinder to read like a datastore, matching how the
+		// other diagram formats distinguish resources from services.
+		if node.Type == "resource" {
+			_, _ = fmt.Fprintf(w, "%s: \"%s\" {\n  shape: cylinder\n}\n", id, escapeD2Label(label))
+		} else {
+			_, _ = fmt.Fprintf(w, "%s: \"%s\"\n", id, escapeD2Label(label))
+		}
+	}
+	for _, edge := range result.Edges {
+		from, okFrom := ids[edge.From]
+		to, okTo := ids[edge.To]
+		if !okFrom || !okTo {
+			continue
+		}
+		_, _ = fmt.Fprintf(w, "%s -> %s\n", from, to)
+	}
 }
 
 func renderGraphPlantUML(w io.Writer, result graphResult) {

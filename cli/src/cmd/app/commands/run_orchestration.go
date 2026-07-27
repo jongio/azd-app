@@ -24,7 +24,7 @@ import (
 )
 
 // executeAndMonitorServices starts services and monitors them until interrupted.
-func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceRuntime, cwd string, azureYaml *service.AzureYaml, azureYamlDir string) error {
+func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceRuntime, projectDir string, azureYaml *service.AzureYaml) error {
 	// Create logger
 	logger := service.NewServiceLogger(runVerbose)
 	logger.LogStartup(len(runtimes))
@@ -48,16 +48,16 @@ func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceR
 	}
 
 	// Display service URLs (local + custom + Azure endpoints/domains)
-	serviceSummaries := buildServiceSummaries(cwd, azureYaml, result.Processes)
+	serviceSummaries := buildServiceSummaries(projectDir, azureYaml, result.Processes)
 	logger.LogSummary(serviceSummaries)
 
 	logger.LogReady()
 
 	// Record per-service startup timing and surface regressions vs prior runs.
-	recordStartupTimings(cwd, result)
+	recordStartupTimings(projectDir, result)
 
 	// Execute postrun hook after all services are ready
-	if err := executePostrunHook(ctx, azureYaml, azureYamlDir); err != nil {
+	if err := executePostrunHook(ctx, azureYaml, projectDir); err != nil {
 		cliout.Warning("Postrun hook failed but services are running: %v", err)
 	}
 
@@ -74,7 +74,7 @@ func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceR
 	}
 
 	// Start dashboard and wait for shutdown
-	return monitorServicesUntilShutdown(result, cwd, azureYaml, azureYamlDir)
+	return monitorServicesUntilShutdown(result, projectDir, azureYaml)
 }
 
 // monitorServicesUntilShutdown monitors all services with full process isolation.
@@ -93,23 +93,23 @@ func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceR
 //
 // This uses sync.WaitGroup (not errgroup) because we want all goroutines to complete
 // independently rather than failing fast on first error.
-func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd string, azureYaml *service.AzureYaml, azureYamlDir string) error {
+func monitorServicesUntilShutdown(result *service.OrchestrationResult, projectDir string, azureYaml *service.AzureYaml) error {
 	// Create context that cancels on SIGINT/SIGTERM only
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	var wg sync.WaitGroup
-	dashboardServer := dashboard.GetServer(cwd)
+	dashboardServer := dashboard.GetServer(projectDir)
 
 	// Start notification manager for OS notifications on service issues
 	notifMgr, err := notifications.NewNotificationManager(
-		notifications.DefaultNotificationManagerConfig(cwd),
+		notifications.DefaultNotificationManagerConfig(projectDir),
 	)
 	if err != nil {
 		cliout.Warning("Notifications unavailable: %v", err)
 	} else {
 		notifMgr.Start()
-		configureAutoRestartSupervisor(ctx, notifMgr, result.Processes, cwd)
+		configureAutoRestartSupervisor(ctx, notifMgr, result.Processes, projectDir)
 		defer func() { _ = notifMgr.Stop() }()
 	}
 
@@ -117,10 +117,10 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	startDashboardMonitor(ctx, &wg, dashboardServer, notifMgr)
 
 	// Start service process monitors
-	startServiceMonitors(ctx, &wg, result.Processes, cwd)
+	startServiceMonitors(ctx, &wg, result.Processes, projectDir)
 
 	if azureYaml != nil {
-		writeRunState(cwd, result, dashboardServer)
+		writeRunState(projectDir, result, dashboardServer)
 	}
 
 	// Also cancel on remote shutdown request (from `azd app stop` in another terminal)
@@ -136,7 +136,7 @@ func monitorServicesUntilShutdown(result *service.OrchestrationResult, cwd strin
 	wg.Wait()
 
 	// Perform cleanup shutdown with hooks
-	return performGracefulShutdown(cwd, dashboardServer, result.Processes, azureYaml, azureYamlDir)
+	return performGracefulShutdown(projectDir, dashboardServer, result.Processes, azureYaml)
 }
 
 // startDashboardMonitor starts the dashboard server in a separate goroutine with panic recovery.
@@ -245,7 +245,7 @@ func configureAutoRestartSupervisor(
 // performGracefulShutdown stops all services and dashboard with a timeout.
 // Runs prestop/poststop hooks around service shutdown.
 // Returns nil due to process isolation design - individual failures are logged but don't fail the command.
-func performGracefulShutdown(projectDir string, dashboardServer *dashboard.Server, processes map[string]*service.ServiceProcess, azureYaml *service.AzureYaml, azureYamlDir string) error {
+func performGracefulShutdown(projectDir string, dashboardServer *dashboard.Server, processes map[string]*service.ServiceProcess, azureYaml *service.AzureYaml) error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
@@ -255,7 +255,7 @@ func performGracefulShutdown(projectDir string, dashboardServer *dashboard.Serve
 
 	// Execute prestop hook
 	if azureYaml != nil {
-		if hookErr := executePrestopHook(shutdownCtx, azureYaml, azureYamlDir); hookErr != nil {
+		if hookErr := executePrestopHook(shutdownCtx, azureYaml, projectDir); hookErr != nil {
 			cliout.Warning("Prestop hook failed: %v", hookErr)
 		}
 	}
@@ -278,7 +278,7 @@ func performGracefulShutdown(projectDir string, dashboardServer *dashboard.Serve
 
 	// Execute poststop hook
 	if azureYaml != nil {
-		if hookErr := executePoststopHook(shutdownCtx, azureYaml, azureYamlDir); hookErr != nil {
+		if hookErr := executePoststopHook(shutdownCtx, azureYaml, projectDir); hookErr != nil {
 			cliout.Warning("Poststop hook failed: %v", hookErr)
 		}
 	}
