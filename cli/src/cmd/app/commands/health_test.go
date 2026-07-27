@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -101,6 +102,95 @@ func TestHealthReportSummaryLines(t *testing.T) {
 	}
 	if lines[1] != "Summary: 2 healthy, 1 degraded, 3 unhealthy" {
 		t.Fatalf("healthReportSummaryLines()[1] = %q", lines[1])
+	}
+}
+
+func TestDisplayHealthReportSummaryOnly(t *testing.T) {
+	originalSummaryOnly := healthSummaryOnly
+	originalOutput := healthOutput
+	t.Cleanup(func() {
+		healthSummaryOnly = originalSummaryOnly
+		healthOutput = originalOutput
+	})
+
+	report := &healthcheck.HealthReport{
+		Timestamp: time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+		Project:   "/test/project",
+		Services: []healthcheck.HealthCheckResult{
+			{
+				ServiceName:  "web",
+				Status:       healthcheck.HealthStatusHealthy,
+				CheckType:    healthcheck.HealthCheckTypeHTTP,
+				Endpoint:     "http://localhost:3000/health",
+				ResponseTime: 45 * time.Millisecond,
+				Timestamp:    time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
+			},
+		},
+		Summary: healthcheck.HealthSummary{
+			Total:   1,
+			Healthy: 1,
+			Overall: healthcheck.HealthStatusHealthy,
+		},
+	}
+
+	wantSummary := "Overall Status: HEALTHY\nSummary: 1 healthy, 0 degraded, 0 unhealthy\n"
+
+	tests := []struct {
+		name        string
+		output      string
+		wantSummary bool
+	}{
+		{"text output prints summary only", "text", true},
+		{"table output prints summary only", "table", true},
+		{"json output is unaffected", jsonOutputVal, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			healthSummaryOnly = true
+			healthOutput = tt.output
+
+			out, err := captureStdout(t, func() error { return displayHealthReport(report) })
+			if err != nil {
+				t.Fatalf("displayHealthReport() error = %v", err)
+			}
+
+			if tt.wantSummary {
+				if out != wantSummary {
+					t.Fatalf("displayHealthReport() = %q, want %q", out, wantSummary)
+				}
+				return
+			}
+
+			if !json.Valid([]byte(out)) {
+				t.Fatalf("displayHealthReport() produced invalid JSON: %q", out)
+			}
+			if !strings.Contains(out, "web") {
+				t.Errorf("displayHealthReport() JSON dropped per-service detail: %q", out)
+			}
+		})
+	}
+}
+
+func TestDisplaySummaryOnlyReport(t *testing.T) {
+	report := &healthcheck.HealthReport{
+		Summary: healthcheck.HealthSummary{
+			Total:     3,
+			Healthy:   1,
+			Degraded:  1,
+			Unhealthy: 1,
+			Overall:   healthcheck.HealthStatusUnhealthy,
+		},
+	}
+
+	out, err := captureStdout(t, func() error { return displaySummaryOnlyReport(report) })
+	if err != nil {
+		t.Fatalf("displaySummaryOnlyReport() error = %v", err)
+	}
+
+	want := "Overall Status: UNHEALTHY\nSummary: 1 healthy, 1 degraded, 1 unhealthy\n"
+	if out != want {
+		t.Fatalf("displaySummaryOnlyReport() = %q, want %q", out, want)
 	}
 }
 

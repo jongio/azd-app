@@ -127,7 +127,7 @@ Examples:
 	cmd.Flags().IntVar(&healthRateLimit, "rate-limit", 0, "Max health checks per second per service (0 = unlimited)")
 	cmd.Flags().DurationVar(&healthCacheTTL, "cache-ttl", 0, "Cache TTL for health results (0 = no caching)")
 	cmd.Flags().BoolVar(&healthFailOnDegraded, "fail-on-degraded", false, "Return a non-zero exit code when any service is degraded")
-	cmd.Flags().BoolVar(&healthSummaryOnly, "summary-only", false, "Print only the aggregate health summary for text output")
+	cmd.Flags().BoolVar(&healthSummaryOnly, "summary-only", false, "Print only the aggregate health summary for non-JSON output")
 
 	registerServiceFlagCompletion(cmd, "service")
 
