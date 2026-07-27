@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -152,12 +153,67 @@ func TestBuildStatusReportRunning(t *testing.T) {
 	assert.Contains(t, text, "Dashboard: http://localhost:40000")
 	assert.Contains(t, text, "Services:")
 	assert.Contains(t, text, "  - api: http://localhost:8080")
+	assert.NotEmpty(t, report.Uptime, "expected uptime to be computed for a running app")
 
 	payload, err := json.Marshal(report)
 	require.NoError(t, err)
 	assert.Contains(t, string(payload), `"running":true`)
 	assert.Contains(t, string(payload), `"dashboardUrl":"http://localhost:40000"`)
 	assert.Contains(t, string(payload), `"name":"api"`)
+	assert.Contains(t, string(payload), `"uptime":`)
+}
+
+func TestStatusTextLinesUptime(t *testing.T) {
+	t.Run("uptime line is shown when set", func(t *testing.T) {
+		report := statusReport{
+			Running:   true,
+			PID:       123,
+			StartTime: time.Now().Add(-90 * time.Second),
+			Uptime:    "1m30s",
+		}
+		lines := statusTextLines(report)
+		assert.Contains(t, lines, "Uptime: 1m30s")
+
+		startedIdx, uptimeIdx := -1, -1
+		for i, line := range lines {
+			switch {
+			case strings.HasPrefix(line, "Started: "):
+				startedIdx = i
+			case strings.HasPrefix(line, "Uptime: "):
+				uptimeIdx = i
+			}
+		}
+		require.GreaterOrEqual(t, startedIdx, 0)
+		require.GreaterOrEqual(t, uptimeIdx, 0)
+		assert.Equal(t, startedIdx+1, uptimeIdx, "Uptime should follow Started")
+	})
+
+	t.Run("uptime line is omitted when empty", func(t *testing.T) {
+		report := statusReport{Running: true, PID: 123}
+		for _, line := range statusTextLines(report) {
+			assert.NotContains(t, line, "Uptime:")
+		}
+	})
+}
+
+func TestFormatUptime(t *testing.T) {
+	tests := []struct {
+		name string
+		in   time.Duration
+		want string
+	}{
+		{"negative clamps to zero", -5 * time.Second, "0s"},
+		{"seconds only", 45 * time.Second, "45s"},
+		{"minutes and seconds", 3*time.Minute + 12*time.Second, "3m12s"},
+		{"pads seconds", 3*time.Minute + 2*time.Second, "3m02s"},
+		{"hours and minutes drop seconds", time.Hour + 4*time.Minute + 9*time.Second, "1h04m"},
+		{"days and hours", 2*24*time.Hour + 3*time.Hour + 30*time.Minute, "2d03h"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, formatUptime(tt.in))
+		})
+	}
 }
 
 func TestFilterStatusReport(t *testing.T) {
