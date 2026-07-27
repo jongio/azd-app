@@ -1,8 +1,12 @@
 package commands
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/runstate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -62,4 +66,57 @@ func TestRunStopRoutesToServicesWhenServiceSet(t *testing.T) {
 	// must succeed (no-op) instead of attempting whole-app teardown.
 	stopAll = true
 	require.NoError(t, runStop(nil, nil))
+}
+
+// seedRunState writes a run state for a throwaway project and returns its dir.
+func seedRunState(t *testing.T, pid int) string {
+	t.Helper()
+	projectDir := filepath.Join(t.TempDir(), "stop-project")
+	statePath, err := runstate.Path(projectDir)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(filepath.Dir(statePath)) })
+	require.NoError(t, runstate.Write(projectDir, runstate.RunState{PID: pid, StartTime: time.Now()}))
+	return projectDir
+}
+
+// A failed shutdown against a live manager must keep the state, otherwise the
+// only record of the PID is lost and the manager becomes unreachable.
+func TestClearRunStateIfManagerDeadKeepsStateForLiveProcess(t *testing.T) {
+	projectDir := seedRunState(t, os.Getpid())
+
+	clearRunStateIfManagerDead(projectDir)
+
+	_, found, err := runstate.Read(projectDir)
+	require.NoError(t, err)
+	assert.True(t, found, "state for a live manager must survive a failed stop")
+}
+
+// A manager that crashed leaves state nothing else would clean up, so a failed
+// stop should drop it rather than report a phantom run forever.
+func TestClearRunStateIfManagerDeadRemovesStateForDeadProcess(t *testing.T) {
+	projectDir := seedRunState(t, deadPIDForTest(t))
+
+	clearRunStateIfManagerDead(projectDir)
+
+	_, found, err := runstate.Read(projectDir)
+	require.NoError(t, err)
+	assert.False(t, found, "stale state from a crashed manager must be cleared")
+}
+
+func TestClearRunStateIfManagerDeadIgnoresMissingState(t *testing.T) {
+	assert.NotPanics(t, func() {
+		clearRunStateIfManagerDead(filepath.Join(t.TempDir(), "no-state"))
+	})
+}
+
+// deadPIDForTest returns a PID that is not running.
+func deadPIDForTest(t *testing.T) int {
+	t.Helper()
+	for pid := 300000; pid < 300100; pid++ {
+		if !runstate.IsRunning(&runstate.RunState{PID: pid}) {
+			return pid
+		}
+	}
+	t.Skip("could not find a free PID to represent a dead manager")
+	return 0
 }

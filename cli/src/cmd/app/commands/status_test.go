@@ -17,7 +17,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// restoreStatusFlags snapshots the package-level vars that NewStatusCommand
+// binds its flags to and restores them when the test ends. Constructing or
+// executing the status command mutates these globals, which otherwise leaks
+// into every subsequent test in this binary.
+func restoreStatusFlags(t *testing.T) {
+	t.Helper()
+	watch, interval, service := statusWatch, statusInterval, statusService
+	t.Cleanup(func() {
+		statusWatch, statusInterval, statusService = watch, interval, service
+	})
+}
+
 func TestNewStatusCommand(t *testing.T) {
+	restoreStatusFlags(t)
+
 	cmd := NewStatusCommand()
 	require.NotNil(t, cmd)
 	assert.Equal(t, "status", cmd.Use)
@@ -84,6 +98,11 @@ func TestRunStatusWatchIntervalTooSmall(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "azure.yaml"), []byte("name: statustest\nservices: {}\n"), 0o600))
 	t.Chdir(dir)
+
+	// NewStatusCommand binds its flags to package-level vars, so executing it
+	// here leaves statusWatch/statusInterval set for every later test in this
+	// binary. Restore them so repeated runs (go test -count=2) stay isolated.
+	restoreStatusFlags(t)
 
 	cmd := NewStatusCommand()
 	cmd.SetArgs([]string{"--watch", "--interval", "100ms"})

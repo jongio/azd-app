@@ -37,6 +37,7 @@ func TestHealthCommandFlags(t *testing.T) {
 		{"timeout flag", "timeout", "duration"},
 		{"all flag", "all", "bool"},
 		{"verbose flag", "verbose", "bool"},
+		{"fail on degraded flag", "fail-on-degraded", "bool"},
 	}
 
 	for _, tt := range tests {
@@ -45,10 +46,38 @@ func TestHealthCommandFlags(t *testing.T) {
 			if flag == nil {
 				t.Fatalf("Flag %s not found", tt.flagName)
 			}
+
 			if flag.Value.Type() != tt.expectedType {
 				t.Errorf("Expected flag type %s, got %s", tt.expectedType, flag.Value.Type())
 			}
 		})
+	}
+}
+
+func TestHealthReportExitErrorFailOnDegraded(t *testing.T) {
+	original := healthFailOnDegraded
+	t.Cleanup(func() { healthFailOnDegraded = original })
+
+	report := &healthcheck.HealthReport{
+		Summary: healthcheck.HealthSummary{
+			Total:    1,
+			Degraded: 1,
+			Overall:  healthcheck.HealthStatusDegraded,
+		},
+	}
+
+	healthFailOnDegraded = false
+	if err := healthReportExitError(report); err != nil {
+		t.Fatalf("healthReportExitError() default behavior error = %v", err)
+	}
+
+	healthFailOnDegraded = true
+	err := healthReportExitError(report)
+	if err == nil {
+		t.Fatal("healthReportExitError() expected degraded error")
+	}
+	if err.Error() != "1 service(s) degraded" {
+		t.Fatalf("healthReportExitError() error = %q", err.Error())
 	}
 }
 

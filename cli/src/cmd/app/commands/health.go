@@ -58,6 +58,7 @@ var (
 	healthRateLimit         int
 	healthCacheTTL          time.Duration
 	healthProfileSave       bool
+	healthFailOnDegraded    bool
 )
 
 // NewHealthCommand creates the health command.
@@ -124,6 +125,7 @@ Examples:
 	// Rate limiting and caching flags
 	cmd.Flags().IntVar(&healthRateLimit, "rate-limit", 0, "Max health checks per second per service (0 = unlimited)")
 	cmd.Flags().DurationVar(&healthCacheTTL, "cache-ttl", 0, "Cache TTL for health results (0 = no caching)")
+	cmd.Flags().BoolVar(&healthFailOnDegraded, "fail-on-degraded", false, "Return a non-zero exit code when any service is degraded")
 
 	registerServiceFlagCompletion(cmd, "service")
 
@@ -355,11 +357,16 @@ func runStaticMode(ctx context.Context, monitor *healthcheck.HealthMonitor, serv
 		return err
 	}
 
-	// Return exit code based on health status
+	return healthReportExitError(report)
+}
+
+func healthReportExitError(report *healthcheck.HealthReport) error {
 	if report.Summary.Unhealthy > 0 {
 		return fmt.Errorf("%d service(s) unhealthy", report.Summary.Unhealthy)
 	}
-
+	if healthFailOnDegraded && report.Summary.Degraded > 0 {
+		return fmt.Errorf("%d service(s) degraded", report.Summary.Degraded)
+	}
 	return nil
 }
 

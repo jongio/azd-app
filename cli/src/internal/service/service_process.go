@@ -365,7 +365,7 @@ func collectStreamLogs(reader io.ReadCloser, serviceName string, buffer *LogBuff
 			Message:   scanner.Text(),
 			Timestamp: time.Now(),
 			IsStderr:  isStderr,
-			Level:     inferLogLevel(scanner.Text()),
+			Level:     inferLogLevel(scanner.Text(), isStderr),
 		}
 		buffer.Add(entry)
 	}
@@ -387,7 +387,7 @@ func collectFunctionsStreamLogs(reader io.ReadCloser, serviceName string, buffer
 			Message:   line,
 			Timestamp: time.Now(),
 			IsStderr:  isStderr,
-			Level:     inferLogLevel(line),
+			Level:     inferLogLevel(line, isStderr),
 		}
 		buffer.Add(entry)
 
