@@ -668,6 +668,23 @@ func TestCheckPrerequisite(t *testing.T) {
 	}
 }
 
+func TestFilterUnsatisfiedReqResults(t *testing.T) {
+	results := []ReqResult{
+		{Name: "node", Satisfied: true},
+		{Name: "docker", Satisfied: false, Message: "Not running"},
+		{Name: "python", Satisfied: true},
+		{Name: "pnpm", Satisfied: false, Message: "Not installed"},
+	}
+
+	filtered := filterUnsatisfiedReqResults(results)
+	if len(filtered) != 2 {
+		t.Fatalf("Expected 2 unsatisfied results, got %d", len(filtered))
+	}
+	if filtered[0].Name != "docker" || filtered[1].Name != "pnpm" {
+		t.Fatalf("Unexpected filtered results: %+v", filtered)
+	}
+}
+
 func TestToolRegistryCompleteness(t *testing.T) {
 	requiredTools := []string{"node", "pnpm", "python", "dotnet", "aspire", "azd", "az", "func"}
 
