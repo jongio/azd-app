@@ -25,6 +25,9 @@ func TestNewGraphCommand(t *testing.T) {
 	if cmd.Flags().Lookup("focus") == nil {
 		t.Fatal("focus flag not found")
 	}
+	if cmd.Flags().Lookup("services-only") == nil {
+		t.Fatal("services-only flag not found")
+	}
 }
 
 func focusSampleGraph() graphResult {
@@ -115,6 +118,30 @@ func TestFocusGraphResult(t *testing.T) {
 	})
 }
 
+func TestFilterGraphServicesOnly(t *testing.T) {
+	result := filterGraphServicesOnly(focusSampleGraph())
+
+	names := nodeNameSet(result.Nodes)
+	for _, want := range []string{"api", "web", "worker"} {
+		if !names[want] {
+			t.Fatalf("expected service %q in graph, got %#v", want, result.Nodes)
+		}
+	}
+	if names["db"] {
+		t.Fatalf("resource db should be excluded, got %#v", result.Nodes)
+	}
+	if len(result.Edges) != 1 || result.Edges[0] != (graphEdge{From: "web", To: "api"}) {
+		t.Fatalf("edges = %#v, want only web -> api", result.Edges)
+	}
+	for _, level := range result.Levels {
+		for _, name := range level {
+			if name == "db" {
+				t.Fatalf("resource db should be excluded from levels: %#v", result.Levels)
+			}
+		}
+	}
+}
+
 func TestRunGraphFocus(t *testing.T) {
 	dir := t.TempDir()
 	azureYaml := []byte(`
@@ -143,6 +170,7 @@ resources:
 	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), azureYaml, 0o600); err != nil {
 		t.Fatalf("write azure.yaml: %v", err)
 	}
+
 	for _, sub := range []string{"api", "web", "lonely"} {
 		if err := os.Mkdir(filepath.Join(dir, sub), 0o750); err != nil {
 			t.Fatalf("mkdir %s: %v", sub, err)
@@ -165,6 +193,58 @@ resources:
 	}
 	if names["lonely"] {
 		t.Fatalf("lonely service should be excluded when focusing api: %#v", got.Nodes)
+	}
+}
+
+func TestRunGraphServicesOnly(t *testing.T) {
+	dir := t.TempDir()
+	azureYaml := []byte(`
+name: graph-test
+services:
+  api:
+    host: local
+    language: go
+    project: ./api
+    uses:
+      - db
+  web:
+    host: local
+    language: node
+    project: ./web
+    uses:
+      - api
+resources:
+  db:
+    type: postgres
+`)
+	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), azureYaml, 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+	for _, sub := range []string{"api", "web"} {
+		if err := os.Mkdir(filepath.Join(dir, sub), 0o750); err != nil {
+			t.Fatalf("mkdir %s: %v", sub, err)
+		}
+	}
+	t.Chdir(dir)
+
+	var buf bytes.Buffer
+	err := runGraph(&graphOptions{output: graphOutputJSON, servicesOnly: true, writer: &buf})
+	if err != nil {
+		t.Fatalf("runGraph failed: %v", err)
+	}
+	var got graphResult
+	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, buf.String())
+	}
+	names := nodeNameSet(got.Nodes)
+	if !names["api"] || !names["web"] {
+		t.Fatalf("services-only graph should contain services: %#v", got.Nodes)
+	}
+	if names["db"] {
+		t.Fatalf("services-only graph should exclude resources: %#v", got.Nodes)
+	}
+	if len(got.Edges) != 1 || got.Edges[0] != (graphEdge{From: "web", To: "api"}) {
+		t.Fatalf("edges = %#v, want only web -> api", got.Edges)
 	}
 }
 
