@@ -42,6 +42,44 @@ services:
       POSTGRES_DB: myapp
 ```
 
+### Volumes, commands, pull policy, and networking
+
+Local container services support these Docker Compose-style options:
+
+```yaml
+services:
+  azurite:
+    host: local
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    ports: ["10000:10000", "10001:10001", "10002:10002"]  # all ports published
+    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0"
+    volumes:
+      - azurite-data:/data          # named volume (persists across runs)
+
+  eventhubs:
+    host: local
+    image: mcr.microsoft.com/azure-messaging/eventhubs-emulator:latest
+    ports: ["5672:5672"]
+    pull_policy: missing            # don't re-pull a pinned image every run
+    uses: ["azurite"]               # start after azurite is healthy
+    environment:
+      ACCEPT_EULA: "Y"
+      BLOB_SERVER: azurite          # resolves to the azurite container by name
+      METADATA_SERVER: azurite
+    volumes:
+      - ./eventhubs-config.json:/Eventhubs_Emulator/ConfigFiles/Config.json  # bind mount
+```
+
+- **`volumes`** — named volumes and bind mounts (bind paths resolve relative to
+  the project directory).
+- **`command`** — string or array; overrides the image's default command.
+- **`pull_policy`** — `missing` / `always` / `never`.
+- **Multi-port** — every port in `ports` is published.
+- **Networking** — all container services share a project network and resolve
+  each other by service name (`BLOB_SERVER: azurite`). See the
+  [Container Networking](../schema/azure.yaml.md#container-networking) reference.
+- **`uses`** — health-gated startup ordering (Compose `depends_on: service_healthy`).
+
 ## Behavior
 
 ### During `azd app run`

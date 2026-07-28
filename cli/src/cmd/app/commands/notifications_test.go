@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/notifications"
+	"github.com/jongio/azd-core/cliout"
 )
 
 func TestGetNotificationDBPath(t *testing.T) {
@@ -271,6 +273,144 @@ func TestPrintNotifications(t *testing.T) {
 			printNotifications(tt.records)
 		})
 	}
+}
+
+func TestNotificationsListJSONOutput(t *testing.T) {
+	db, ctx := openTestNotificationDB(t)
+	defer func() { _ = db.Close() }()
+
+	err := db.Save(ctx, notifications.Event{
+		Type:        "service.status",
+		ServiceName: "api",
+		Message:     "Service started",
+		Severity:    "info",
+		Timestamp:   time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	_ = db.Close()
+
+	originalFormat := cliout.GetFormat()
+	t.Cleanup(func() { _ = cliout.SetFormat(string(originalFormat)) })
+	if err := cliout.SetFormat("json"); err != nil {
+		t.Fatalf("SetFormat(json) error = %v", err)
+	}
+
+	out, runErr := captureStdout(t, func() error {
+		cmd := newNotificationsListCmd()
+		cmd.SetArgs([]string{"--limit", "10"})
+		return cmd.Execute()
+	})
+	if runErr != nil {
+		t.Fatalf("notifications list error = %v", runErr)
+	}
+
+	var records []notifications.NotificationRecord
+	if err := json.Unmarshal([]byte(out), &records); err != nil {
+		t.Fatalf("invalid JSON output %q: %v", out, err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("records length = %d, want 1", len(records))
+	}
+	if records[0].ServiceName != "api" {
+		t.Fatalf("serviceName = %q, want api", records[0].ServiceName)
+	}
+}
+
+func TestNotificationsStatsJSONOutput(t *testing.T) {
+	db, ctx := openTestNotificationDB(t)
+	defer func() { _ = db.Close() }()
+
+	events := []notifications.Event{
+		{Type: "service.status", ServiceName: "api", Message: "started", Severity: "info", Timestamp: time.Now()},
+		{Type: "service.status", ServiceName: "worker", Message: "failed", Severity: "critical", Timestamp: time.Now()},
+	}
+	for _, event := range events {
+		if err := db.Save(ctx, event); err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+	}
+	_ = db.Close()
+
+	originalFormat := cliout.GetFormat()
+	t.Cleanup(func() { _ = cliout.SetFormat(string(originalFormat)) })
+	if err := cliout.SetFormat("json"); err != nil {
+		t.Fatalf("SetFormat(json) error = %v", err)
+	}
+
+	out, runErr := captureStdout(t, func() error {
+		cmd := newNotificationsStatsCmd()
+		cmd.SetArgs([]string{})
+		return cmd.Execute()
+	})
+	if runErr != nil {
+		t.Fatalf("notifications stats error = %v", runErr)
+	}
+
+	var stats notificationStatsResult
+	if err := json.Unmarshal([]byte(out), &stats); err != nil {
+		t.Fatalf("invalid JSON output %q: %v", out, err)
+	}
+	if stats.Total != 2 || stats.Unread != 2 || stats.Critical != 1 {
+		t.Fatalf("stats = %+v, want total=2 unread=2 critical=1", stats)
+	}
+}
+
+func TestNotificationsClearYesSkipsPrompt(t *testing.T) {
+	db, ctx := openTestNotificationDB(t)
+	defer func() { _ = db.Close() }()
+
+	for _, service := range []string{"api", "web"} {
+		if err := db.Save(ctx, notifications.Event{
+			Type:        "service.status",
+			ServiceName: service,
+			Message:     "started",
+			Severity:    "info",
+			Timestamp:   time.Now(),
+		}); err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+	}
+	_ = db.Close()
+
+	originalFormat := cliout.GetFormat()
+	t.Cleanup(func() { _ = cliout.SetFormat(string(originalFormat)) })
+	if err := cliout.SetFormat("default"); err != nil {
+		t.Fatalf("SetFormat(default) error = %v", err)
+	}
+
+	cmd := newNotificationsClearCmd()
+	cmd.SetArgs([]string{"--yes"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("notifications clear --yes error = %v", err)
+	}
+
+	db, err := notifications.NewDatabase(getNotificationDBPath())
+	if err != nil {
+		t.Fatalf("NewDatabase() error = %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	records, err := db.GetRecent(ctx, 10)
+	if err != nil {
+		t.Fatalf("GetRecent() error = %v", err)
+	}
+	if len(records) != 0 {
+		t.Fatalf("records length = %d, want 0", len(records))
+	}
+}
+
+func openTestNotificationDB(t *testing.T) (*notifications.Database, context.Context) {
+	t.Helper()
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	t.Setenv("LOCALAPPDATA", "")
+
+	db, err := notifications.NewDatabase(getNotificationDBPath())
+	if err != nil {
+		t.Fatalf("NewDatabase() error = %v", err)
+	}
+	return db, context.Background()
 }
 
 func TestNotificationIDValidation(t *testing.T) {

@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "description": "Test project for pnpm workspace race condition fix",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.17.0",
   "scripts": {
     "dev": "echo 'Use azd app run to start services'",
     "test": "echo 'No tests configured'"
   },
   "devDependencies": {
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   }
 }

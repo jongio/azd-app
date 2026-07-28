@@ -2,13 +2,17 @@ package service
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/docker"
 )
 
@@ -72,17 +76,61 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 		slog.String("image", image),
 		slog.Int("port", runtime.Port))
 
-	// Pull image if needed (will be cached if already present)
-	slog.Debug("pulling container image", slog.String("image", image))
-	if err := client.Pull(image); err != nil {
-		// Don't fail if pull fails - image might be cached locally
-		slog.Warn("failed to pull image (continuing with cached version if available)",
-			slog.String("image", image),
+	// Ensure a per-project network exists so container services can resolve each
+	// other by service name. Derive the name from the project ROOT (the azure.yaml
+	// directory) so it is identical whether we were passed the project root
+	// (restart/dashboard paths) or a working subdirectory (run path uses os.Getwd).
+	// Best-effort: if the network can't be created, fall back to no shared network
+	// (single-container projects are unaffected).
+	networkDir := projectNetworkDir(projectDir)
+	networkName := DeriveNetworkName(networkDir)
+	networkAliases := []string{runtime.Name}
+	if err := client.EnsureNetwork(networkName); err != nil {
+		slog.Warn("failed to create container network; containers will not share a network",
+			slog.String("network", networkName),
 			slog.String("error", err.Error()))
+		networkName = ""
 	}
 
-	// Check if container already exists
-	containerName := fmt.Sprintf("azd-%s", runtime.Name)
+	// Pull the image according to the configured pull policy.
+	if shouldPullImage(client, image, runtime.PullPolicy) {
+		slog.Debug("pulling container image", slog.String("image", image))
+		if err := client.Pull(image); err != nil {
+			if runtime.PullPolicy == docker.PullAlways {
+				return nil, fmt.Errorf("failed to pull image %q (pull_policy=always): %w", image, err)
+			}
+			// Don't fail otherwise - image might be cached locally
+			slog.Warn("failed to pull image (continuing with cached version if available)",
+				slog.String("image", image),
+				slog.String("error", err.Error()))
+		}
+	}
+	if runtime.PullPolicy == docker.PullNever && !client.ImageExists(image) {
+		return nil, fmt.Errorf("image %q is not present locally and pull_policy=never", image)
+	}
+
+	// Derive a project-scoped container name so containers from different
+	// projects never collide. Uses the same hash as the network name.
+	projectRoot := projectNetworkDir(projectDir)
+	absRoot, _ := filepath.Abs(projectRoot)
+	absRoot = filepath.Clean(absRoot)
+	sum := sha256.Sum256([]byte(absRoot))
+	projHash := hex.EncodeToString(sum[:])[:8]
+	containerName := fmt.Sprintf("azd-%s-%s", runtime.Name, projHash)
+
+	// reconnectToNetwork idempotently attaches a reused container to the project
+	// network so sibling DNS keeps working after a fast restart.
+	reconnectToNetwork := func() {
+		if networkName == "" {
+			return
+		}
+		if connErr := client.ConnectNetwork(networkName, containerName, networkAliases); connErr != nil {
+			slog.Debug("failed to reconnect reused container to network",
+				slog.String("service", runtime.Name),
+				slog.String("error", connErr.Error()))
+		}
+	}
+
 	if !restartContainers {
 		if container, err := client.InspectByName(containerName); err == nil && container != nil {
 			// Container exists
@@ -97,6 +145,10 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 					slog.String("service", runtime.Name),
 					slog.String("container_name", containerName),
 					slog.String("container_id", displayID))
+
+				// Reconnect to the project network so sibling DNS keeps working
+				// after a fast restart.
+				reconnectToNetwork()
 
 				process := &ServiceProcess{
 					Name:        runtime.Name,
@@ -119,6 +171,8 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 				slog.Warn("failed to start stopped container, will recreate",
 					slog.String("error", err.Error()))
 			} else {
+				// Reconnect to the project network (idempotent if already connected).
+				reconnectToNetwork()
 				// Successfully started existing container
 				process := &ServiceProcess{
 					Name:        runtime.Name,
@@ -135,10 +189,15 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 
 	// Build container configuration
 	config := docker.ContainerConfig{
-		Name:        fmt.Sprintf("azd-%s", runtime.Name),
-		Image:       image,
-		Ports:       buildContainerPortMappings(runtime),
-		Environment: runtime.Env,
+		Name:           containerName,
+		Image:          image,
+		Ports:          buildContainerPortMappings(runtime),
+		Environment:    runtime.Env,
+		Command:        runtime.Args,
+		Volumes:        runtime.Volumes,
+		Network:        networkName,
+		NetworkAliases: networkAliases,
+		PullPolicy:     runtime.PullPolicy,
 	}
 
 	// Run container
@@ -185,27 +244,79 @@ func StartContainerService(runtime *ServiceRuntime, projectDir string, restartCo
 	return process, nil
 }
 
-// buildContainerPortMappings converts ServiceRuntime port to Docker port mappings.
-// Currently supports single-port mapping only: the primary port from runtime.Port is mapped
-// as both the host and container port with TCP protocol. Multi-port support (e.g., debug
-// ports, metrics endpoints) is planned but not yet implemented.
+// buildContainerPortMappings converts a ServiceRuntime's ports to Docker port
+// mappings. When the runtime has explicit multi-port mappings (from the service
+// `ports` list) every port is published. Otherwise it falls back to the single
+// primary port for backward compatibility.
 func buildContainerPortMappings(runtime *ServiceRuntime) []docker.PortMapping {
-	var mappings []docker.PortMapping
+	if len(runtime.Ports) > 0 {
+		mappings := make([]docker.PortMapping, 0, len(runtime.Ports))
+		for _, p := range runtime.Ports {
+			mappings = append(mappings, docker.PortMapping{
+				HostPort:      p.HostPort,
+				ContainerPort: p.ContainerPort,
+				BindIP:        p.BindIP,
+				Protocol:      protoOrDefault(p.Protocol),
+			})
+		}
+		return mappings
+	}
 
-	// If runtime has a port, map it
+	// Fallback: single primary port (services configured without an explicit
+	// ports list, e.g. an auto-assigned primary).
+	var mappings []docker.PortMapping
 	if runtime.Port > 0 {
 		mappings = append(mappings, docker.PortMapping{
 			HostPort:      runtime.Port,
-			ContainerPort: runtime.Port, // TODO(multi-port): support distinct host:container port mappings
+			ContainerPort: runtime.Port,
 			Protocol:      "tcp",
 		})
 	}
-
-	// TODO(multi-port): Parse additional ports from runtime config to support services
-	// that expose multiple ports (e.g., debug ports, metrics endpoints, gRPC sidecars).
-	// Tracking: https://github.com/jongio/azd-app/issues/1001
-
 	return mappings
+}
+
+// protoOrDefault returns the given protocol or "tcp" when empty.
+func protoOrDefault(p string) string {
+	if p == "" {
+		return "tcp"
+	}
+	return p
+}
+
+// projectNetworkDir normalizes a working directory to the project root (the
+// directory containing azure.yaml) so the derived per-project network name is
+// identical across the run path (which may pass a working subdirectory) and the
+// restart/dashboard paths (which pass the project root). Falls back to the given
+// directory when no azure.yaml is found.
+func projectNetworkDir(projectDir string) string {
+	if azureYamlPath, err := detector.FindAzureYaml(projectDir); err == nil && azureYamlPath != "" {
+		return filepath.Dir(azureYamlPath)
+	}
+	return projectDir
+}
+
+// imageExistenceChecker is the minimal Docker capability shouldPullImage needs.
+type imageExistenceChecker interface {
+	ImageExists(image string) bool
+}
+
+// shouldPullImage decides whether to pull the image before running, based on the
+// pull policy:
+//   - "never":  never pull.
+//   - "missing": pull only when the image is absent locally.
+//   - "always": always pull.
+//   - "" (default): best-effort pull (preserves prior behavior).
+func shouldPullImage(client imageExistenceChecker, image, policy string) bool {
+	switch policy {
+	case docker.PullNever:
+		return false
+	case docker.PullMissing:
+		return !client.ImageExists(image)
+	case docker.PullAlways:
+		return true
+	default:
+		return true
+	}
 }
 
 // StopContainerService stops a Docker container service.
@@ -297,7 +408,7 @@ func collectContainerLogs(reader io.ReadCloser, serviceName string, buffer *LogB
 			Message:   scanner.Text(),
 			Timestamp: time.Now(),
 			IsStderr:  false, // Docker logs combine stdout/stderr
-			Level:     inferLogLevel(scanner.Text()),
+			Level:     inferLogLevel(scanner.Text(), false),
 		}
 		buffer.Add(entry)
 	}

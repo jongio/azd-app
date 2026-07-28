@@ -212,3 +212,62 @@ func TestBuildServiceNode(t *testing.T) {
 		t.Error("buildServiceNode() did not include environment (postgres has env vars)")
 	}
 }
+
+func TestBuildServicePreview(t *testing.T) {
+	def := wellknown.Get("redis")
+	if def == nil {
+		t.Fatal("redis service not found in wellknown registry")
+	}
+
+	preview, err := buildServicePreview("redis", def)
+	if err != nil {
+		t.Fatalf("buildServicePreview() error: %v", err)
+	}
+
+	for _, want := range []string{"services:", "redis:", "image: redis:7-alpine", "6379:6379"} {
+		if !strings.Contains(preview, want) {
+			t.Errorf("preview missing %q:\n%s", want, preview)
+		}
+	}
+}
+
+func TestRunAddDryRunDoesNotModifyAzureYaml(t *testing.T) {
+	tempDir := t.TempDir()
+	content := `name: test-app
+services:
+  api:
+    language: python
+    project: ./api
+`
+	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to create azure.yaml: %v", err)
+	}
+
+	originalWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	t.Cleanup(func() {
+		if chdirErr := os.Chdir(originalWD); chdirErr != nil {
+			t.Fatalf("failed to restore cwd: %v", chdirErr)
+		}
+	})
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	cmd := NewAddCommand()
+	cmd.SetArgs([]string{"redis", "--dry-run"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("add --dry-run failed: %v", err)
+	}
+
+	after, err := os.ReadFile(azureYamlPath)
+	if err != nil {
+		t.Fatalf("failed to read azure.yaml: %v", err)
+	}
+	if string(after) != content {
+		t.Fatalf("dry-run modified azure.yaml:\n%s", string(after))
+	}
+}
