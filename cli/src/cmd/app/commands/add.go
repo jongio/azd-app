@@ -347,14 +347,13 @@ func addServiceToYaml(path string, serviceName string, def *wellknown.ServiceDef
 	}
 	servicesNode.Content = append(servicesNode.Content, nameNode, serviceConfig)
 
-	// Write back
-	yamlOutput, err := yaml.Marshal(&doc)
+	// Write back with a two-space indent to minimize unrelated formatting churn.
+	yamlOutput, err := marshalYAMLNode(&doc)
 	if err != nil {
 		return err
 	}
 
-	// #nosec G306 -- azure.yaml needs to be readable
-	return os.WriteFile(path, yamlOutput, 0o644)
+	return writeFileAtomic(path, yamlOutput)
 }
 
 func buildServiceNode(def *wellknown.ServiceDefinition) *yaml.Node {
@@ -427,7 +426,7 @@ func buildServicePreview(serviceName string, def *wellknown.ServiceDefinition) (
 			servicesNode,
 		},
 	}
-	out, err := yaml.Marshal(root)
+	out, err := marshalYAMLNode(root)
 	if err != nil {
 		return "", err
 	}
