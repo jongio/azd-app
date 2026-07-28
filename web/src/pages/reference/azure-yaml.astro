@@ -2105,7 +2105,7 @@ const resourceTypesExample = `resources:
           <h3 class="text-lg font-bold mb-3">Available Hooks</h3>
           <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">prerun</code> - Runs before <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd app run</code></li>
-            <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">postrun</code> - Runs after <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd app run</code></li>
+            <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">postrun</code> - Runs after all services are ready</li>
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">prestop</code> - Runs before <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd app stop</code></li>
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">poststop</code> - Runs after <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd app stop</code></li>
           </ul>
@@ -2192,7 +2192,7 @@ const resourceTypesExample = `resources:
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">postrun</code></td>
                 <td class="py-3 px-4">azd app</td>
-                <td class="py-3 px-4">After <code>azd app run</code></td>
+                <td class="py-3 px-4">After all services are ready</td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">prestop</code></td>
