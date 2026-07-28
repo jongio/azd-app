@@ -28,8 +28,64 @@ resources:
 	if err != nil {
 		t.Fatalf("validateAzureYamlFile failed: %v", err)
 	}
-	if hasValidateErrors(findings) {
-		t.Fatalf("expected no errors, got %#v", findings)
+	if len(findings) != 0 {
+		t.Fatalf("expected no findings, got %#v", findings)
+	}
+}
+
+func TestValidateAzureYamlReportsOutOfRootProjectOnce(t *testing.T) {
+	dir := t.TempDir()
+	writeValidateFile(t, dir, `
+name: invalid
+services:
+  api:
+    host: local
+    project: ../outside
+    command: go run .
+`)
+
+	findings := mustValidateFindings(t, dir)
+	if len(findings) != 1 {
+		t.Fatalf("expected exactly 1 finding for a single root cause, got %d: %#v", len(findings), findings)
+	}
+	assertValidateFinding(t, findings, "api", "project.outside-root")
+}
+
+func TestValidateHostPort(t *testing.T) {
+	tests := []struct {
+		name    string
+		mapping string
+		want    int
+		wantErr bool
+	}{
+		{name: "bare port", mapping: "8080", want: 8080},
+		{name: "host and container port", mapping: "8080:80", want: 8080},
+		{name: "bind address", mapping: "127.0.0.1:8080:80", want: 8080},
+		{name: "ipv6 bind address", mapping: "[::1]:8080:80", want: 8080},
+		{name: "protocol suffix", mapping: "8080/tcp", want: 8080},
+		{name: "surrounding whitespace", mapping: " 8080:80 ", want: 8080},
+		{name: "empty mapping", mapping: "   ", wantErr: true},
+		{name: "port above range", mapping: "70000:80", wantErr: true},
+		{name: "port below range", mapping: "0:80", wantErr: true},
+		{name: "non-numeric port", mapping: "abc:80", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := validateHostPort(tt.mapping)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for %q, got port %d", tt.mapping, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error for %q: %v", tt.mapping, err)
+			}
+			if got != tt.want {
+				t.Fatalf("expected port %d for %q, got %d", tt.want, tt.mapping, got)
+			}
+		})
 	}
 }
 

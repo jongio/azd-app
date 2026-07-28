@@ -1,9 +1,7 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -80,10 +78,20 @@ func validateAzureYamlFile(azureYamlPath string) ([]validateFinding, error) {
 	}
 	projectDir := filepath.Dir(azureYamlPath)
 	findings := validateAzureYamlConfig(azureYamlPath, projectDir, &cfg)
-	if _, err := service.ParseAzureYaml(projectDir); err != nil {
-		findings = appendFindingIfMissing(findings, validateFinding{File: azureYamlPath, CheckID: "schema.parse", Severity: validateSeverityError, Message: err.Error(), Hint: "Fix the service configuration reported by the parser."})
+	// ParseAzureYaml is a fail-fast backstop: it aborts on the first problem and reports it
+	// as a single opaque error. Consult it only when the structured checks found no errors,
+	// so one root cause (an out-of-root project path, say) yields exactly one finding
+	// instead of both a precise check finding and a duplicate schema.parse finding.
+	if !hasValidateErrors(findings) {
+		if _, err := service.ParseAzureYaml(projectDir); err != nil {
+			findings = append(findings, validateFinding{File: azureYamlPath, CheckID: "schema.parse", Severity: validateSeverityError, Message: err.Error(), Hint: "Fix the service configuration reported by the parser."})
+		}
 	}
 	sortValidateFindings(findings)
+	if findings == nil {
+		// Emit [] rather than null so JSON consumers can always iterate the result.
+		findings = []validateFinding{}
+	}
 	return findings, nil
 }
 
@@ -161,13 +169,13 @@ func validateHostPort(mapping string) (int, error) {
 	if mapping == "" {
 		return 0, fmt.Errorf("empty port mapping")
 	}
+	// The host port is the second-to-last segment for every supported form:
+	// "8080:80", "127.0.0.1:8080:80", and "[::1]:8080:80" (the bracketed IPv6 host
+	// splits into extra segments, but the host port still sits second from the end).
 	parts := strings.Split(mapping, ":")
 	candidate := parts[0]
 	if len(parts) > 1 {
 		candidate = parts[len(parts)-2]
-		if ip := net.ParseIP(strings.Trim(parts[0], "[]")); ip != nil && len(parts) >= 3 {
-			candidate = parts[len(parts)-2]
-		}
 	}
 	candidate = strings.TrimSuffix(strings.TrimSpace(candidate), "/tcp")
 	candidate = strings.TrimSuffix(candidate, "/udp")
@@ -241,15 +249,6 @@ func countValidateErrors(findings []validateFinding) int {
 	return count
 }
 
-func appendFindingIfMissing(findings []validateFinding, finding validateFinding) []validateFinding {
-	for _, existing := range findings {
-		if existing.CheckID == finding.CheckID && existing.Service == finding.Service && existing.Message == finding.Message {
-			return findings
-		}
-	}
-	return append(findings, finding)
-}
-
 func sortValidateFindings(findings []validateFinding) {
 	sort.Slice(findings, func(i, j int) bool {
 		if findings[i].Service != findings[j].Service {
@@ -257,8 +256,4 @@ func sortValidateFindings(findings []validateFinding) {
 		}
 		return findings[i].CheckID < findings[j].CheckID
 	})
-}
-
-func marshalValidateFindings(findings []validateFinding) ([]byte, error) {
-	return json.MarshalIndent(findings, "", "  ")
 }
