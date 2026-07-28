@@ -3,6 +3,7 @@ package service
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -618,7 +619,15 @@ func (lb *LogBuffer) Close() error {
 }
 
 // inferLogLevel attempts to infer the log level from a log message.
-func inferLogLevel(message string) LogLevel {
+func inferLogLevel(message string, isStderr bool) LogLevel {
+	// Structured logs (JSON with an explicit level/severity) are authoritative —
+	// honor the emitter's own level instead of guessing from the text. This is
+	// what keeps a line like {"level":"info","role":"trace-worker"} at INFO
+	// rather than matching the substring "trace" and dropping it to DEBUG.
+	if lvl, ok := structuredLogLevel(message); ok {
+		return lvl
+	}
+
 	lowerMsg := strings.ToLower(message)
 
 	// Check for patterns that should always be INFO (overrides error/warning detection)
@@ -629,24 +638,70 @@ func inferLogLevel(message string) LogLevel {
 		}
 	}
 
-	// Check for error indicators
-	if strings.Contains(lowerMsg, "error") || strings.Contains(lowerMsg, "exception") ||
-		strings.Contains(lowerMsg, "fatal") || strings.Contains(lowerMsg, "panic") {
+	// Word-boundary keyword detection. Matching whole words (not substrings)
+	// stops identifiers like `errorReporter`, `trace_worker`, or `warmup` from
+	// misfiring the level the way `strings.Contains` did.
+	switch {
+	case errorWordRe.MatchString(lowerMsg):
 		return LogLevelError
-	}
-
-	// Check for warning indicators
-	if strings.Contains(lowerMsg, "warn") || strings.Contains(lowerMsg, "warning") {
+	case warnWordRe.MatchString(lowerMsg):
 		return LogLevelWarn
-	}
-
-	// Check for debug indicators
-	if strings.Contains(lowerMsg, "debug") || strings.Contains(lowerMsg, "trace") {
+	case debugWordRe.MatchString(lowerMsg):
 		return LogLevelDebug
 	}
 
-	// Default to info
+	// No signal in the content: fall back on the stream. Programs conventionally
+	// write diagnostics to stderr, so surface an unclassified stderr line as a
+	// warning instead of burying it at info. (Structured stderr already returned
+	// its real level above, so a well-behaved logger is unaffected.)
+	if isStderr {
+		return LogLevelWarn
+	}
 	return LogLevelInfo
+}
+
+// Whole-word matchers for level keywords (case-insensitive input is lowercased
+// by the caller). Plurals are included so "5 errors" / "warnings" still match.
+var (
+	errorWordRe = regexp.MustCompile(`\b(errors?|exceptions?|fatal|panic)\b`)
+	warnWordRe  = regexp.MustCompile(`\b(warn|warnings?)\b`)
+	debugWordRe = regexp.MustCompile(`\b(debug|trace)\b`)
+)
+
+// structuredLogLevel extracts an explicit level from a JSON log line. It returns
+// (level, true) when the message is a JSON object carrying a recognized
+// level/severity field, and (0, false) otherwise (plain text, or JSON without a
+// level).
+func structuredLogLevel(message string) (LogLevel, bool) {
+	trimmed := strings.TrimSpace(message)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return 0, false
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(trimmed), &fields); err != nil {
+		return 0, false
+	}
+	for _, key := range []string{"level", "severity", "lvl", "levelname", "loglevel"} {
+		raw, ok := fields[key]
+		if !ok {
+			continue
+		}
+		var s string
+		if err := json.Unmarshal(raw, &s); err != nil {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(s)) {
+		case "trace", "debug":
+			return LogLevelDebug, true
+		case "info", "information", "informational", "notice", "log":
+			return LogLevelInfo, true
+		case "warn", "warning":
+			return LogLevelWarn, true
+		case "error", "err", "fatal", "panic", "critical", "crit", "emerg", "alert", "severe":
+			return LogLevelError, true
+		}
+	}
+	return 0, false
 }
 
 // infoOverridePatterns contains patterns that should always be classified as INFO,

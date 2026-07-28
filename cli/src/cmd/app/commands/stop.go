@@ -122,9 +122,12 @@ func runStopApp() error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = runstate.Remove(projectDir)
-	}()
+
+	// A manager that died leaves its run state behind, and the port and token
+	// files it needed may never have been written. Clear that record up front so
+	// every failure path below reports the same thing rather than chasing a
+	// dashboard that is not there.
+	clearRunStateIfManagerDead(projectDir)
 
 	// Discover the running dashboard port
 	dashboardPort, err := discoverDashboardPort(projectDir)
@@ -139,16 +142,43 @@ func runStopApp() error {
 	// removed when the server shuts down.
 	token := dashboard.ReadTokenFile(projectDir)
 	if token == "" {
-		return fmt.Errorf("could not read session token — is 'azd app run' active in this project?")
+		return fmt.Errorf("could not read session token - is 'azd app run' active in this project?")
 	}
 
 	// Send shutdown request
 	if err := sendShutdownRequest(baseURL, token); err != nil {
+		clearRunStateIfManagerDead(projectDir)
 		return err
 	}
 
-	cliout.Success("Shutdown signal sent — app is stopping")
+	// Only clear the recorded run state once shutdown has actually been
+	// accepted. Removing it on failure would discard the PID that `status` and
+	// a follow-up `stop` need, leaving a live manager with no way to reach it.
+	clearRunState(projectDir)
+
+	cliout.Success("Shutdown signal sent - app is stopping")
 	return nil
+}
+
+// clearRunState removes the recorded run state, warning rather than failing
+// because the shutdown itself already succeeded.
+func clearRunState(projectDir string) {
+	if err := runstate.Remove(projectDir); err != nil {
+		cliout.Warning("Failed to clear run state: %v", err)
+	}
+}
+
+// clearRunStateIfManagerDead drops the run state only when the recorded manager
+// process is gone. A failed shutdown against a live manager must keep the state
+// so `status` and a follow-up `stop` can still reach it. `azd app status` prunes
+// dead records too, so this keeps `stop` consistent with it rather than being
+// the only cleaner.
+func clearRunStateIfManagerDead(projectDir string) {
+	st, ok, err := runstate.Read(projectDir)
+	if err != nil || !ok || runstate.IsRunning(st) {
+		return
+	}
+	clearRunState(projectDir)
 }
 
 // findProjectDir locates the project root by finding azure.yaml.
@@ -159,7 +189,7 @@ func findProjectDir() (string, error) {
 	}
 	azureYamlPath, err := detector.FindAzureYaml(cwd)
 	if err != nil || azureYamlPath == "" {
-		return "", fmt.Errorf("could not find azure.yaml — are you in a project directory?")
+		return "", fmt.Errorf("could not find azure.yaml - are you in a project directory?")
 	}
 	return filepath.Dir(azureYamlPath), nil
 }
@@ -180,7 +210,7 @@ func discoverDashboardPort(projectDir string) (int, error) {
 		}
 	}
 
-	return 0, fmt.Errorf("no running app found — is 'azd app run' active in this project?")
+	return 0, fmt.Errorf("no running app found - is 'azd app run' active in this project?")
 }
 
 // sendShutdownRequest sends a POST to the dashboard's shutdown endpoint.

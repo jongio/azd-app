@@ -562,10 +562,19 @@
           "description": "Entry point file for the service (e.g., main.py, app.py)"
         },
         "command": {
-          "type": "string",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ],
           "title": "Command to run the service (azd app extension)",
-          "description": "Full command to run the service (e.g., 'uvicorn main:app --reload'). Primary way to override the auto-detected run command.",
-          "examples": ["uvicorn main:app --reload", "npm run dev", "go run main.go"]
+          "description": "Full command to run the service. May be a string (e.g., 'uvicorn main:app --reload') or an array of arguments (e.g., ['postgres', '-c', 'max_connections=200']). For container services the tokens are passed to the container after the image, overriding its default command.",
+          "examples": ["uvicorn main:app --reload", "npm run dev", ["postgres", "-c", "max_connections=200"]]
+        },
+        "pull_policy": {
+          "type": "string",
+          "title": "Container image pull policy (azd app extension)",
+          "description": "Controls when a container service image is pulled before running. 'missing' pulls only when the image is absent locally, 'always' always pulls, 'never' never pulls (fails if the image is absent). Default preserves best-effort pull behavior.",
+          "enum": ["missing", "always", "never"]
         },
         "type": {
           "type": "string",
@@ -595,6 +604,19 @@
             ["127.0.0.1:3000:8080"],
             ["8080/udp"],
             ["[::1]:3000:8080"]
+          ]
+        },
+        "volumes": {
+          "type": "array",
+          "title": "Volume mounts (azd app extension)",
+          "description": "Docker Compose style volume mounts for container services. Supports named volumes ('mydata:/var/lib/data') and bind mounts ('./config:/app/config[:ro]'). Bind-mount host paths are resolved relative to the project directory.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            ["pgdata:/var/lib/postgresql/data"],
+            ["./config.json:/app/config.json"],
+            ["./data:/data:ro"]
           ]
         },
         "environment": {

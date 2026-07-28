@@ -12,6 +12,24 @@ type Client interface {
 	// Returns an error if the image cannot be found or downloaded.
 	Pull(image string) error
 
+	// ImageExists reports whether an image is present in the local Docker cache.
+	ImageExists(image string) bool
+
+	// NetworkExists reports whether a user-defined Docker network exists.
+	NetworkExists(name string) (bool, error)
+
+	// EnsureNetwork creates a user-defined bridge network if absent. It is
+	// idempotent and safe to call concurrently.
+	EnsureNetwork(name string) error
+
+	// RemoveNetwork removes a user-defined Docker network. A missing network is
+	// not an error.
+	RemoveNetwork(name string) error
+
+	// ConnectNetwork attaches an existing container to a network with optional
+	// DNS aliases. It is idempotent if the container is already connected.
+	ConnectNetwork(network, container string, aliases []string) error
+
 	// Run creates and starts a container with the given configuration.
 	// Returns the container ID on success.
 	Run(config ContainerConfig) (string, error)

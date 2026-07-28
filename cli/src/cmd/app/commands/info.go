@@ -26,6 +26,7 @@ var (
 	infoService  string
 	infoWatch    bool
 	infoInterval time.Duration
+	infoNames    bool
 )
 
 const (
@@ -59,6 +60,9 @@ Examples:
   # Show information about multiple services
   azd app info --service "api,web"
 
+  # Print service names for scripts
+  azd app info --names
+
   # Live view, refreshed every 2 seconds (CPU and memory update each frame)
   azd app info --watch
 
@@ -73,6 +77,7 @@ Examples:
 	cmd.Flags().StringVarP(&infoService, "service", "s", "", "Show info for specific service(s) (comma-separated)")
 	cmd.Flags().BoolVar(&infoWatch, "watch", false, "Refresh service info on an interval until interrupted")
 	cmd.Flags().DurationVar(&infoInterval, "interval", 2*time.Second, "Refresh interval for --watch (minimum 1s)")
+	cmd.Flags().BoolVar(&infoNames, "names", false, "Print service names only, one per line")
 
 	return cmd
 }
@@ -95,6 +100,10 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		requested = append(requested, parsed...)
 	}
 
+	if infoNames && infoWatch {
+		return fmt.Errorf("--names cannot be used with --watch")
+	}
+
 	// --watch is an interactive text view. The global --json flag always wins and
 	// prints a single snapshot instead.
 	if infoWatch && !cliout.IsJSON() {
@@ -105,8 +114,6 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		defer stop()
 		return watchInfo(ctx, os.Stdout, cwd, requested, infoInterval)
 	}
-
-	cliout.CommandHeader("info", "Show information about services")
 
 	ctx := context.Background()
 
@@ -149,7 +156,12 @@ func runInfo(cmd *cobra.Command, args []string) error {
 		return printInfoJSON(cwd, allServices, azureEnv)
 	}
 
+	if infoNames {
+		return printInfoNames(os.Stdout, allServices)
+	}
+
 	// Default output
+	cliout.CommandHeader("info", "Show information about services")
 	printInfoDefault(cwd, allServices, azureEnv)
 	return nil
 }
@@ -315,6 +327,15 @@ func printInfoJSON(projectDir string, services []*serviceinfo.ServiceInfo, azure
 		"project":  projectDir,
 		"services": outputServices,
 	})
+}
+
+func printInfoNames(w io.Writer, services []*serviceinfo.ServiceInfo) error {
+	for _, svc := range services {
+		if _, err := fmt.Fprintln(w, svc.Name); err != nil {
+			return fmt.Errorf("write service name: %w", err)
+		}
+	}
+	return nil
 }
 
 // printInfoDefault outputs service information in default format.

@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **azd-app-onboard Copilot skill** with Vally evals and CI integration
 
 ### Fixed
+- `azd app run --detach` dying immediately on Windows when the launching process owns a kill-on-close Job Object ([#555](https://github.com/jongio/azd-app/issues/555))
+- `azd app status` and `azd app stop` having no PID to work with until every service had started
+- `azd app stop` discarding the run state when it failed, leaving a live manager with no handle
+- `azd app run` aborting with `failed to read user input: EOF` when the port-conflict prompt got non-interactive stdin ([#556](https://github.com/jongio/azd-app/issues/556))
+- `azd app test` reporting the framework instead of the explicit `test.<type>.command` it actually runs, and reporting a test type it silently skips as passing ([#557](https://github.com/jongio/azd-app/issues/557))
 - Dashboard streaming RPC disconnects caused by WriteTimeout
 - Auto-resolve port conflicts with `--force` and in non-interactive mode
 - Security remediation — 29 findings across 7 workstreams

@@ -20,6 +20,7 @@ import (
 const (
 	envFormatDotenv        = "dotenv"
 	envFormatShell         = "shell"
+	envFormatPowerShell    = "powershell"
 	envFormatJSON          = "json"
 	envFormatGitHubActions = "github-actions"
 )
@@ -52,10 +53,10 @@ Secret-shaped values are masked by default. Use --no-mask to print raw values,
 for example when piping the output into another command.
 
 Pass --all to print the resolved environment for every service in one run. The
-dotenv and shell formats group each service under a "# <service>" header; the
-json format emits an object keyed by service name; the github-actions format
-emits plain KEY=value and heredoc lines with no headers so the output stays
-valid for $GITHUB_ENV.
+dotenv, shell, and powershell formats group each service under a "# <service>"
+header; the json format emits an object keyed by service name; the github-actions
+format emits plain KEY=value and heredoc lines with no headers so the output
+stays valid for $GITHUB_ENV.
 
 Examples:
   # Resolved environment for the api service (KEY=value lines)
@@ -63,6 +64,9 @@ Examples:
 
   # Shell export statements
   azd app env api --format shell
+
+  # PowerShell $env: assignments (load with: azd app env api --format powershell | iex)
+  azd app env api --format powershell
 
   # JSON object (also selected by the global --json flag)
   azd app env api --format json
@@ -96,7 +100,7 @@ Examples:
 		ValidArgsFunction: completeServiceArgs,
 	}
 
-	cmd.Flags().StringVar(&envFormat, "format", envFormatDotenv, "Output format: dotenv, shell, json, or github-actions")
+	cmd.Flags().StringVar(&envFormat, "format", envFormatDotenv, "Output format: dotenv, shell, powershell, json, or github-actions")
 	cmd.Flags().BoolVar(&envNoMask, "no-mask", false, "Print raw values instead of masking secret-shaped values")
 	cmd.Flags().StringVar(&envFile, "env-file", "", "Path to a .env file to merge, matching azd app run")
 	cmd.Flags().BoolVar(&envAll, "all", false, "Print the resolved environment for every service")
@@ -318,9 +322,9 @@ func renderAllEnvKeys(keysByService map[string][]string, names []string, format 
 }
 
 // renderAllEnv writes the resolved environment for every service. The json format
-// emits an object keyed by service name; the dotenv and shell formats group each
-// service under a "# <service>" header separated by a blank line. names controls
-// the ordering. Secret-shaped values are masked when mask is true.
+// emits an object keyed by service name; the dotenv, shell, and powershell formats
+// group each service under a "# <service>" header separated by a blank line. names
+// controls the ordering. Secret-shaped values are masked when mask is true.
 func renderAllEnv(resolvedByService map[string]map[string]string, names []string, format string, mask bool) error {
 	if format == envFormatJSON {
 		out := make(map[string]map[string]string, len(resolvedByService))
@@ -550,12 +554,14 @@ func resolveEnvFormat(format string) (string, error) {
 		return envFormatDotenv, nil
 	case envFormatShell:
 		return envFormatShell, nil
+	case envFormatPowerShell:
+		return envFormatPowerShell, nil
 	case envFormatJSON:
 		return envFormatJSON, nil
 	case envFormatGitHubActions:
 		return envFormatGitHubActions, nil
 	default:
-		return "", fmt.Errorf("invalid --format %q: expected dotenv, shell, json, or github-actions", format)
+		return "", fmt.Errorf("invalid --format %q: expected dotenv, shell, powershell, json, or github-actions", format)
 	}
 }
 
@@ -573,8 +579,8 @@ func maskEnv(env map[string]string, mask bool) map[string]string {
 	return out
 }
 
-// formatEnv renders the environment as sorted dotenv or shell lines. Secret
-// masking is applied first when mask is true.
+// formatEnv renders the environment as sorted dotenv, shell, or powershell lines.
+// Secret masking is applied first when mask is true.
 func formatEnv(env map[string]string, format string, mask bool) string {
 	masked := maskEnv(env, mask)
 
@@ -586,13 +592,24 @@ func formatEnv(env map[string]string, format string, mask bool) string {
 
 	var b strings.Builder
 	for _, k := range keys {
-		if format == envFormatShell {
+		switch format {
+		case envFormatShell:
 			fmt.Fprintf(&b, "export %s=%s\n", k, shellQuoteDouble(masked[k]))
-		} else {
+		case envFormatPowerShell:
+			fmt.Fprintf(&b, "$env:%s = %s\n", k, powerShellQuoteSingle(masked[k]))
+		default:
 			fmt.Fprintf(&b, "%s=%s\n", k, masked[k])
 		}
 	}
 	return b.String()
+}
+
+// powerShellQuoteSingle wraps a value in single quotes for a PowerShell string
+// literal, escaping embedded single quotes by doubling them. Single-quoted
+// PowerShell strings are literal, so no other characters need escaping and the
+// result is safe to load with Invoke-Expression.
+func powerShellQuoteSingle(v string) string {
+	return "'" + strings.ReplaceAll(v, "'", "''") + "'"
 }
 
 // shellQuoteDouble wraps a value in double quotes, escaping the characters that
