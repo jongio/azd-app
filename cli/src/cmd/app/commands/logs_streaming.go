@@ -13,19 +13,21 @@ import (
 )
 
 func (e *logsExecutor) followLogs(ctx context.Context, projectDir string, logManager LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+	minLevel, minLevelSet := parseMinLevel(e.opts.minLevel)
+
 	// Handle source-specific follow modes
 	switch e.opts.source {
 	case string(LogSourceAzure):
-		return e.followAzureLogs(ctx, dashboardClient, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
+		return e.followAzureLogs(ctx, dashboardClient, projectDir, serviceFilter, levelFilter, minLevel, minLevelSet, logFilter, outputWriter)
 	case string(LogSourceAll):
-		return e.followAllLogs(ctx, projectDir, logManager, dashboardClient, serviceFilter, levelFilter, logFilter, outputWriter)
+		return e.followAllLogs(ctx, projectDir, logManager, dashboardClient, serviceFilter, levelFilter, minLevel, minLevelSet, logFilter, outputWriter)
 	default: // "local"
-		return e.followLocalLogs(ctx, projectDir, logManager, dashboardClient, serviceFilter, levelFilter, logFilter, outputWriter)
+		return e.followLocalLogs(ctx, projectDir, logManager, dashboardClient, serviceFilter, levelFilter, minLevel, minLevelSet, logFilter, outputWriter)
 	}
 }
 
 // followLocalLogs subscribes to local log streams and displays them.
-func (e *logsExecutor) followLocalLogs(ctx context.Context, _ string, logManager LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+func (e *logsExecutor) followLocalLogs(ctx context.Context, _ string, logManager LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter, minLevel service.LogLevel, minLevelSet bool, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	// Try in-memory subscriptions first
 	subscriptions := make(map[string]chan service.LogEntry)
 
@@ -46,15 +48,15 @@ func (e *logsExecutor) followLocalLogs(ctx context.Context, _ string, logManager
 
 	// If no in-memory buffers, try dashboard WebSocket streaming
 	if len(subscriptions) == 0 {
-		return e.followLogsViaDashboard(ctx, dashboardClient, serviceFilter, levelFilter, logFilter, outputWriter)
+		return e.followLogsViaDashboard(ctx, dashboardClient, serviceFilter, levelFilter, minLevel, minLevelSet, logFilter, outputWriter)
 	}
 
 	// Use in-memory streaming
-	return e.followLogsInMemory(subscriptions, logManager, levelFilter, logFilter, outputWriter)
+	return e.followLogsInMemory(subscriptions, logManager, levelFilter, minLevel, minLevelSet, logFilter, outputWriter)
 }
 
 // followLogsViaDashboard connects to the dashboard's WebSocket to stream logs.
-func (e *logsExecutor) followLogsViaDashboard(ctx context.Context, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+func (e *logsExecutor) followLogsViaDashboard(ctx context.Context, dashboardClient DashboardClient, serviceFilter []string, levelFilter, minLevel service.LogLevel, minLevelSet bool, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	if dashboardClient == nil {
 		return fmt.Errorf("cannot follow logs: dashboard not available (run 'azd app run' first)")
 	}
@@ -108,7 +110,7 @@ func (e *logsExecutor) followLogsViaDashboard(ctx context.Context, dashboardClie
 			}
 
 			// Use extracted filter method
-			if !e.shouldDisplayEntry(entry, levelFilter, logFilter) {
+			if !e.shouldDisplayEntry(entry, levelFilter, minLevel, minLevelSet, logFilter) {
 				continue
 			}
 
@@ -133,7 +135,7 @@ func (e *logsExecutor) followLogsViaDashboard(ctx context.Context, dashboardClie
 }
 
 // followLogsInMemory uses in-memory log buffer subscriptions.
-func (e *logsExecutor) followLogsInMemory(subscriptions map[string]chan service.LogEntry, logManager LogManagerInterface, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+func (e *logsExecutor) followLogsInMemory(subscriptions map[string]chan service.LogEntry, logManager LogManagerInterface, levelFilter, minLevel service.LogLevel, minLevelSet bool, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	// Setup signal handling for graceful exit
 	sigChan, cleanupSignal := e.getOrCreateSignalChan()
 	defer cleanupSignal()
@@ -199,7 +201,7 @@ func (e *logsExecutor) followLogsInMemory(subscriptions map[string]chan service.
 			}
 
 			// Use extracted filter method
-			if !e.shouldDisplayEntry(entry, levelFilter, logFilter) {
+			if !e.shouldDisplayEntry(entry, levelFilter, minLevel, minLevelSet, logFilter) {
 				continue
 			}
 
@@ -219,22 +221,22 @@ func (e *logsExecutor) followLogsInMemory(subscriptions map[string]chan service.
 }
 
 // followAzureLogs streams Azure logs via the dashboard's WebSocket.
-func (e *logsExecutor) followAzureLogs(ctx context.Context, dashboardClient DashboardClient, projectDir string, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+func (e *logsExecutor) followAzureLogs(ctx context.Context, dashboardClient DashboardClient, projectDir string, serviceFilter []string, levelFilter, minLevel service.LogLevel, minLevelSet bool, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	// If dashboard is available, prefer its streaming API
 	if dashboardClient != nil {
 		if err := dashboardClient.Ping(ctx); err == nil {
 			status, err := dashboardClient.GetAzureStatus(ctx)
 			if err == nil && status.Enabled {
-				return e.followAzureLogsViaDashboard(ctx, dashboardClient, serviceFilter, levelFilter, logFilter, outputWriter)
+				return e.followAzureLogsViaDashboard(ctx, dashboardClient, serviceFilter, levelFilter, minLevel, minLevelSet, logFilter, outputWriter)
 			}
 		}
 	}
 
 	// Fallback: standalone polling (no dashboard needed)
-	return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
+	return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, minLevel, minLevelSet, logFilter, outputWriter)
 }
 
-func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboardClient DashboardClient, serviceFilter []string, levelFilter, minLevel service.LogLevel, minLevelSet bool, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	// Check if dashboard is responding
 	if err := dashboardClient.Ping(ctx); err != nil {
 		return fmt.Errorf("cannot follow Azure logs: dashboard not responding (run 'azd app run' first)")
@@ -292,7 +294,7 @@ func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboar
 			}
 
 			// Use extracted filter method
-			if !e.shouldDisplayEntry(entry, levelFilter, logFilter) {
+			if !e.shouldDisplayEntry(entry, levelFilter, minLevel, minLevelSet, logFilter) {
 				continue
 			}
 
@@ -317,7 +319,7 @@ func (e *logsExecutor) followAzureLogsViaDashboard(ctx context.Context, dashboar
 }
 
 // followAzureLogsStandalone streams Azure logs without requiring the dashboard.
-func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir string, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir string, serviceFilter []string, levelFilter, minLevel service.LogLevel, minLevelSet bool, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	cliout.Info("Streaming Azure logs (standalone, polling)...")
 
 	// Create context for streaming that can be canceled
@@ -382,7 +384,7 @@ func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir
 			if len(serviceFilter) == 1 && entry.Service != serviceFilter[0] {
 				continue
 			}
-			if !e.shouldDisplayEntry(entry, levelFilter, logFilter) {
+			if !e.shouldDisplayEntry(entry, levelFilter, minLevel, minLevelSet, logFilter) {
 				continue
 			}
 
@@ -406,16 +408,16 @@ func (e *logsExecutor) followAzureLogsStandalone(ctx context.Context, projectDir
 }
 
 // followAllLogs streams logs from both local and Azure sources.
-func (e *logsExecutor) followAllLogs(ctx context.Context, projectDir string, _ LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter service.LogLevel, logFilter *service.LogFilter, outputWriter io.Writer) error {
+func (e *logsExecutor) followAllLogs(ctx context.Context, projectDir string, _ LogManagerInterface, dashboardClient DashboardClient, serviceFilter []string, levelFilter, minLevel service.LogLevel, minLevelSet bool, logFilter *service.LogFilter, outputWriter io.Writer) error {
 	if dashboardClient == nil {
 		cliout.Warning("Dashboard not running; following Azure logs only.")
-		return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
+		return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, minLevel, minLevelSet, logFilter, outputWriter)
 	}
 
 	// Check if dashboard is responding
 	if err := dashboardClient.Ping(ctx); err != nil {
 		cliout.Warning("Dashboard not responding; following Azure logs only.")
-		return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, logFilter, outputWriter)
+		return e.followAzureLogsStandalone(ctx, projectDir, serviceFilter, levelFilter, minLevel, minLevelSet, logFilter, outputWriter)
 	}
 
 	cliout.Info("Streaming logs from local and Azure sources...")
@@ -505,7 +507,7 @@ func (e *logsExecutor) followAllLogs(ctx context.Context, projectDir string, _ L
 			}
 
 			// Use extracted filter method
-			if !e.shouldDisplayEntry(entry, levelFilter, logFilter) {
+			if !e.shouldDisplayEntry(entry, levelFilter, minLevel, minLevelSet, logFilter) {
 				continue
 			}
 

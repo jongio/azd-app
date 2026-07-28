@@ -656,6 +656,53 @@ func TestLogsExecutor_Execute(t *testing.T) {
 	})
 }
 
+func TestLogsExecutor_CollectFiltersByMinLevel(t *testing.T) {
+	tmpDir := t.TempDir()
+	now := time.Now()
+	opts := &logsOptions{
+		tail:     100,
+		level:    "all",
+		minLevel: "warn",
+		output:   "text",
+		source:   string(LogSourceAzure),
+	}
+	executor := newLogsExecutorForTest(
+		func(ctx context.Context, projectDir string) (DashboardClient, error) {
+			return &mockDashboardClient{
+				services: []*serviceinfo.ServiceInfo{{Name: "api"}},
+				azureStatus: &service.AzureStatus{ //nolint:staticcheck // required by interface
+					Enabled:   true,
+					Connected: true,
+				},
+				azureLogs: []service.LogEntry{
+					{Service: "api", Level: service.LogLevelDebug, Message: "debug msg", Timestamp: now},
+					{Service: "api", Level: service.LogLevelInfo, Message: "info msg", Timestamp: now.Add(time.Second)},
+					{Service: "api", Level: service.LogLevelWarn, Message: "warn msg", Timestamp: now.Add(2 * time.Second)},
+					{Service: "api", Level: service.LogLevelError, Message: "error msg", Timestamp: now.Add(3 * time.Second)},
+				},
+			}, nil
+		},
+		func(projectDir string) LogManagerInterface {
+			return newMockLogManager()
+		},
+		func() (string, error) { return tmpDir, nil },
+		&bytes.Buffer{},
+		opts,
+	)
+
+	collected, err := executor.collect(context.Background(), []string{})
+	if err != nil {
+		t.Fatalf("collect() error: %v", err)
+	}
+
+	if len(collected.Entries) != 2 {
+		t.Fatalf("collect() returned %d entries, want 2", len(collected.Entries))
+	}
+	if collected.Entries[0].Message != "warn msg" || collected.Entries[1].Message != "error msg" {
+		t.Fatalf("collect() returned entries %q and %q, want warn msg and error msg", collected.Entries[0].Message, collected.Entries[1].Message)
+	}
+}
+
 func TestLogsExecutor_AzureStandaloneFallback(t *testing.T) {
 	tmpDir := t.TempDir()
 

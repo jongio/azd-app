@@ -42,6 +42,7 @@ func TestNewStatusCommand(t *testing.T) {
 	assert.NotNil(t, cmd.Flags().Lookup("interval"), "expected --interval flag")
 	assert.NotNil(t, cmd.Flags().Lookup("service"), "expected --service flag")
 	assert.NotNil(t, cmd.Flags().Lookup("dashboard-url"), "expected --dashboard-url flag")
+	assert.NotNil(t, cmd.Flags().Lookup("exit-code"), "expected --exit-code flag")
 }
 
 func TestRenderStatusReport(t *testing.T) {
@@ -263,6 +264,22 @@ func TestDashboardURLFromStatusReport(t *testing.T) {
 	_, err = dashboardURLFromStatusReport(statusReport{Running: true})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "dashboard URL is not available")
+}
+
+func TestStatusExitCodeError(t *testing.T) {
+	t.Cleanup(func() {
+		statusExitCode = false
+	})
+
+	statusExitCode = true
+	err := statusExitCodeError(statusReport{Running: false})
+	require.Error(t, err)
+	// Matches the text report wording so both surfaces describe the same state.
+	assert.Equal(t, "app is not running", err.Error())
+	require.NoError(t, statusExitCodeError(statusReport{Running: true}))
+
+	statusExitCode = false
+	require.NoError(t, statusExitCodeError(statusReport{Running: false}))
 }
 
 func TestBuildStatusReportStaleStateRemovesFile(t *testing.T) {
