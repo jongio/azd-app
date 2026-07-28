@@ -358,6 +358,15 @@ func TestRunConfigCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
+			// config reports the service project path as resolved by
+			// ParseAzureYaml, which canonicalizes via filepath.EvalSymlinks.
+			// t.TempDir() is not already canonical everywhere: on macOS /var
+			// resolves to /private/var, and on Windows CI TEMP uses an 8.3 short
+			// name that expands to its long form. Resolve tmpDir the same way so
+			// the expected path matches config's output on every OS.
+			if resolved, err := filepath.EvalSymlinks(tmpDir); err == nil {
+				tmpDir = resolved
+			}
 			if tt.azureYaml != "" {
 				require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(tt.azureYaml), 0o600))
 			}
