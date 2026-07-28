@@ -259,6 +259,11 @@ func runEnvAll(azureYaml *service.AzureYaml, names []string, prefixes []string) 
 		resolvedByService[name] = resolved
 	}
 
+	if format != envFormatJSON && len(prefixes) > 0 && len(names) > 0 && allEnvMapsEmpty(resolvedByService, names) {
+		cliout.Info("No environment variables match prefix %s", formatEnvPrefixes(prefixes))
+		return nil
+	}
+
 	return renderAllEnv(resolvedByService, names, format, !envNoMask)
 }
 
@@ -280,7 +285,30 @@ func runEnvAllKeys(azureYaml *service.AzureYaml, names []string, prefixes []stri
 		keysByService[name] = extractEnvKeys(filterEnvByPrefixes(resolved, prefixes))
 	}
 
+	if format != envFormatJSON && len(prefixes) > 0 && len(names) > 0 && allKeySlicesEmpty(keysByService, names) {
+		cliout.Info("No environment variables match prefix %s", formatEnvPrefixes(prefixes))
+		return nil
+	}
+
 	return renderAllEnvKeys(keysByService, names, format)
+}
+
+func allEnvMapsEmpty(envByService map[string]map[string]string, names []string) bool {
+	for _, name := range names {
+		if len(envByService[name]) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func allKeySlicesEmpty(keysByService map[string][]string, names []string) bool {
+	for _, name := range names {
+		if len(keysByService[name]) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeEnvPrefixes(prefixes []string) ([]string, error) {

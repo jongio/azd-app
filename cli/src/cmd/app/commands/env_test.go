@@ -266,6 +266,35 @@ func TestRunEnvCommand(t *testing.T) {
 		assert.Contains(t, out, "SERVICE_ENV_MARKER=marker-value")
 	})
 
+	t.Run("all respects prefix filter in text output", func(t *testing.T) {
+		resetEnvFlags()
+		t.Setenv("MATCHED_ENV_MARKER", "marker-value")
+		t.Setenv("OTHER_ENV_MARKER", "other-value")
+		out, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"--all", "--prefix", "MATCHED_"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+		assert.Contains(t, out, "# api")
+		assert.Contains(t, out, "# web")
+		assert.Contains(t, out, "MATCHED_ENV_MARKER=marker-value")
+		assert.NotContains(t, out, "OTHER_ENV_MARKER")
+	})
+
+	t.Run("all reports no prefix matches in text output", func(t *testing.T) {
+		resetEnvFlags()
+		out, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"--all", "--prefix", "NO_SUCH_ENV_PREFIX_"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+		assert.Contains(t, out, `No environment variables match prefix "NO_SUCH_ENV_PREFIX_"`)
+		assert.NotContains(t, out, "# api")
+		assert.NotContains(t, out, "# web")
+	})
+
 	t.Run("all with json emits an object keyed by service", func(t *testing.T) {
 		resetEnvFlags()
 		out, runErr := captureStdout(t, func() error {
@@ -330,6 +359,19 @@ func TestRunEnvCommand(t *testing.T) {
 		assert.Contains(t, out, "# web")
 		assert.Contains(t, out, "SERVICE_ENV_MARKER")
 		assert.NotContains(t, out, "marker-value")
+	})
+
+	t.Run("all keys reports no prefix matches in text output", func(t *testing.T) {
+		resetEnvFlags()
+		out, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"--all", "--keys", "--prefix", "NO_SUCH_ENV_PREFIX_"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+		assert.Contains(t, out, `No environment variables match prefix "NO_SUCH_ENV_PREFIX_"`)
+		assert.NotContains(t, out, "# api")
+		assert.NotContains(t, out, "# web")
 	})
 
 	t.Run("all keys with json emits key arrays", func(t *testing.T) {
@@ -423,6 +465,20 @@ func TestRunEnvCommand(t *testing.T) {
 		assert.Contains(t, runErr.Error(), "cannot combine --all with a service name")
 	})
 
+	t.Run("explain respects prefix filter", func(t *testing.T) {
+		resetEnvFlags()
+		t.Setenv("MATCHED_EXPLAIN_MARKER", "marker-value")
+		t.Setenv("OTHER_EXPLAIN_MARKER", "other-value")
+		out, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"api", "--explain", "--prefix", "MATCHED_EXPLAIN_"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+		assert.Contains(t, out, "MATCHED_EXPLAIN_MARKER=marker-value")
+		assert.Contains(t, out, "source:")
+		assert.NotContains(t, out, "OTHER_EXPLAIN_MARKER")
+	})
 }
 
 func TestRunEnvWrite(t *testing.T) {
@@ -459,6 +515,27 @@ func TestRunEnvWrite(t *testing.T) {
 		data, readErr := os.ReadFile(filepath.Join(tmpDir, "api", ".env"))
 		require.NoError(t, readErr)
 		assert.Contains(t, string(data), "SERVICE_ENV_MARKER=marker-value")
+	})
+
+	t.Run("write respects prefix filter", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeEnvTestAzureYaml(t, tmpDir)
+		chdirTemp(t, tmpDir)
+		resetEnvFlags()
+		t.Setenv("MATCHED_WRITE_MARKER", "marker-value")
+		t.Setenv("OTHER_WRITE_MARKER", "other-value")
+
+		_, runErr := captureStdout(t, func() error {
+			cmd := NewEnvCommand()
+			cmd.SetArgs([]string{"api", "--write", "--prefix", "MATCHED_WRITE_"})
+			return cmd.Execute()
+		})
+		require.NoError(t, runErr)
+
+		data, readErr := os.ReadFile(filepath.Join(tmpDir, "api", ".env"))
+		require.NoError(t, readErr)
+		assert.Contains(t, string(data), "MATCHED_WRITE_MARKER=marker-value")
+		assert.NotContains(t, string(data), "OTHER_WRITE_MARKER")
 	})
 
 	t.Run("all with out writes one file per service", func(t *testing.T) {
