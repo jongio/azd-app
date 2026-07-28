@@ -167,9 +167,14 @@ func (e *logsExecutor) buildLogFilterInternal(cwd string) (*service.LogFilter, e
 // getOrCreateSignalChan gets or creates a signal channel with proper cleanup.
 // This avoids duplication and race conditions in signal handling setup.
 
-func (e *logsExecutor) shouldDisplayEntry(entry service.LogEntry, levelFilter service.LogLevel, logFilter *service.LogFilter) bool {
+func (e *logsExecutor) shouldDisplayEntry(entry service.LogEntry, levelFilter, minLevel service.LogLevel, minLevelSet bool, logFilter *service.LogFilter) bool {
 	// Filter by level
 	if levelFilter != LogLevelAll && entry.Level != levelFilter {
+		return false
+	}
+
+	// Filter by minimum severity threshold when --min-level is set
+	if minLevelSet && !meetsMinLevel(entry.Level, minLevel) {
 		return false
 	}
 
@@ -214,6 +219,62 @@ func filterLogsByLevel(logs []service.LogEntry, level service.LogLevel) []servic
 	filtered := make([]service.LogEntry, 0, estimatedCap)
 	for _, entry := range logs {
 		if entry.Level == level {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
+}
+
+// logLevelSeverity maps a log level to an ordered severity rank so thresholds can
+// compare levels. The raw LogLevel iota order is not severity order, so the mapping
+// is explicit: debug < info < warn < error. Unknown levels are treated as info.
+func logLevelSeverity(level service.LogLevel) int {
+	switch level {
+	case service.LogLevelDebug:
+		return 0
+	case service.LogLevelInfo:
+		return 1
+	case service.LogLevelWarn:
+		return 2
+	case service.LogLevelError:
+		return 3
+	default:
+		return 1
+	}
+}
+
+// parseMinLevel parses a --min-level threshold. It returns the level and true when
+// the value names a concrete severity (debug, info, warn, error). It returns false
+// for empty or unrecognized values, which callers treat as "no threshold set".
+func parseMinLevel(level string) (service.LogLevel, bool) {
+	switch strings.ToLower(level) {
+	case logLevelDebug:
+		return service.LogLevelDebug, true
+	case "info":
+		return service.LogLevelInfo, true
+	case logLevelWarn, "warning":
+		return service.LogLevelWarn, true
+	case "error":
+		return service.LogLevelError, true
+	default:
+		return LogLevelAll, false
+	}
+}
+
+// meetsMinLevel reports whether an entry's level is at or above the given threshold.
+func meetsMinLevel(entryLevel, minLevel service.LogLevel) bool {
+	return logLevelSeverity(entryLevel) >= logLevelSeverity(minLevel)
+}
+
+// filterLogsByMinLevel keeps only entries at or above the given severity threshold.
+func filterLogsByMinLevel(logs []service.LogEntry, minLevel service.LogLevel) []service.LogEntry {
+	estimatedCap := len(logs) / filterCapacityEstimate
+	if estimatedCap < 10 {
+		estimatedCap = 10
+	}
+	filtered := make([]service.LogEntry, 0, estimatedCap)
+	for _, entry := range logs {
+		if meetsMinLevel(entry.Level, minLevel) {
 			filtered = append(filtered, entry)
 		}
 	}
@@ -288,6 +349,22 @@ func validateLogsOptions(opts *logsOptions) error {
 		// Valid levels
 	default:
 		return fmt.Errorf("--level must be one of: info, warn, error, debug, all; got '%s'", opts.level)
+	}
+
+	// Validate min-level and its mutual exclusivity with --level and --context
+	if opts.minLevel != "" {
+		switch strings.ToLower(opts.minLevel) {
+		case "info", logLevelWarn, "warning", "error", logLevelDebug:
+			// Valid threshold levels
+		default:
+			return fmt.Errorf("--min-level must be one of: debug, info, warn, error; got '%s'", opts.minLevel)
+		}
+		if strings.ToLower(opts.level) != "all" {
+			return fmt.Errorf("--min-level cannot be combined with an explicit --level (info/warn/error/debug); use one or the other")
+		}
+		if opts.contextLines > 0 {
+			return fmt.Errorf("--min-level cannot be combined with --context")
+		}
 	}
 
 	// Validate context requires level to be set (not "all")

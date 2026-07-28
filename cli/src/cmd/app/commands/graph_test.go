@@ -413,6 +413,40 @@ func TestRenderGraphDOT(t *testing.T) {
 	}
 }
 
+func TestRenderGraphPlantUML(t *testing.T) {
+	var buf bytes.Buffer
+	renderGraphPlantUML(&buf, sampleGraphResult())
+	out := buf.String()
+
+	if !strings.HasPrefix(out, "@startuml") {
+		t.Fatalf("plantuml output should start with @startuml:\n%s", out)
+	}
+	if !strings.HasSuffix(strings.TrimSpace(out), "@enduml") {
+		t.Fatalf("plantuml output should end with @enduml:\n%s", out)
+	}
+	for _, want := range []string{
+		"title project",
+		// Service nodes use component, resources use database.
+		"component \"api (service)\" as ",
+		"database \"db (resource)\" as ",
+		" --> ",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("plantuml output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestRenderGraphPlantUMLNoProject(t *testing.T) {
+	result := sampleGraphResult()
+	result.Project = ""
+	var buf bytes.Buffer
+	renderGraphPlantUML(&buf, result)
+	if strings.Contains(buf.String(), "title") {
+		t.Fatalf("plantuml output should omit title when project is empty:\n%s", buf.String())
+	}
+}
+
 func TestRenderGraphMarkdown(t *testing.T) {
 	var buf bytes.Buffer
 	renderGraphMarkdown(&buf, sampleGraphResult())
@@ -552,6 +586,22 @@ func TestEscapeD2Label(t *testing.T) {
 	for _, tt := range tests {
 		if got := escapeD2Label(tt.in); got != tt.want {
 			t.Errorf("escapeD2Label(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestEscapePlantUMLLabel(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"plain", "plain"},
+		{"say \"hi\"", "say 'hi'"},
+		{"line\nbreak", "line\\nbreak"},
+	}
+	for _, tt := range tests {
+		if got := escapePlantUMLLabel(tt.in); got != tt.want {
+			t.Errorf("escapePlantUMLLabel(%q) = %q, want %q", tt.in, got, tt.want)
 		}
 	}
 }

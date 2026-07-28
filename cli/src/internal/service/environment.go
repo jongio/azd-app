@@ -15,7 +15,7 @@ import (
 )
 
 // ResolveEnvironment merges environment variables from multiple sources and resolves Azure Key Vault references.
-// Priority (highest to lowest): service-specific env > .env file > azure environment > OS environment.
+// Priority (highest to lowest): inline CLI env > service-specific env > service URLs > .env file > azure environment > OS environment.
 // This function ensures that azd context variables (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*)
 // are preserved and passed to all child processes, as required by the azd extension framework.
 // Key Vault references in any of these sources are automatically resolved to their actual secret values.
@@ -27,8 +27,8 @@ import (
 // positives that break service functionality. The responsibility for credential isolation belongs
 // to the deployment environment (managed identity, Key Vault references), not to the local dev
 // orchestrator.
-func ResolveEnvironment(ctx context.Context, service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string) (map[string]string, error) {
-	env, _, err := resolveEnvironmentWithSources(ctx, service, azureEnv, dotEnvPath, serviceURLs)
+func ResolveEnvironment(ctx context.Context, service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string, inlineEnv map[string]string) (map[string]string, error) {
+	env, _, err := resolveEnvironmentWithSources(ctx, service, azureEnv, dotEnvPath, serviceURLs, inlineEnv)
 	return env, err
 }
 
@@ -42,6 +42,7 @@ const (
 	EnvSourceDotEnv     EnvSource = ".env"
 	EnvSourceServiceURL EnvSource = "service-url"
 	EnvSourceService    EnvSource = "azure.yaml"
+	EnvSourceInline     EnvSource = "inline"
 )
 
 // EnvProvenance records where the effective value of a variable came from and,
@@ -55,11 +56,11 @@ type EnvProvenance struct {
 // ResolveEnvironmentWithSources resolves the environment exactly like
 // ResolveEnvironment and additionally returns, per variable, the source that
 // supplied the winning value and any lower-priority sources it overrode.
-func ResolveEnvironmentWithSources(ctx context.Context, service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string) (map[string]string, map[string]EnvProvenance, error) {
-	return resolveEnvironmentWithSources(ctx, service, azureEnv, dotEnvPath, serviceURLs)
+func ResolveEnvironmentWithSources(ctx context.Context, service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string, inlineEnv map[string]string) (map[string]string, map[string]EnvProvenance, error) {
+	return resolveEnvironmentWithSources(ctx, service, azureEnv, dotEnvPath, serviceURLs, inlineEnv)
 }
 
-func resolveEnvironmentWithSources(ctx context.Context, service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string) (map[string]string, map[string]EnvProvenance, error) {
+func resolveEnvironmentWithSources(ctx context.Context, service Service, azureEnv map[string]string, dotEnvPath string, serviceURLs map[string]string, inlineEnv map[string]string) (map[string]string, map[string]EnvProvenance, error) {
 	env := make(map[string]string)
 	prov := make(map[string]EnvProvenance)
 
@@ -107,12 +108,17 @@ func resolveEnvironmentWithSources(ctx context.Context, service Service, azureEn
 		apply(EnvSourceServiceURL, k, v)
 	}
 
-	// Merge service-specific environment variables from azure.yaml - highest priority
+	// Merge service-specific environment variables from azure.yaml.
 	serviceEnv := service.GetEnvironment()
 	for name, value := range serviceEnv {
 		// Perform variable substitution
 		value = substituteEnvVars(value, env)
 		apply(EnvSourceService, name, value)
+	}
+
+	// Merge inline CLI environment variables last so --env has highest priority.
+	for k, v := range inlineEnv {
+		apply(EnvSourceInline, k, v)
 	}
 
 	// Resolve Azure Key Vault references if present. This rewrites values only;

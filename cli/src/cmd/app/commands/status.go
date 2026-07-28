@@ -27,6 +27,7 @@ var (
 	statusInterval     time.Duration
 	statusService      string
 	statusDashboardURL bool
+	statusExitCode     bool
 )
 
 type statusReport struct {
@@ -50,12 +51,18 @@ Pass --watch to refresh the status on an interval until you press Ctrl+C, which
 is handy for keeping an eye on services while they start. The global --json flag
 prints a single snapshot and ignores --watch.
 
+Pass --exit-code to exit non-zero when the app is not running, which is handy in
+scripts and CI. It is ignored by the interactive --watch view.
+
 Examples:
   # One-time snapshot
   azd app status
 
   # Show one service
   azd app status --service api
+
+  # Exit non-zero when the app is not running
+  azd app status --exit-code
 
   # Live view, refreshed every 2 seconds
   azd app status --watch
@@ -69,6 +76,7 @@ Examples:
 	cmd.Flags().DurationVar(&statusInterval, "interval", 2*time.Second, "Refresh interval for --watch (minimum 1s)")
 	cmd.Flags().StringVarP(&statusService, "service", "s", "", "Filter to specific service(s), comma-separated")
 	cmd.Flags().BoolVar(&statusDashboardURL, "dashboard-url", false, "Print only the dashboard URL for the active run")
+	cmd.Flags().BoolVar(&statusExitCode, "exit-code", false, "Return a non-zero exit code when the app is not running (ignored with --watch)")
 	return cmd
 }
 
@@ -114,11 +122,24 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	}
 
 	if cliout.IsJSON() {
-		return cliout.PrintJSON(report)
+		if err := cliout.PrintJSON(report); err != nil {
+			return err
+		}
+		return statusExitCodeError(report)
 	}
 
 	cliout.CommandHeader("status", "Show app status")
 	printStatusReport(report)
+	return statusExitCodeError(report)
+}
+
+// statusExitCodeError returns a non-nil error when --exit-code is set and the
+// app is not running, so the command exits non-zero. The message matches the
+// text report so both surfaces describe the same state the same way.
+func statusExitCodeError(report statusReport) error {
+	if statusExitCode && !report.Running {
+		return fmt.Errorf("app is not running")
+	}
 	return nil
 }
 
