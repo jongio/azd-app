@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -9,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
 	"github.com/pkg/browser"
@@ -39,18 +39,20 @@ Use --path to append a route such as /health. Use --print to write the URL witho
 	return cmd
 }
 
-func runOpen(_ *cobra.Command, args []string) error {
+func runOpen(cmd *cobra.Command, args []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	resolved, err := resolveOpenServiceURL(context.Background(), cwd, args[0], openPath)
+	resolved, err := resolveOpenServiceURL(cwd, args[0], openPath)
 	if err != nil {
 		return err
 	}
 	if openPrint {
-		fmt.Println(resolved)
+		if _, writeErr := fmt.Fprintln(cmd.OutOrStdout(), resolved); writeErr != nil {
+			return fmt.Errorf("failed to write service URL: %w", writeErr)
+		}
 		return nil
 	}
 	if err := openURL(resolved); err != nil {
@@ -59,44 +61,56 @@ func runOpen(_ *cobra.Command, args []string) error {
 	return nil
 }
 
-func resolveOpenServiceURL(_ context.Context, projectDir, serviceName, extraPath string) (string, error) {
+// resolveOpenServiceURL resolves the browser URL for serviceName. The running
+// app state wins, because it knows the port a service actually bound to; the
+// azure.yaml definition is the fallback for services that are not running.
+func resolveOpenServiceURL(projectDir, serviceName, extraPath string) (string, error) {
 	infos, err := serviceinfo.GetServiceInfo(projectDir)
 	if err != nil {
 		return "", fmt.Errorf("failed to load service information: %w", err)
 	}
 
-	var names []string
-	foundService := false
+	names := make([]string, 0, len(infos))
+	found := false
 	for _, info := range infos {
 		if info == nil {
 			continue
 		}
 		names = append(names, info.Name)
-		if strings.EqualFold(info.Name, serviceName) {
-			foundService = true
-			if base := bestOpenURL(info); base != "" {
-				return joinOpenURLPath(base, extraPath)
-			}
-			break
+		if !strings.EqualFold(info.Name, serviceName) {
+			continue
+		}
+		found = true
+		if base := bestOpenURL(info); base != "" {
+			return joinOpenURLPath(base, extraPath)
 		}
 	}
 
-	azureYaml, parseErr := service.ParseAzureYaml(projectDir)
-	if parseErr == nil {
+	// GetServiceInfo suppresses azure.yaml errors, so parse it again here to
+	// surface a malformed file instead of masking it as "service not found".
+	azureYaml, parseErr := parseOpenAzureYaml(projectDir)
+	if parseErr != nil {
+		return "", parseErr
+	}
+	if azureYaml != nil {
 		for name, svc := range azureYaml.Services {
 			if !containsName(names, name) {
 				names = append(names, name)
 			}
-			if strings.EqualFold(name, serviceName) {
-				if base := openURLFromService(svc); base != "" {
-					return joinOpenURLPath(base, extraPath)
-				}
-				return "", fmt.Errorf("service %q has no known URL. Set local.customUrl or ports in azure.yaml", serviceName)
+			if !strings.EqualFold(name, serviceName) {
+				continue
+			}
+			found = true
+			if base := openURLFromService(svc); base != "" {
+				return joinOpenURLPath(base, extraPath)
 			}
 		}
 	}
-	if foundService {
-		return "", fmt.Errorf("service %q has no known URL. Start it with 'azd app run' or set local.customUrl or ports in azure.yaml", serviceName)
+
+	if found {
+		return "", fmt.Errorf(
+			"service %q has no known URL. Start it with 'azd app run', or set local.customUrl or ports in azure.yaml",
+			serviceName)
 	}
 
 	sort.Strings(names)
@@ -104,6 +118,24 @@ func resolveOpenServiceURL(_ context.Context, projectDir, serviceName, extraPath
 		return "", fmt.Errorf("service %q not found. No services are defined in azure.yaml", serviceName)
 	}
 	return "", fmt.Errorf("service %q not found. Available services: %s", serviceName, strings.Join(names, ", "))
+}
+
+// parseOpenAzureYaml parses azure.yaml, returning (nil, nil) when the file does
+// not exist so a project without one still reports "service not found" rather
+// than a parse failure. Any other failure is returned to the caller.
+func parseOpenAzureYaml(projectDir string) (*service.AzureYaml, error) {
+	azureYamlPath, findErr := detector.FindAzureYaml(projectDir)
+	if findErr != nil {
+		return nil, fmt.Errorf("failed to locate azure.yaml: %w", findErr)
+	}
+	if azureYamlPath == "" {
+		return nil, nil
+	}
+	azureYaml, parseErr := service.ParseAzureYaml(projectDir)
+	if parseErr != nil {
+		return nil, fmt.Errorf("failed to parse %s: %w", azureYamlPath, parseErr)
+	}
+	return azureYaml, nil
 }
 
 func bestOpenURL(info *serviceinfo.ServiceInfo) string {
@@ -125,31 +157,30 @@ func openURLFromService(svc service.Service) string {
 	if svc.Local != nil && svc.Local.CustomURL != "" {
 		return svc.Local.CustomURL
 	}
-	for _, port := range svc.Ports {
-		if hostPort := hostPortFromMapping(port); hostPort != "" {
-			return "http://localhost:" + hostPort
-		}
+	if hostPort, ok := publishedHostPort(svc); ok {
+		return fmt.Sprintf("http://localhost:%d", hostPort)
 	}
 	return ""
 }
 
-func hostPortFromMapping(mapping string) string {
-	mapping = strings.TrimSpace(mapping)
-	if mapping == "" {
-		return ""
+// publishedHostPort returns the first TCP port a service actually publishes on
+// the host. It defers to the canonical port parser so Docker container-only
+// ports (e.g. "80", whose host port is auto-assigned at runtime), bind IPs,
+// IPv6 binds, protocol suffixes and malformed specs are all handled the same way
+// the rest of the CLI handles them. A mapping without a published host port
+// yields no URL rather than a URL pointing at the container port.
+func publishedHostPort(svc service.Service) (int, bool) {
+	mappings, _ := svc.GetPortMappings()
+	for _, mapping := range mappings {
+		if mapping.HostPort <= 0 {
+			continue
+		}
+		if mapping.Protocol != "" && !strings.EqualFold(mapping.Protocol, "tcp") {
+			continue
+		}
+		return mapping.HostPort, true
 	}
-	parts := strings.Split(mapping, ":")
-	if len(parts) == 1 {
-		return trimPortProtocol(parts[0])
-	}
-	return trimPortProtocol(parts[len(parts)-2])
-}
-
-func trimPortProtocol(value string) string {
-	value = strings.TrimSpace(value)
-	value = strings.TrimSuffix(value, "/tcp")
-	value = strings.TrimSuffix(value, "/udp")
-	return value
+	return 0, false
 }
 
 func joinOpenURLPath(base, extraPath string) (string, error) {
@@ -163,10 +194,14 @@ func joinOpenURLPath(base, extraPath string) (string, error) {
 	if parsed.Scheme == "" || parsed.Host == "" {
 		return "", fmt.Errorf("invalid service URL %q: missing scheme or host", base)
 	}
-	parsed.Path = path.Join(parsed.Path, extraPath)
-	if strings.HasSuffix(extraPath, "/") && !strings.HasSuffix(parsed.Path, "/") {
-		parsed.Path += "/"
+	joined := path.Join(parsed.Path, extraPath)
+	if strings.HasSuffix(extraPath, "/") && !strings.HasSuffix(joined, "/") {
+		joined += "/"
 	}
+	parsed.Path = joined
+	// RawPath is the encoding of the previous Path, so it is stale now. Clear it
+	// to keep Path and RawPath consistent and force String() to re-encode.
+	parsed.RawPath = ""
 	return parsed.String(), nil
 }
 
