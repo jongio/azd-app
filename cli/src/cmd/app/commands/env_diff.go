@@ -84,7 +84,7 @@ func runEnvDiff(azureYaml *service.AzureYaml, names []string, args []string) err
 // resolveServiceEnv resolves the effective environment for a single service,
 // wrapping any failure with the service name for context.
 func resolveServiceEnv(name string, svc service.Service) (map[string]string, error) {
-	resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
+	resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve environment for %q: %w", name, err)
 	}

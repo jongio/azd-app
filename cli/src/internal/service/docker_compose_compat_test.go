@@ -146,7 +146,7 @@ services:
 	ctx := context.Background()
 
 	// Resolve environment for web service
-	resolvedEnv, err := ResolveEnvironment(ctx, web, azureEnv, "", serviceURLs)
+	resolvedEnv, err := ResolveEnvironment(ctx, web, azureEnv, "", serviceURLs, nil)
 	if err != nil {
 		t.Fatalf("Failed to resolve environment: %v", err)
 	}
@@ -171,7 +171,7 @@ services:
 		"NODE_ENV": "development", // Should be overridden by azure.yaml
 	}
 
-	resolvedWithConflict, err := ResolveEnvironment(ctx, web, azureEnvWithConflict, "", serviceURLs)
+	resolvedWithConflict, err := ResolveEnvironment(ctx, web, azureEnvWithConflict, "", serviceURLs, nil)
 	if err != nil {
 		t.Fatalf("Failed to resolve environment with conflict: %v", err)
 	}

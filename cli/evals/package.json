@@ -3,16 +3,16 @@
   "private": true,
   "description": "Vally evaluation suites for azd-app copilot skills",
   "scripts": {
-    "eval": "npx @microsoft/vally-cli eval",
-    "eval:smoke": "npx @microsoft/vally-cli eval --suite smoke",
-    "eval:pr": "npx @microsoft/vally-cli eval --suite pr",
-    "eval:routing": "npx @microsoft/vally-cli eval --suite routing",
-    "eval:integration": "npx @microsoft/vally-cli eval --suite integration",
-    "eval:full": "npx @microsoft/vally-cli eval --suite full",
-    "eval:skill": "npx @microsoft/vally-cli eval --eval-spec",
-    "grade": "npx @microsoft/vally-cli grade --eval-spec"
+    "eval": "vally eval",
+    "eval:smoke": "vally eval --suite smoke",
+    "eval:pr": "vally eval --suite pr",
+    "eval:routing": "vally eval --suite routing",
+    "eval:integration": "vally eval --suite integration",
+    "eval:full": "vally eval --suite full",
+    "eval:skill": "vally eval --eval-spec",
+    "grade": "vally grade --eval-spec"
   },
   "devDependencies": {
-    "@microsoft/vally-cli": "latest"
+    "@microsoft/vally-cli": "^0.11.0"
   }
 }

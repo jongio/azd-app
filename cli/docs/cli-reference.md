@@ -327,6 +327,9 @@ azd app run
 # Run specific services only
 azd app run --service web,api
 
+# Run every service except one
+azd app run --except worker
+
 # Use native Aspire dashboard (for .NET Aspire projects)
 azd app run --runtime aspire
 
@@ -338,6 +341,9 @@ azd app run --verbose
 
 # Load environment variables from custom file
 azd app run --env-file .env.local
+
+# Override a single variable inline (repeatable, wins over --env-file)
+azd app run --env LOG_LEVEL=debug --env FEATURE_X=on
 
 # Combine multiple flags
 azd app run -s web -v --runtime aspire
@@ -351,8 +357,10 @@ azd app run --force
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Run specific service(s) only (comma-separated) |
+| `--except` | | string | | Run every service except the named one(s) (comma-separated); cannot be combined with `--service` |
 | `--runtime` | | string | `azd` | Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run) |
 | `--env-file` | | string | | Load environment variables from .env file |
+| `--env` | | stringArray | | Set an environment variable inline as KEY=VALUE (repeatable, overrides --env-file) |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show what would be run without starting services |
 | `--no-timing` | | bool | `false` | Hide the per-service startup timing summary shown after services are ready |
@@ -910,6 +918,9 @@ azd app logs --since 5m
 # Filter by log level
 azd app logs --level error
 
+# Show every entry at warn severity or higher
+azd app logs --min-level warn
+
 # Show errors with 3 lines of context before and after
 azd app logs --level error --context 3
 
@@ -938,6 +949,7 @@ azd app logs --no-color
 | `--timestamps` | | bool | `true` | Show timestamps with each log entry |
 | `--no-color` | | bool | `false` | Disable colored output |
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
+| `--min-level` | | string | | Show entries at this severity or higher (debug < info < warn < error); cannot be combined with an explicit --level (info/warn/error/debug) or --context |
 | `--context` | | int | `0` | Number of context lines before/after matching entries (0-10, requires --level) |
 | `--format` | | string | `text` | Output format (text, json) |
 | `--file` | | string | | Write logs to file instead of stdout |

@@ -114,6 +114,7 @@ func main() {
 		commands.NewSupportBundleCommand(),
 		commands.NewGraphCommand(),
 		commands.NewPortsCommand(),
+		commands.NewOpenCommand(),
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
 	)
 
