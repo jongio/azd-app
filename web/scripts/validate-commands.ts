@@ -1,42 +1,53 @@
 /**
  * Command Validation Script
  *
- * This script validates that all CLI commands in cli/docs/commands/
- * have corresponding documentation coverage in the website.
+ * Validates that every command the CLI ships reaches the website.
  *
- * Coverage can be in:
- * - web/src/content/commands/*.md (reference docs)
- * - web/src/pages/tour/*.mdx (tutorial coverage)
- * - web/src/pages/reference/commands/ (generated pages)
+ * The chain of custody has two links, and this script owns the second:
+ *
+ *   1. `mage docsGate` compares the live `azd app metadata` command tree
+ *      against cli/docs/cli-reference.md and fails when they disagree.
+ *   2. This script compares cli-reference.md against what the website
+ *      generator can actually read out of it.
+ *
+ * Enumerating from the reference rather than from cli/docs/commands/ is the
+ * point. The old direction asked "does the website cover this file?", so a
+ * command with no file was invisible and a stale page counted as coverage.
+ *
+ * It deliberately reads the reference rather than the generated pages under
+ * web/src/pages/reference/cli/. Those are produced by `generate:cli`, which
+ * runs after this script, so checking them would either pass on stale output
+ * or fail on a clean checkout.
  *
  * Exit codes:
- * - 0: All commands have documentation coverage
- * - 1: One or more commands are missing documentation
+ * - 0: every shipped command reaches the website
+ * - 1: one or more commands would be missing or incomplete
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import {
+  discoverCommands,
+  extractCommandSection,
+  parseCommandFromReference,
+  parseCommandsOverview,
+  parseFlags,
+} from "./cli-parser.js";
 
 // Resolve paths relative to project root (web's parent)
 const webRoot = path.resolve(import.meta.dirname, "..");
 const projectRoot = path.resolve(webRoot, "..");
 
+const CLI_REFERENCE = path.join(projectRoot, "cli", "docs", "cli-reference.md");
 const CLI_COMMANDS_DIR = path.join(projectRoot, "cli", "docs", "commands");
 const CONTENT_COMMANDS_DIR = path.join(webRoot, "src", "content", "commands");
-const TOUR_PAGES_DIR = path.join(webRoot, "src", "pages", "tour");
-const REFERENCE_CLI_DIR = path.join(
-  webRoot,
-  "src",
-  "pages",
-  "reference",
-  "cli"
-);
 const EXCLUDE_FILE = path.join(webRoot, "scripts", ".exclude-commands");
 
-interface ValidationResult {
+interface Problem {
   command: string;
-  covered: boolean;
-  coverageLocation?: string;
+  rule: string;
+  detail: string;
+  fix: string;
 }
 
 /**
@@ -47,9 +58,8 @@ function getExcludedCommands(): Set<string> {
 
   if (fs.existsSync(EXCLUDE_FILE)) {
     const content = fs.readFileSync(EXCLUDE_FILE, "utf-8");
-    const lines = content.split("\n");
 
-    for (const line of lines) {
+    for (const line of content.split("\n")) {
       const trimmed = line.trim();
       // Skip comments and empty lines
       if (trimmed && !trimmed.startsWith("#")) {
@@ -62,136 +72,84 @@ function getExcludedCommands(): Set<string> {
 }
 
 /**
- * Get all command names from CLI docs
+ * Checks one command from the reference all the way to a renderable page.
  */
-function getCliCommands(): string[] {
-  if (!fs.existsSync(CLI_COMMANDS_DIR)) {
-    console.warn(`⚠️  Warning: CLI commands directory not found: ${CLI_COMMANDS_DIR}`);
-    return [];
-  }
+function checkCommand(
+  command: string,
+  reference: string,
+  discovered: Set<string>
+): Problem[] {
+  const problems: Problem[] = [];
 
-  const files = fs.readdirSync(CLI_COMMANDS_DIR);
-  const mdFiles = files.filter((f) => f.endsWith(".md"));
-
-  if (mdFiles.length === 0) {
-    console.warn("⚠️  Warning: No command documentation files found in cli/docs/commands/");
-    return [];
-  }
-
-  return mdFiles.map((f) => path.basename(f, ".md"));
-}
-
-/**
- * Check if a command is covered in content/commands
- */
-function checkContentCommands(command: string): string | null {
-  const mdPath = path.join(CONTENT_COMMANDS_DIR, `${command}.md`);
-  const mdxPath = path.join(CONTENT_COMMANDS_DIR, `${command}.mdx`);
-
-  if (fs.existsSync(mdPath)) {
-    return `content/commands/${command}.md`;
-  }
-  if (fs.existsSync(mdxPath)) {
-    return `content/commands/${command}.mdx`;
-  }
-  return null;
-}
-
-/**
- * Check if a command is covered in tour pages
- * Tour pages may cover commands within their content
- */
-function checkTourPages(command: string): string | null {
-  if (!fs.existsSync(TOUR_PAGES_DIR)) {
-    return null;
-  }
-
-  const files = fs.readdirSync(TOUR_PAGES_DIR);
-
-  for (const file of files) {
-    if (file.endsWith(".mdx") || file.endsWith(".astro")) {
-      const filePath = path.join(TOUR_PAGES_DIR, file);
-      const content = fs.readFileSync(filePath, "utf-8");
-
-      // Check if the tour page covers this command
-      // Look for patterns like "azd app <command>" or command name in title/headings
-      const patterns = [
-        new RegExp(`azd\\s+app\\s+${command}\\b`, "i"),
-        new RegExp(`#.*\\b${command}\\b`, "i"),
-        new RegExp(`title:.*\\b${command}\\b`, "i"),
-        new RegExp(`command:\\s*["']?${command}["']?`, "i"),
-      ];
-
-      for (const pattern of patterns) {
-        if (pattern.test(content)) {
-          return `pages/tour/${file}`;
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Check if a command is covered in reference/cli pages (generated)
- */
-function checkReferenceCli(command: string): string | null {
-  if (!fs.existsSync(REFERENCE_CLI_DIR)) {
-    return null;
-  }
-
-  const files = fs.readdirSync(REFERENCE_CLI_DIR);
-
-  // Check for direct command page
-  const possibleNames = [
-    `${command}.astro`,
-    `${command}.mdx`,
-    `${command}.md`,
-  ];
-
-  for (const name of possibleNames) {
-    if (files.includes(name)) {
-      return `pages/reference/cli/${name}`;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Validate all commands have documentation coverage
- */
-function validateCommands(): ValidationResult[] {
-  const commands = getCliCommands();
-  const excludedCommands = getExcludedCommands();
-  const results: ValidationResult[] = [];
-
-  for (const command of commands) {
-    if (excludedCommands.has(command)) {
-      console.log(`ℹ️  Skipping excluded command: ${command}`);
-      continue;
-    }
-
-    let coverageLocation: string | null = null;
-
-    // Check each coverage location
-    coverageLocation = checkContentCommands(command);
-    if (!coverageLocation) {
-      coverageLocation = checkTourPages(command);
-    }
-    if (!coverageLocation) {
-      coverageLocation = checkReferenceCli(command);
-    }
-
-    results.push({
+  if (!discovered.has(command)) {
+    problems.push({
       command,
-      covered: coverageLocation !== null,
-      coverageLocation: coverageLocation ?? undefined,
+      rule: "not-discovered",
+      detail: "the generator does not see this command, so no page will be built",
+      fix: `add a "## \`azd app ${command}\`" section to cli/docs/cli-reference.md or a cli/docs/commands/${command}.md spec`,
+    });
+    return problems;
+  }
+
+  const parsed = parseCommandFromReference(reference, command, CLI_COMMANDS_DIR);
+  if (!parsed) {
+    problems.push({
+      command,
+      rule: "no-section",
+      detail: "the Commands Overview lists this command but it has no reference section",
+      fix: `add a "## \`azd app ${command}\`" section to cli/docs/cli-reference.md`,
+    });
+    return problems;
+  }
+
+  if (!parsed.description) {
+    problems.push({
+      command,
+      rule: "no-description",
+      detail: "the page would render with an empty summary",
+      fix: `add a one line summary directly under the "## \`azd app ${command}\`" heading`,
     });
   }
 
-  return results;
+  // A section that documents flags must yield flags. When the two disagree the
+  // table has drifted into a shape the parser cannot read, and the flags would
+  // vanish from the website without anything failing.
+  const section = extractCommandSection(reference, command) ?? "";
+  if (/^### Flags\s*$/m.test(section) && parseFlags(section).length === 0) {
+    problems.push({
+      command,
+      rule: "flags-unparsed",
+      detail: "the section has a Flags heading but no row the generator can read",
+      fix: "use | `--flag` | Short | Type | Default | Description | rows so the flags reach the website",
+    });
+  }
+
+  return problems;
+}
+
+/**
+ * Reports hand-authored website pages for commands the CLI no longer ships.
+ */
+function checkOrphans(shipped: Set<string>): Problem[] {
+  if (!fs.existsSync(CONTENT_COMMANDS_DIR)) {
+    return [];
+  }
+
+  const problems: Problem[] = [];
+  for (const file of fs.readdirSync(CONTENT_COMMANDS_DIR)) {
+    if (!file.endsWith(".md") && !file.endsWith(".mdx")) continue;
+
+    const command = path.basename(file, path.extname(file));
+    if (shipped.has(command)) continue;
+
+    problems.push({
+      command,
+      rule: "orphaned",
+      detail: `src/content/commands/${file} documents a command the CLI no longer ships`,
+      fix: "remove the page or restore the command",
+    });
+  }
+  return problems;
 }
 
 /**
@@ -200,46 +158,51 @@ function validateCommands(): ValidationResult[] {
 function main(): void {
   console.log("🔍 Validating CLI command documentation coverage...\n");
 
-  const results = validateCommands();
-
-  if (results.length === 0) {
-    console.log("⚠️  Warning: No commands found to validate");
-    console.log("   This may be expected if cli/docs/commands/ is empty");
-    process.exit(0);
-  }
-
-  const covered = results.filter((r) => r.covered);
-  const missing = results.filter((r) => !r.covered);
-
-  // Report covered commands
-  if (covered.length > 0) {
-    console.log(`✅ Commands with documentation (${covered.length}):`);
-    for (const result of covered) {
-      console.log(`   • ${result.command} → ${result.coverageLocation}`);
-    }
-    console.log();
-  }
-
-  // Report missing commands
-  if (missing.length > 0) {
-    console.log(`❌ Commands missing documentation (${missing.length}):`);
-    for (const result of missing) {
-      console.log(`   Missing documentation for command: ${result.command}`);
-    }
-    console.log();
-    console.log("To fix this, add documentation in one of these locations:");
-    console.log("   • web/src/content/commands/<command>.md");
-    console.log("   • web/src/pages/tour/<step>.mdx (covering the command)");
-    console.log("   • web/src/pages/reference/cli/<command>.astro");
-    console.log();
-    console.log("To exclude a command from validation, add it to:");
-    console.log("   web/scripts/.exclude-commands");
-    console.log();
+  if (!fs.existsSync(CLI_REFERENCE)) {
+    console.error(`❌ CLI reference not found: ${CLI_REFERENCE}`);
     process.exit(1);
   }
 
-  console.log(`✅ All ${results.length} commands have documentation coverage!`);
-  process.exit(0);
+  const reference = fs.readFileSync(CLI_REFERENCE, "utf-8");
+  const excluded = getExcludedCommands();
+  const shipped = parseCommandsOverview(reference).filter((c) => !excluded.has(c));
+
+  if (shipped.length === 0) {
+    console.error("❌ No commands found in the Commands Overview table of cli/docs/cli-reference.md");
+    console.error("   Validating against an empty list would pass while proving nothing.");
+    process.exit(1);
+  }
+
+  const discovered = new Set(discoverCommands(reference, CLI_COMMANDS_DIR));
+
+  const problems: Problem[] = [];
+  for (const command of [...shipped].sort()) {
+    problems.push(...checkCommand(command, reference, discovered));
+  }
+  problems.push(...checkOrphans(new Set(shipped)));
+
+  const brokenCommands = new Set(problems.map((p) => p.command));
+  const healthy = shipped.filter((c) => !brokenCommands.has(c));
+
+  if (healthy.length > 0) {
+    console.log(`✅ Commands reaching the website (${healthy.length}):`);
+    console.log(`   ${healthy.join(", ")}\n`);
+  }
+
+  if (problems.length === 0) {
+    console.log(`✅ All ${shipped.length} shipped commands reach the website.`);
+    process.exit(0);
+  }
+
+  console.log(`❌ Problems found (${problems.length}):\n`);
+  for (const problem of problems) {
+    console.log(`   [${problem.rule}] ${problem.command}`);
+    console.log(`      ${problem.detail}`);
+    console.log(`      fix: ${problem.fix}\n`);
+  }
+  console.log("The Commands Overview table in cli/docs/cli-reference.md is the source of truth.");
+  console.log("To exclude a command from validation, add it to web/scripts/.exclude-commands");
+  process.exit(1);
 }
 
 main();

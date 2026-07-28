@@ -139,12 +139,12 @@ func patchExtensionVersion(version string) (func(), error) {
 	}
 
 	patched := strings.Join(lines, "\n")
-	if err := os.WriteFile(extensionFile, []byte(patched), 0644); err != nil {
+	if err := os.WriteFile(extensionFile, []byte(patched), 0o644); err != nil {
 		return nil, fmt.Errorf("failed to patch extension.yaml: %w", err)
 	}
 
 	restore := func() {
-		_ = os.WriteFile(extensionFile, original, 0644)
+		_ = os.WriteFile(extensionFile, original, 0o644)
 	}
 	return restore, nil
 }
@@ -1864,6 +1864,7 @@ func Preflight() error {
 	dashBuild := newGate()
 	webBuild := newGate()
 	playwrightDone := newGate()
+	lintDone := newGate()
 
 	var g parallelGroup
 
@@ -1912,10 +1913,14 @@ func Preflight() error {
 	g.run(preflightStepAfter([]*gate{dashInstall, webInstall}, "Checking for outdated dependencies", quietCheckDeps))
 
 	// === After dashboard build: Go tests need go:embed dist from dashboard ===
-	g.run(preflightStepAfter([]*gate{dashBuild}, "Running linting (includes vet + staticcheck)", heavy(quietLint)))
+	g.run(preflightStepAfter([]*gate{dashBuild}, "Running linting (includes vet + staticcheck)", heavy(quietLint), lintDone))
 	g.run(preflightStepAfter([]*gate{dashBuild}, "Checking for dead code", heavy(preflightDeadcode)))
-	g.run(preflightStepAfter([]*gate{dashBuild}, "Cross-OS lint (GOOS=linux)", preflightCrossGOOSLint))
+	// golangci-lint holds an exclusive lock on its cache, so a second concurrent
+	// invocation exits with "parallel golangci-lint is running" instead of
+	// linting. Wait for the main lint rather than racing it.
+	g.run(preflightStepAfter([]*gate{lintDone}, "Cross-OS lint (GOOS=linux)", preflightCrossGOOSLint))
 	g.run(preflightStepAfter([]*gate{dashBuild}, "Running tests with coverage", heavy(quietTestCoverage)))
+	g.run(preflightStepAfter([]*gate{dashBuild}, "Running docs gate", quietDocsGate))
 
 	// === After mod tidy + dashboard build: build Go binary ===
 	g.run(preflightStepAfter([]*gate{modTidyDone, dashBuild}, "Building Go binary", heavy(buildGoOnly)))

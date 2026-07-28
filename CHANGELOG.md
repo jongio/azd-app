@@ -31,6 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Trust prompt defaults to Yes** with `-y` shorthand for non-interactive confirmation
 - **azd-app-onboard Copilot skill** with Vally evals and CI integration
+- **Documentation gate** that fails the build when the shipped CLI surface isn't documented ([#582](https://github.com/jongio/azd-app/issues/582))
+  - Reads the command tree from `azd app metadata` and compares it against `cli/docs/cli-reference.md` and `cli/docs/commands/*.md`
+  - Six structural rules cover missing commands, subcommands, flags, overview rows, detail docs, and orphaned docs
+  - Three change rules map source paths to the docs describing them, and honor a `Docs-Not-Needed: <reason>` marker in the PR body
+  - Runs in `mage preflight` and as a `docs-gate` check on every pull request
+- **Reference docs for `clean`, `env`, `graph`, `outdated`, and `support-bundle`**, which previously shipped with no documentation at all
 
 ### Fixed
 - `azd app run --detach` dying immediately on Windows when the launching process owns a kill-on-close Job Object ([#555](https://github.com/jongio/azd-app/issues/555))
@@ -41,6 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dashboard streaming RPC disconnects caused by WriteTimeout
 - Auto-resolve port conflicts with `--force` and in non-interactive mode
 - Security remediation — 29 findings across 7 workstreams
+- Website build breaking on any flag description that contains angle brackets, because generated `.astro` files are parsed as JSX and interpolated values were never escaped
+- Hyphenated commands such as `support-bundle` being silently dropped by the website CLI parser
+- `mage preflight` intermittently failing with `parallel golangci-lint is running`, caused by two lint steps starting concurrently while golangci-lint holds an exclusive cache lock
 
 ### Changed
 - Updated dependencies
