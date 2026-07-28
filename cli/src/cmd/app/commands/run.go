@@ -392,20 +392,6 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 	return runtimes, nil
 }
 
-// loadEnvironmentVariables loads environment variables from --env-file (if
-// specified) and merges any inline --env KEY=VALUE overrides on top. Inline
-// values take precedence over values loaded from the file.
-func loadEnvironmentVariables() (map[string]string, error) {
-	envVars, inlineEnvVars, err := loadRunEnvironmentVariables()
-	if err != nil {
-		return nil, err
-	}
-	for k, v := range inlineEnvVars {
-		envVars[k] = v
-	}
-	return envVars, nil
-}
-
 func loadRunEnvironmentVariables() (map[string]string, map[string]string, error) {
 	envVars := make(map[string]string)
 

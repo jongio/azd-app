@@ -1,10 +1,12 @@
 package commands
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -93,7 +95,7 @@ func TestMergeInlineEnv(t *testing.T) {
 	}
 }
 
-func TestLoadEnvironmentVariables_InlinePrecedence(t *testing.T) {
+func TestLoadRunEnvironmentVariables_InlinePrecedence(t *testing.T) {
 	origFile, origInline := runEnvFile, runEnvInline
 	t.Cleanup(func() {
 		runEnvFile, runEnvInline = origFile, origInline
@@ -106,14 +108,19 @@ func TestLoadEnvironmentVariables_InlinePrecedence(t *testing.T) {
 	runEnvFile = envPath
 	runEnvInline = []string{"A=inline", "C=new"}
 
-	got, err := loadEnvironmentVariables()
+	envVars, inlineEnvVars, err := loadRunEnvironmentVariables()
 	require.NoError(t, err)
-	assert.Equal(t, "inline", got["A"], "inline value should override the file value")
-	assert.Equal(t, "fromfile", got["B"], "file-only value should remain")
-	assert.Equal(t, "new", got["C"], "inline-only value should be added")
+	assert.Equal(t, map[string]string{"A": "fromfile", "B": "fromfile"}, envVars)
+	assert.Equal(t, map[string]string{"A": "inline", "C": "new"}, inlineEnvVars)
+
+	resolved, err := service.ResolveEnvironment(context.Background(), service.Service{}, nil, "", envVars, inlineEnvVars)
+	require.NoError(t, err)
+	assert.Equal(t, "inline", resolved["A"], "inline value should override the file value")
+	assert.Equal(t, "fromfile", resolved["B"], "file-only value should remain")
+	assert.Equal(t, "new", resolved["C"], "inline-only value should be added")
 }
 
-func TestLoadEnvironmentVariables_InlineOnly(t *testing.T) {
+func TestLoadRunEnvironmentVariables_InlineOnly(t *testing.T) {
 	origFile, origInline := runEnvFile, runEnvInline
 	t.Cleanup(func() {
 		runEnvFile, runEnvInline = origFile, origInline
@@ -122,12 +129,13 @@ func TestLoadEnvironmentVariables_InlineOnly(t *testing.T) {
 	runEnvFile = ""
 	runEnvInline = []string{"ONLY=1"}
 
-	got, err := loadEnvironmentVariables()
+	envVars, inlineEnvVars, err := loadRunEnvironmentVariables()
 	require.NoError(t, err)
-	assert.Equal(t, map[string]string{"ONLY": "1"}, got)
+	assert.Empty(t, envVars)
+	assert.Equal(t, map[string]string{"ONLY": "1"}, inlineEnvVars)
 }
 
-func TestLoadEnvironmentVariables_InlineError(t *testing.T) {
+func TestLoadRunEnvironmentVariables_InlineError(t *testing.T) {
 	origFile, origInline := runEnvFile, runEnvInline
 	t.Cleanup(func() {
 		runEnvFile, runEnvInline = origFile, origInline
@@ -136,7 +144,7 @@ func TestLoadEnvironmentVariables_InlineError(t *testing.T) {
 	runEnvFile = ""
 	runEnvInline = []string{"bad"}
 
-	_, err := loadEnvironmentVariables()
+	_, _, err := loadRunEnvironmentVariables()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid --env value")
 }
