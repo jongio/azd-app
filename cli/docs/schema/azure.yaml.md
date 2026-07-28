@@ -12,15 +12,21 @@ This document describes the `azd app` extensions to the standard `azure.yaml` co
 
 `azd app` extends the standard `azd` azure.yaml with local development features:
 - **`ports`**: Explicit port mappings (Docker Compose style)
+- **`volumes`**: Container volume mounts — named volumes and bind mounts (Docker Compose style)
 - **`environment`**: Environment variables (Docker Compose compatible formats)
 - **`entrypoint`**: Custom entry point files for Python/Node services
-- **`command`**: Override auto-detected run commands
+- **`command`**: Override auto-detected run commands (string or array)
+- **`pull_policy`**: Container image pull policy (`missing`, `always`, `never`)
 - **`type`**: Service type (http, tcp, process, container)
 - **`mode`**: Run mode for process services (watch, build, daemon, task)
 - **`healthcheck`**: Docker Compose-compatible health checks for monitoring
 - **`reqs`**: Prerequisite tool validation (top-level, not per-service)
 - **`hooks`**: Lifecycle hooks for prerun/postrun automation (similar to azd's preprovision/postprovision)
 - **`test`**: Test configuration for multi-language testing with coverage aggregation
+
+Container services in the same project are also automatically joined to a shared
+Docker network so they can reach one another by service name (see
+[Container Networking](#container-networking)).
 
 All standard `azd` fields remain fully compatible.
 
@@ -121,11 +127,58 @@ services:
 
 Container services support these properties:
 - **`image`**: Docker image name (triggers container mode)
-- **`ports`**: Port mappings (`["5432"]` or `["5432:5432"]`)
+- **`ports`**: Port mappings (`["5432"]` or `["5432:5432"]`) — **all** listed ports are published
+- **`volumes`**: Named volumes and bind mounts (`["pgdata:/var/lib/postgresql/data", "./init.sql:/init.sql:ro"]`)
 - **`environment`**: Environment variables for the container
+- **`command`**: Override the container's default command (string or array)
+- **`pull_policy`**: When to pull the image (`missing`, `always`, `never`)
 - **`healthcheck`**: Health check configuration
 - **`type`**: Auto-detected as `container` when `image` is set
-- **`command`**: Override the container's default command
+- **`uses`**: Start ordering — a container waits for its dependencies to be healthy first
+
+Container services in a project also share a per-project Docker network so they
+can resolve each other by service name (see [Container Networking](#container-networking)).
+
+## Container Networking
+
+All container services in a project are automatically attached to a shared,
+per-project Docker network. Each container is registered on that network under
+its **service name**, so one container can reach another by that name — exactly
+like Docker Compose.
+
+```yaml
+services:
+  azurite:
+    host: local
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    ports: ["10000:10000", "10001:10001", "10002:10002"]
+
+  eventhubs:
+    host: local
+    image: mcr.microsoft.com/azure-messaging/eventhubs-emulator:latest
+    ports: ["5672:5672"]
+    pull_policy: missing
+    uses: ["azurite"]          # start after azurite is healthy
+    environment:
+      ACCEPT_EULA: "Y"
+      BLOB_SERVER: azurite     # resolves to the azurite container by name
+      METADATA_SERVER: azurite
+    volumes:
+      - ./eventhubs-config.json:/Eventhubs_Emulator/ConfigFiles/Config.json
+```
+
+Notes:
+
+- **DNS by service name.** `BLOB_SERVER: azurite` resolves to the azurite
+  container over the shared network. No `container_name` or host IP is needed.
+- **Startup ordering via `uses`.** Listing `uses: ["azurite"]` makes `eventhubs`
+  start only after `azurite` reports healthy — the equivalent of Docker Compose
+  `depends_on` with `condition: service_healthy`.
+- **Persistent containers.** Container services keep running across `azd app run`
+  sessions (stopped with the app's shutdown but reused on the next run). The
+  project network persists with them and is reused.
+- **Single-container projects** are unaffected — they still publish their ports
+  to the host as before.
 
 ## Root Properties
 
@@ -224,9 +277,12 @@ services:
 ```
 
 #### `command` ⭐ NEW
-**Type:** `string` (optional)
+**Type:** `string` or `array` of `string` (optional)
 
-Full command to run the service. This is the primary way to override auto-detected run commands.
+Full command to run the service. This is the primary way to override auto-detected
+run commands. It may be a **string** (tokenized with shell-style quoting) or an
+**array** of arguments. For container services the tokens are passed to the
+container after the image, overriding its default `CMD`.
 
 ```yaml
 services:
@@ -234,11 +290,24 @@ services:
     language: Python
     project: ./backend
     command: "uvicorn main:app --reload --host 0.0.0.0 --port 8000"
-  
+
   worker:
     project: ./worker
     command: "npm run worker:start"
+
+  # Array form — useful for container services with many flags
+  postgres:
+    image: postgres:16-alpine
+    command: ["postgres", "-c", "max_connections=200", "-c", "log_statement=all"]
 ```
+
+> **Deploy services run locally as processes.** If a service builds/deploys a
+> container image (it has `docker.*`, or `docker.image`) **and** you give it a
+> local `command` (or `type: process`), `azd app run` runs that command as a
+> **process** and treats `docker.*`/`image` as deploy-only. A top-level `image:`
+> (a prebuilt emulator such as `postgres`/`azurite`) always runs as a container,
+> and its `command` is the container's command override. `azd app run` never
+> builds a Dockerfile locally.
 
 #### `type` ⭐ NEW
 **Type:** `string` (optional)
@@ -329,6 +398,47 @@ services:
   postgres:
     image: postgres:15
     ports: ["5432:5432"]
+```
+
+> For container services, **every** port in the list is published (multi-port),
+> not just the first. The first port is used for the service's health check.
+
+#### `volumes` ⭐ NEW
+**Type:** `array` of `string` (optional)
+
+Docker Compose-style volume mounts for **container services**. Supports:
+
+- **Named volumes** — `name:/container/path` (Docker-managed, persist across runs)
+- **Bind mounts** — `./host/path:/container/path[:mode]` (host path is resolved
+  **relative to the project directory**; absolute host paths are also accepted)
+
+Relative bind-mount paths that escape the project directory are rejected.
+
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data          # named volume (persistent)
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro  # bind mount (read-only)
+```
+
+#### `pull_policy` ⭐ NEW
+**Type:** `string` (optional)
+
+Controls when a **container service** image is pulled before it runs:
+
+- `missing` — pull only when the image is not present locally (recommended for
+  pinned emulator images to avoid re-pulling on every run)
+- `always` — always attempt to pull
+- `never` — never pull; fail if the image is absent locally
+- *(unset)* — best-effort pull (default)
+
+```yaml
+services:
+  eventhubs:
+    image: mcr.microsoft.com/azure-messaging/eventhubs-emulator:latest
+    pull_policy: missing
 ```
 
 #### `environment` ⭐ NEW

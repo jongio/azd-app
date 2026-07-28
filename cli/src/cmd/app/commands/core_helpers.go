@@ -130,13 +130,13 @@ func checkAllSuccess(results []InstallResult) bool {
 func checkRequirementsWithCache(reqs []Prerequisite, azureYamlPath string, cacheManager *cache.CacheManager) ([]ReqResult, bool) {
 	// Try cache first if enabled
 	if cacheManager.IsEnabled() {
-		if results, allSatisfied, ok := tryGetCachedResults(azureYamlPath, cacheManager); ok {
+		if results, allSatisfied, ok := tryGetCachedResults(azureYamlPath, cacheManager, execContext.ReqsOnlyMissing); ok {
 			return results, allSatisfied
 		}
 	}
 
 	// Perform fresh check (output is shown inline during checks)
-	results, allSatisfied := performReqsCheck(reqs)
+	results, allSatisfied := performReqsCheckWithOptions(reqs, execContext.ReqsOnlyMissing)
 
 	// Save to cache if enabled
 	if cacheManager.IsEnabled() {
@@ -147,7 +147,7 @@ func checkRequirementsWithCache(reqs []Prerequisite, azureYamlPath string, cache
 }
 
 // tryGetCachedResults attempts to retrieve and use cached results.
-func tryGetCachedResults(azureYamlPath string, cacheManager *cache.CacheManager) ([]ReqResult, bool, bool) {
+func tryGetCachedResults(azureYamlPath string, cacheManager *cache.CacheManager, suppressOutput bool) ([]ReqResult, bool, bool) {
 	cachedResults, valid, err := cacheManager.GetCachedResults(azureYamlPath)
 	if err != nil {
 		// Log cache read errors in both JSON and non-JSON modes for visibility
@@ -162,7 +162,7 @@ func tryGetCachedResults(azureYamlPath string, cacheManager *cache.CacheManager)
 	}
 
 	// Cache hit
-	if !cliout.IsJSON() {
+	if !suppressOutput && !cliout.IsJSON() {
 		cliout.Info("Using cached reqs check results...")
 	}
 
@@ -170,7 +170,7 @@ func tryGetCachedResults(azureYamlPath string, cacheManager *cache.CacheManager)
 	results := convertCachedResults(cachedResults.Results)
 
 	// Print cached results
-	if !cliout.IsJSON() {
+	if !suppressOutput && !cliout.IsJSON() {
 		formatter := NewResultFormatter()
 		formatter.PrintAll(results)
 	}
@@ -219,7 +219,12 @@ func saveToCache(azureYamlPath string, results []ReqResult, allSatisfied bool, c
 
 // performReqsCheck performs fresh reqs checking.
 func performReqsCheck(reqs []Prerequisite) ([]ReqResult, bool) {
+	return performReqsCheckWithOptions(reqs, false)
+}
+
+func performReqsCheckWithOptions(reqs []Prerequisite, suppressOutput bool) ([]ReqResult, bool) {
 	checker := NewPrerequisiteChecker()
+	checker.suppressOutput = suppressOutput
 	results := make([]ReqResult, 0, len(reqs))
 	allSatisfied := true
 
@@ -232,6 +237,16 @@ func performReqsCheck(reqs []Prerequisite) ([]ReqResult, bool) {
 	}
 
 	return results, allSatisfied
+}
+
+func filterUnsatisfiedReqResults(results []ReqResult) []ReqResult {
+	filtered := make([]ReqResult, 0)
+	for _, result := range results {
+		if !result.Satisfied {
+			filtered = append(filtered, result)
+		}
+	}
+	return filtered
 }
 
 // ResultFormatter handles formatting of requirement check results.

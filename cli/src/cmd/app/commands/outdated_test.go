@@ -36,7 +36,7 @@ func TestNewOutdatedCommand(t *testing.T) {
 	if cmd.Use != "outdated" {
 		t.Fatalf("Use = %q, want outdated", cmd.Use)
 	}
-	for _, name := range []string{"service", "format", "exit-code"} {
+	for _, name := range []string{"service", "manager", "format", "exit-code", "ignore"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Errorf("flag %q not found", name)
 		}
@@ -338,6 +338,47 @@ func TestResolveOutdatedTargets(t *testing.T) {
 	}
 }
 
+func TestNormalizeOutdatedManagerFilter(t *testing.T) {
+	filter, err := normalizeOutdatedManagerFilter([]string{"npm,pip", " Go "})
+	if err != nil {
+		t.Fatalf("normalizeOutdatedManagerFilter: %v", err)
+	}
+	for _, want := range []string{managerNpm, managerPip, managerGo} {
+		if !filter[want] {
+			t.Fatalf("manager %q missing from filter %#v", want, filter)
+		}
+	}
+	if filter[managerYarn] {
+		t.Fatalf("unexpected yarn in filter %#v", filter)
+	}
+
+	if _, err := normalizeOutdatedManagerFilter([]string{"brew"}); err == nil || !strings.Contains(err.Error(), "invalid --manager") {
+		t.Fatalf("expected invalid manager error, got %v", err)
+	}
+	if _, err := normalizeOutdatedManagerFilter([]string{","}); err == nil || !strings.Contains(err.Error(), "requires at least one") {
+		t.Fatalf("expected empty manager error, got %v", err)
+	}
+}
+
+func TestFilterOutdatedTargetsByManager(t *testing.T) {
+	targets := []outdatedTarget{
+		{Service: "web", Manager: managerNpm},
+		{Service: "api", Manager: managerPip},
+		{Service: "worker", Manager: managerGo},
+		{Service: "legacy", Manager: ""},
+	}
+	filtered := filterOutdatedTargetsByManager(targets, map[string]bool{managerNpm: true, managerGo: true})
+	if len(filtered) != 2 {
+		t.Fatalf("got %d filtered targets, want 2: %+v", len(filtered), filtered)
+	}
+	if filtered[0].Service != "web" || filtered[1].Service != "worker" {
+		t.Fatalf("unexpected filtered targets: %+v", filtered)
+	}
+	if got := filterOutdatedTargetsByManager(targets, nil); len(got) != len(targets) {
+		t.Fatalf("nil filter returned %d targets, want %d", len(got), len(targets))
+	}
+}
+
 func TestRunOutdatedAggregation(t *testing.T) {
 	root := setupOutdatedProject(t)
 	t.Chdir(root)
@@ -366,6 +407,82 @@ func TestRunOutdatedAggregation(t *testing.T) {
 	if err == nil {
 		t.Error("expected non-zero exit with --exit-code and outdated deps")
 	}
+}
+
+func TestRunOutdatedIgnore(t *testing.T) {
+	root := setupOutdatedProject(t)
+	t.Chdir(root)
+	forceTextFormat(t)
+
+	origLook, origRun := outdatedLookPath, outdatedRunner
+	t.Cleanup(func() { outdatedLookPath, outdatedRunner = origLook, origRun })
+
+	outdatedLookPath = func(string) (string, error) { return "npm", nil }
+	outdatedRunner = func(dir, bin string, args []string) ([]byte, error) {
+		return []byte(`{"chalk":{"current":"4.0.0","wanted":"5.0.0","latest":"5.3.0"},` +
+			`"react":{"current":"17.0.0","wanted":"18.0.0","latest":"18.2.0"}}`), nil
+	}
+
+	// Ignoring chalk drops it from the report but keeps react.
+	var buf bytes.Buffer
+	if err := runOutdated(&outdatedOptions{writer: &buf, ignore: []string{"chalk"}}); err != nil {
+		t.Fatalf("runOutdated: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "chalk") {
+		t.Errorf("ignored package chalk should not appear:\n%s", out)
+	}
+	if !strings.Contains(out, "react") {
+		t.Errorf("expected react in output:\n%s", out)
+	}
+
+	// Ignoring every outdated package clears the --exit-code gate. Case and
+	// surrounding whitespace should not matter.
+	err := runOutdated(&outdatedOptions{
+		writer:   &bytes.Buffer{},
+		exitCode: true,
+		ignore:   []string{"Chalk", " react "},
+	})
+	if err != nil {
+		t.Errorf("expected clean exit when all outdated deps are ignored, got %v", err)
+	}
+}
+
+func TestNewIgnoreSet(t *testing.T) {
+	got := newIgnoreSet([]string{"React", " typescript ", "", "  "})
+	if len(got) != 2 {
+		t.Fatalf("got %d entries, want 2: %v", len(got), got)
+	}
+	for _, want := range []string{"react", "typescript"} {
+		if _, ok := got[want]; !ok {
+			t.Errorf("missing normalized entry %q", want)
+		}
+	}
+	if newIgnoreSet(nil) != nil {
+		t.Error("empty input should return a nil set")
+	}
+}
+
+func TestFilterIgnoredPackages(t *testing.T) {
+	pkgs := []outdatedPackage{
+		{Name: "chalk"},
+		{Name: "react"},
+		{Name: "typescript"},
+	}
+
+	t.Run("removes matching names case-insensitively", func(t *testing.T) {
+		kept := filterIgnoredPackages(pkgs, newIgnoreSet([]string{"CHALK", "typescript"}))
+		if len(kept) != 1 || kept[0].Name != "react" {
+			t.Fatalf("unexpected result: %+v", kept)
+		}
+	})
+
+	t.Run("nil ignore set returns input unchanged", func(t *testing.T) {
+		kept := filterIgnoredPackages(pkgs, nil)
+		if len(kept) != len(pkgs) {
+			t.Fatalf("got %d packages, want %d", len(kept), len(pkgs))
+		}
+	})
 }
 
 func TestRunOutdatedSkipsMissingTool(t *testing.T) {

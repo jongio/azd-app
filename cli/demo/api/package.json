@@ -19,12 +19,19 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "coverageReporters": ["text", "cobertura", "html"],
+    "coverageReporters": [
+      "text",
+      "cobertura",
+      "html"
+    ],
     "coverageDirectory": "coverage",
     "collectCoverageFrom": [
       "**/*.js",
       "!**/node_modules/**",
       "!**/coverage/**"
     ]
+  },
+  "overrides": {
+    "brace-expansion": "^5.0.8"
   }
 }
