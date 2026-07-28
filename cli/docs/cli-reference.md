@@ -1084,7 +1084,7 @@ azd app hooks --output json
 | Hook | When it runs |
 |------|--------------|
 | `prerun` | before services start |
-| `postrun` | after services stop following a run |
+| `postrun` | after all services are ready |
 | `prestop` | before services are stopped |
 | `poststop` | after services are stopped |
 

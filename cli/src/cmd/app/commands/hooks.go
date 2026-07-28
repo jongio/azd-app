@@ -22,7 +22,7 @@ command it runs, the shell it uses, and any per-platform override for Windows
 or POSIX. Hooks run around the development lifecycle:
 
   prerun    before services start
-  postrun   after services stop following a run
+  postrun   after all services are ready
   prestop   before services are stopped
   poststop  after services are stopped
 
@@ -30,7 +30,7 @@ Examples:
   # List configured hooks
   azd app hooks
 
-  # JSON object keyed by hook name
+  # JSON array of hooks
   azd app hooks --output json`,
 		SilenceUsage: true,
 		Args:         cobra.NoArgs,
@@ -177,6 +177,12 @@ func overrideSummary(o *hookOverride) string {
 	summary := shellOrNote(o.Run)
 	if o.Shell != "" {
 		summary += fmt.Sprintf(" (shell: %s)", o.Shell)
+	}
+	if o.ContinueOnError != nil {
+		summary += fmt.Sprintf(" (continueOnError: %t)", *o.ContinueOnError)
+	}
+	if o.Interactive != nil {
+		summary += fmt.Sprintf(" (interactive: %t)", *o.Interactive)
 	}
 	return summary
 }

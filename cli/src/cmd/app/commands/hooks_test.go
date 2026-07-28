@@ -135,4 +135,27 @@ func TestOverrideSummary(t *testing.T) {
 	if got != "setup.ps1" {
 		t.Errorf("unexpected summary without shell: %q", got)
 	}
+	got = overrideSummary(&hookOverride{
+		Run:             "setup.ps1",
+		ContinueOnError: boolPtr(true),
+		Interactive:     boolPtr(true),
+	})
+	if got != "setup.ps1 (continueOnError: true) (interactive: true)" {
+		t.Errorf("unexpected summary with true flags: %q", got)
+	}
+	got = overrideSummary(&hookOverride{
+		Run:             "setup.ps1",
+		ContinueOnError: boolPtr(false),
+		Interactive:     boolPtr(false),
+	})
+	if got != "setup.ps1 (continueOnError: false) (interactive: false)" {
+		t.Errorf("unexpected summary with false flags: %q", got)
+	}
+	got = overrideSummary(&hookOverride{
+		Run:         "setup.ps1",
+		Interactive: boolPtr(false),
+	})
+	if got != "setup.ps1 (interactive: false)" {
+		t.Errorf("unexpected summary with unset continueOnError: %q", got)
+	}
 }

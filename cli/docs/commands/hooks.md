@@ -17,7 +17,7 @@ Hooks run around the development lifecycle:
 | Hook | When it runs |
 |------|--------------|
 | `prerun` | before services start |
-| `postrun` | after services stop following a run |
+| `postrun` | after all services are ready |
 | `prestop` | before services are stopped |
 | `poststop` | after services are stopped |
 
@@ -54,7 +54,7 @@ A hook that defines a Windows or POSIX override shows it on its own line:
 prerun
   run: ./setup.sh
   shell: (default)
-  windows: setup.ps1 (shell: pwsh)
+  windows: setup.ps1 (shell: pwsh) (continueOnError: false) (interactive: true)
 ```
 
 ### Get JSON output
