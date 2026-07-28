@@ -1,7 +1,15 @@
 package portmanager
 
 import (
+	"bufio"
+	"errors"
+	"os"
+	"runtime"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPortConflictAction_Constants(t *testing.T) {
@@ -248,4 +256,153 @@ func TestConstants(t *testing.T) {
 	if StalePortCleanupAge <= 0 {
 		t.Errorf("StalePortCleanupAge = %v, should be positive", StalePortCleanupAge)
 	}
+}
+
+// errReadFailure is an arbitrary non-EOF read failure used to prove that
+// partial data from a broken stream is never treated as an answer.
+var errReadFailure = errors.New("read failure")
+
+// truncatedReader returns data followed by a non-EOF error, mimicking a stream
+// that breaks midway through a line.
+type truncatedReader struct {
+	data []byte
+	pos  int
+}
+
+func (r *truncatedReader) Read(p []byte) (int, error) {
+	if r.pos >= len(r.data) {
+		return 0, errReadFailure
+	}
+	n := copy(p, r.data[r.pos:])
+	r.pos += n
+	return n, nil
+}
+
+func TestReadPromptLine(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr error
+	}{
+		{name: "answer with newline", input: "2\n", want: "2"},
+		{name: "answer with carriage return", input: "3\r\n", want: "3"},
+		{name: "surrounding whitespace trimmed", input: "  1  \n", want: "1"},
+		{name: "answer without trailing newline is honoured", input: "4", want: "4"},
+		{name: "empty stream reports no input", input: "", wantErr: errNoInput},
+		{name: "whitespace only stream reports no input", input: "   ", wantErr: errNoInput},
+		{name: "blank line is a valid empty answer", input: "\n", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := readPromptLine(bufio.NewReader(strings.NewReader(tt.input)))
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("readPromptLine() error = %v, want %v", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("readPromptLine() unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("readPromptLine() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// A truncated read from a broken stream is not consent to pick a destructive
+// menu entry, so the partial data must be discarded and the error surfaced.
+func TestReadPromptLineDiscardsPartialDataOnNonEOFError(t *testing.T) {
+	got, err := readPromptLine(bufio.NewReader(&truncatedReader{data: []byte("2")}))
+
+	if !errors.Is(err, errReadFailure) {
+		t.Fatalf("readPromptLine() error = %v, want %v", err, errReadFailure)
+	}
+	if errors.Is(err, errNoInput) {
+		t.Error("readPromptLine() reported errNoInput, which would trigger the non-interactive fallback")
+	}
+	if got != "" {
+		t.Errorf("readPromptLine() = %q, want empty so no menu choice is inferred", got)
+	}
+}
+
+func TestParsePortConflictChoice(t *testing.T) {
+	tests := []struct {
+		name     string
+		response string
+		want     PortConflictAction
+	}{
+		{name: "always kill", response: "1", want: ActionAlwaysKill},
+		{name: "kill", response: "2", want: ActionKill},
+		{name: "reassign", response: "3", want: ActionReassign},
+		{name: "cancel", response: "4", want: ActionCancel},
+		{name: "empty cancels", response: "", want: ActionCancel},
+		{name: "unrecognised cancels", response: "9", want: ActionCancel},
+		{name: "word cancels", response: "kill", want: ActionCancel},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parsePortConflictChoice(tt.response); got != tt.want {
+				t.Errorf("parsePortConflictChoice(%q) = %d, want %d", tt.response, got, tt.want)
+			}
+		})
+	}
+}
+
+// nullDevicePath returns the platform's null device, which is a character
+// device that yields EOF immediately.
+func nullDevicePath() string {
+	if runtime.GOOS == "windows" {
+		return "NUL"
+	}
+	return "/dev/null"
+}
+
+// useStdin swaps os.Stdin for the duration of a test.
+func useStdin(t *testing.T, f *os.File) {
+	t.Helper()
+	original := os.Stdin
+	os.Stdin = f
+	t.Cleanup(func() { os.Stdin = original })
+}
+
+// Regression test for #556. The azd host hands down a console-like stdin that
+// nothing ever writes to, so the prompt looks interactive but reads EOF. That
+// used to abort the whole run with "failed to read user input: EOF". It must now
+// degrade to the documented non-interactive behaviour instead.
+func TestHandlePortConflict_InteractiveStdinYieldingEOF_DoesNotError(t *testing.T) {
+	nullDev, err := os.Open(nullDevicePath())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = nullDev.Close() })
+	useStdin(t, nullDev)
+
+	// The scenario only matters when stdin looks interactive; otherwise the
+	// earlier non-interactive guard would handle it and prove nothing.
+	require.True(t, isStdinInteractive(), "null device should report as a character device")
+
+	pm := &PortManager{}
+	action, err := handlePortConflict(pm, 3000, "api", " by node (PID 1)", true)
+
+	require.NoError(t, err, "EOF at the prompt must not fail the run")
+	assert.Equal(t, ActionKill, action)
+}
+
+// The non-interactive guard still short-circuits before the prompt is drawn.
+func TestHandlePortConflict_NonInteractiveStdin_AutoKills(t *testing.T) {
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = r.Close() })
+	require.NoError(t, w.Close())
+	useStdin(t, r)
+
+	require.False(t, isStdinInteractive(), "a pipe must not look interactive")
+
+	action, err := handlePortConflict(&PortManager{}, 3000, "api", "", false)
+
+	require.NoError(t, err)
+	assert.Equal(t, ActionKill, action)
 }

@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -336,6 +338,41 @@ func TestRunInfoWithServices(t *testing.T) {
 	err = cmd.Execute()
 	if err != nil {
 		t.Errorf("runInfo() failed with services: %v", err)
+	}
+}
+
+func TestPrintInfoNames(t *testing.T) {
+	services := []*serviceinfo.ServiceInfo{
+		{Name: "api"},
+		{Name: "web"},
+	}
+
+	var buf bytes.Buffer
+	if err := printInfoNames(&buf, services); err != nil {
+		t.Fatalf("printInfoNames failed: %v", err)
+	}
+
+	if got, want := buf.String(), "api\nweb\n"; got != want {
+		t.Fatalf("printInfoNames output = %q, want %q", got, want)
+	}
+}
+
+func TestInfoNamesRejectsWatch(t *testing.T) {
+	infoNames = false
+	infoWatch = false
+	t.Cleanup(func() {
+		infoNames = false
+		infoWatch = false
+	})
+
+	cmd := NewInfoCommand()
+	cmd.SetArgs([]string{"--names", "--watch"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("Expected --names with --watch to fail")
+	}
+	if !strings.Contains(err.Error(), "--names cannot be used with --watch") {
+		t.Fatalf("Unexpected error: %v", err)
 	}
 }
 

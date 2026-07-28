@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -18,9 +19,43 @@ func TestNewSupportBundleCommand(t *testing.T) {
 	if cmd.Use != "support-bundle" {
 		t.Fatalf("Use = %q, want support-bundle", cmd.Use)
 	}
-	for _, name := range []string{"output", "tail", "service", "dry-run"} {
+	for _, name := range []string{"output", "tail", "service", "dry-run", "zip"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("%s flag not found", name)
+		}
+	}
+}
+
+func TestRunSupportBundleDryRunZipText(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), []byte("name: bundle-test\nservices: {}\n"), 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+	t.Chdir(dir)
+	outZip := filepath.Join(dir, "bundle.zip")
+	outDir := filepath.Join(dir, "bundle")
+
+	if err := cliout.SetFormat("default"); err != nil {
+		t.Fatalf("set output format: %v", err)
+	}
+	out, err := captureStdout(t, func() error {
+		return runSupportBundle(t.Context(), &supportBundleOptions{
+			output: outZip,
+			tail:   0,
+			dryRun: true,
+			zip:    true,
+		})
+	})
+	if err != nil {
+		t.Fatalf("dry-run failed: %v", err)
+	}
+
+	if _, statErr := os.Stat(outZip); !os.IsNotExist(statErr) {
+		t.Fatalf("dry-run wrote archive, stat error: %v", statErr)
+	}
+	for _, want := range []string{outDir, "Archive: " + outZip} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("dry-run zip output missing %q:\n%s", want, out)
 		}
 	}
 }
@@ -107,6 +142,45 @@ func TestRunSupportBundleDryRunJSON(t *testing.T) {
 	}
 	if _, statErr := os.Stat(outDir); !os.IsNotExist(statErr) {
 		t.Fatalf("dry-run wrote output folder, stat error: %v", statErr)
+	}
+}
+
+func TestRunSupportBundleDryRunZipJSON(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), []byte("name: bundle-test\nservices: {}\n"), 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+	t.Chdir(dir)
+	outZip := filepath.Join(dir, "bundle.zip")
+	outDir := filepath.Join(dir, "bundle")
+
+	originalFormat := cliout.GetFormat()
+	if err := cliout.SetFormat("json"); err != nil {
+		t.Fatalf("set output format: %v", err)
+	}
+	t.Cleanup(func() { _ = cliout.SetFormat(string(originalFormat)) })
+
+	out, err := captureStdout(t, func() error {
+		return runSupportBundle(t.Context(), &supportBundleOptions{
+			output: outZip,
+			tail:   5,
+			dryRun: true,
+			zip:    true,
+		})
+	})
+	if err != nil {
+		t.Fatalf("dry-run failed: %v", err)
+	}
+
+	var plan supportBundlePlan
+	if err := json.Unmarshal([]byte(out), &plan); err != nil {
+		t.Fatalf("dry-run JSON is invalid: %v\n%s", err, out)
+	}
+	if plan.OutputDir != outDir {
+		t.Fatalf("outputDir = %q, want %q", plan.OutputDir, outDir)
+	}
+	if plan.ArchivePath != outZip {
+		t.Fatalf("archivePath = %q, want %q", plan.ArchivePath, outZip)
 	}
 }
 
@@ -229,5 +303,45 @@ services:
 	}
 	if len(reqs.Reqs) != 1 || reqs.Reqs[0].Name != "azd-app-missing-tool" {
 		t.Fatalf("unexpected requirement results: %#v", reqs.Reqs)
+	}
+}
+
+func TestRunSupportBundleCreatesZip(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), []byte(`
+name: bundle-test
+services:
+  api:
+    host: local
+    language: go
+    environment:
+      API_TOKEN: secretvalue123
+`), 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+	t.Chdir(dir)
+
+	outZip := filepath.Join(dir, "bundle.zip")
+	if err := runSupportBundle(t.Context(), &supportBundleOptions{output: outZip, tail: 0, zip: true}); err != nil {
+		t.Fatalf("runSupportBundle --zip failed: %v", err)
+	}
+
+	if _, err := os.Stat(outZip); err != nil {
+		t.Fatalf("zip archive was not created: %v", err)
+	}
+	reader, err := zip.OpenReader(outZip)
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	defer func() { _ = reader.Close() }()
+
+	entries := make(map[string]bool, len(reader.File))
+	for _, f := range reader.File {
+		entries[f.Name] = true
+	}
+	for _, want := range []string{"manifest.json", "azure.yaml.redacted", "services.json", "requirements.json", "health.json", "logs.json"} {
+		if !entries[want] {
+			t.Fatalf("zip missing %s; entries=%v", want, entries)
+		}
 	}
 }
