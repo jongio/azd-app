@@ -6,9 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
+	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/spf13/cobra"
@@ -26,6 +26,18 @@ type doctorCheck struct {
 	Message  string `json:"message"`
 	Hint     string `json:"hint,omitempty"`
 	Service  string `json:"service,omitempty"`
+	// Tool names the executable a "tool.available" check probed, so JSON
+	// consumers do not have to parse Message to learn which tool failed.
+	Tool string `json:"tool,omitempty"`
+}
+
+// doctorToolRequirement describes a required executable. Candidates holds the
+// acceptable executable names — the requirement is satisfied when any one of
+// them resolves on PATH. An empty Candidates means the requirement name is the
+// only accepted executable.
+type doctorToolRequirement struct {
+	Candidates []string
+	Hint       string
 }
 
 // NewDoctorCommand creates the doctor command.
@@ -90,30 +102,34 @@ func doctorServicePathChecks(projectDir string, cfg *service.AzureYaml) []doctor
 	names := sortedDoctorServiceNames(cfg)
 	for _, name := range names {
 		svc := cfg.Services[name]
-		if strings.TrimSpace(svc.Project) == "" {
+		declared := strings.TrimSpace(svc.Project)
+		if declared == "" {
 			checks = append(checks, doctorCheck{CheckID: "service.project", Severity: doctorWarn, Service: name, Message: "service has no project path", Hint: "Set project when the service lives outside the project root."})
 			continue
 		}
-		projectPath := svc.Project
+		projectPath := declared
 		if !filepath.IsAbs(projectPath) {
 			projectPath = filepath.Join(projectDir, projectPath)
 		}
 		if info, err := os.Stat(projectPath); err != nil {
-			checks = append(checks, doctorCheck{CheckID: "service.project", Severity: doctorFail, Service: name, Message: fmt.Sprintf("project path %q does not exist", svc.Project), Hint: "Create the folder or update azure.yaml."})
+			checks = append(checks, doctorCheck{CheckID: "service.project", Severity: doctorFail, Service: name, Message: fmt.Sprintf("project path %q does not exist", declared), Hint: "Create the folder or update azure.yaml."})
 		} else if !info.IsDir() {
-			checks = append(checks, doctorCheck{CheckID: "service.project", Severity: doctorFail, Service: name, Message: fmt.Sprintf("project path %q is not a directory", svc.Project), Hint: "Point project to a directory."})
+			checks = append(checks, doctorCheck{CheckID: "service.project", Severity: doctorFail, Service: name, Message: fmt.Sprintf("project path %q is not a directory", declared), Hint: "Point project to a directory."})
 		} else {
-			checks = append(checks, doctorCheck{CheckID: "service.project", Severity: doctorPass, Service: name, Message: fmt.Sprintf("project path exists: %s", svc.Project)})
+			checks = append(checks, doctorCheck{CheckID: "service.project", Severity: doctorPass, Service: name, Message: fmt.Sprintf("project path exists: %s", declared)})
 		}
 	}
 	return checks
 }
 
 func doctorToolChecks(projectDir string, cfg *service.AzureYaml) []doctorCheck {
-	required := map[string]string{"azd": "Install Azure Developer CLI.", "git": "Install Git."}
+	required := map[string]doctorToolRequirement{
+		"azd": {Hint: "Install Azure Developer CLI."},
+		"git": {Hint: "Install Git."},
+	}
 	for _, svc := range cfg.Services {
 		lang := strings.ToLower(svc.Language)
-		svcDir := svc.Project
+		svcDir := strings.TrimSpace(svc.Project)
 		if svcDir == "" {
 			svcDir = projectDir
 		}
@@ -122,20 +138,22 @@ func doctorToolChecks(projectDir string, cfg *service.AzureYaml) []doctorCheck {
 		}
 		switch lang {
 		case "node", "javascript", "typescript":
-			required[doctorDetectNodePackageManager(svcDir)] = "Install the package manager used by this service."
+			required[doctorDetectNodePackageManager(svcDir)] = doctorToolRequirement{Hint: "Install the package manager used by this service."}
 		case "python":
-			required[doctorDetectPythonTool(svcDir)] = "Install the Python tool used by this service."
+			if name, req, ok := doctorPythonRequirement(svcDir); ok {
+				required[name] = req
+			}
 		case "dotnet", ".net", "csharp":
-			required["dotnet"] = "Install the .NET SDK."
+			required["dotnet"] = doctorToolRequirement{Hint: "Install the .NET SDK."}
 		case "java":
-			required[doctorDetectJavaTool(svcDir)] = "Install the Java build tool used by this service."
+			required[doctorDetectJavaTool(svcDir)] = doctorToolRequirement{Hint: "Install the Java build tool used by this service."}
 		case "go":
-			required["go"] = "Install Go."
+			required["go"] = doctorToolRequirement{Hint: "Install Go."}
 		case "rust":
-			required["cargo"] = "Install Rust and Cargo."
+			required["cargo"] = doctorToolRequirement{Hint: "Install Rust and Cargo."}
 		}
-		if svc.Image != "" || len(svc.Ports) > 0 || strings.EqualFold(svc.Host, "container") {
-			required["docker"] = "Install Docker or a compatible container runtime."
+		if doctorNeedsDocker(svc) {
+			required["docker"] = doctorToolRequirement{Hint: "Install Docker or a compatible container runtime."}
 		}
 	}
 	tools := make([]string, 0, len(required))
@@ -147,31 +165,69 @@ func doctorToolChecks(projectDir string, cfg *service.AzureYaml) []doctorCheck {
 	sort.Strings(tools)
 	checks := make([]doctorCheck, 0, len(tools))
 	for _, tool := range tools {
-		if _, err := exec.LookPath(tool); err != nil {
-			checks = append(checks, doctorCheck{CheckID: "tool.available", Severity: doctorFail, Message: fmt.Sprintf("%s was not found on PATH", tool), Hint: required[tool]})
-		} else {
-			checks = append(checks, doctorCheck{CheckID: "tool.available", Severity: doctorPass, Message: fmt.Sprintf("%s is available", tool)})
+		req := required[tool]
+		candidates := req.Candidates
+		if len(candidates) == 0 {
+			candidates = []string{tool}
 		}
+		found := ""
+		for _, candidate := range candidates {
+			if _, err := exec.LookPath(candidate); err == nil {
+				found = candidate
+				break
+			}
+		}
+		if found == "" {
+			checks = append(checks, doctorCheck{CheckID: "tool.available", Severity: doctorFail, Tool: tool, Message: fmt.Sprintf("%s was not found on PATH", strings.Join(candidates, " or ")), Hint: req.Hint})
+			continue
+		}
+		checks = append(checks, doctorCheck{CheckID: "tool.available", Severity: doctorPass, Tool: tool, Message: fmt.Sprintf("%s is available", found)})
 	}
 	return checks
 }
 
+// doctorNeedsDocker reports whether `azd app run` actually starts the service as
+// a container, mirroring service.DetectServiceRuntime. Declaring host ports is a
+// first-class feature for non-container services (see service.ParsePortSpec and
+// service.DetectPort priority 1), so `ports:` alone must not require Docker.
+func doctorNeedsDocker(svc service.Service) bool {
+	if svc.RunsAsLocalProcess() {
+		return false
+	}
+	return svc.IsContainerService() || strings.EqualFold(svc.Host, "container")
+}
+
 func doctorPortChecks(cfg *service.AzureYaml) []doctorCheck {
-	seen := map[int]string{}
+	seen := map[string]string{}
 	var checks []doctorCheck
 	for _, name := range sortedDoctorServiceNames(cfg) {
-		for _, mapping := range cfg.Services[name].Ports {
-			port, err := doctorHostPort(mapping)
+		svc := cfg.Services[name]
+		isDocker := doctorNeedsDocker(svc)
+		for _, mapping := range svc.Ports {
+			parsed, err := service.ParsePortSpec(mapping, isDocker)
 			if err != nil {
-				checks = append(checks, doctorCheck{CheckID: "port.valid", Severity: doctorFail, Service: name, Message: err.Error(), Hint: "Use a host port between 1 and 65535."})
+				checks = append(checks, doctorCheck{CheckID: "port.valid", Severity: doctorFail, Service: name, Message: fmt.Sprintf("invalid port %q", mapping), Hint: "Use a host port between 1 and 65535."})
 				continue
 			}
-			if other, ok := seen[port]; ok {
-				checks = append(checks, doctorCheck{CheckID: "port.unique", Severity: doctorFail, Service: name, Message: fmt.Sprintf("host port %d is also declared by service %q", port, other), Hint: "Use a unique host port."})
-			} else {
-				seen[port] = name
-				checks = append(checks, doctorCheck{CheckID: "port.valid", Severity: doctorPass, Service: name, Message: fmt.Sprintf("host port %d is declared", port)})
+			// A container service that declares only a container port gets its
+			// host port auto-assigned at run time, so it can never collide.
+			if isDocker && parsed.HostPort == 0 {
+				checks = append(checks, doctorCheck{CheckID: "port.valid", Severity: doctorPass, Service: name, Message: fmt.Sprintf("container port %d is declared (host port auto-assigned)", parsed.ContainerPort)})
+				continue
 			}
+			if parsed.HostPort < 1 || parsed.HostPort > 65535 {
+				checks = append(checks, doctorCheck{CheckID: "port.valid", Severity: doctorFail, Service: name, Message: fmt.Sprintf("invalid host port %q", mapping), Hint: "Use a host port between 1 and 65535."})
+				continue
+			}
+			// Only the same host port on the same protocol actually conflicts,
+			// so 3000/tcp and 3000/udp coexist.
+			key := fmt.Sprintf("%d/%s", parsed.HostPort, parsed.Protocol)
+			if other, ok := seen[key]; ok {
+				checks = append(checks, doctorCheck{CheckID: "port.unique", Severity: doctorFail, Service: name, Message: fmt.Sprintf("host port %d/%s is also declared by service %q", parsed.HostPort, parsed.Protocol, other), Hint: "Use a unique host port."})
+				continue
+			}
+			seen[key] = name
+			checks = append(checks, doctorCheck{CheckID: "port.valid", Severity: doctorPass, Service: name, Message: fmt.Sprintf("host port %d is declared", parsed.HostPort)})
 		}
 	}
 	if len(checks) == 0 {
@@ -199,15 +255,45 @@ func doctorDetectNodePackageManager(dir string) string {
 	}
 }
 
-func doctorDetectPythonTool(dir string) string {
-	switch {
-	case doctorFileExists(filepath.Join(dir, "uv.lock")):
-		return "uv"
-	case doctorFileExists(filepath.Join(dir, "poetry.lock")) || doctorFileExists(filepath.Join(dir, "pyproject.toml")):
-		return "poetry"
-	default:
-		return "python"
+// doctorPythonRequirement returns the tool requirement for a Python service,
+// mirroring how the service is actually run. uv/poetry/pipenv projects need that
+// tool on PATH; a virtual environment ships its own interpreter so nothing is
+// required; otherwise either python or python3 satisfies the requirement, since
+// many macOS/Linux distributions ship only python3.
+func doctorPythonRequirement(dir string) (string, doctorToolRequirement, bool) {
+	switch detector.DetectPythonPackageManager(dir) {
+	case "uv":
+		return "uv", doctorToolRequirement{Hint: "Install uv."}, true
+	case "poetry":
+		return "poetry", doctorToolRequirement{Hint: "Install Poetry."}, true
+	case "pipenv":
+		return "pipenv", doctorToolRequirement{Hint: "Install Pipenv."}, true
 	}
+	if doctorVenvPython(dir) != "" {
+		return "", doctorToolRequirement{}, false
+	}
+	return "python", doctorToolRequirement{
+		Candidates: []string{"python", "python3"},
+		Hint:       "Install Python.",
+	}, true
+}
+
+// doctorVenvPython returns the interpreter inside a service virtual environment,
+// or an empty string when the service has no venv. It mirrors the venv lookup
+// used by the runner.
+func doctorVenvPython(dir string) string {
+	for _, venvDir := range []string{".venv", "venv"} {
+		candidates := []string{
+			filepath.Join(dir, venvDir, "Scripts", "python.exe"),
+			filepath.Join(dir, venvDir, "bin", "python"),
+		}
+		for _, candidate := range candidates {
+			if doctorFileExists(candidate) {
+				return candidate
+			}
+		}
+	}
+	return ""
 }
 
 func doctorDetectJavaTool(dir string) string {
@@ -220,21 +306,6 @@ func doctorDetectJavaTool(dir string) string {
 func doctorFileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-func doctorHostPort(mapping string) (int, error) {
-	parts := strings.Split(strings.TrimSpace(mapping), ":")
-	candidate := parts[0]
-	if len(parts) > 1 {
-		candidate = parts[len(parts)-2]
-	}
-	candidate = strings.TrimSuffix(strings.TrimSpace(candidate), "/tcp")
-	candidate = strings.TrimSuffix(candidate, "/udp")
-	port, err := strconv.Atoi(candidate)
-	if err != nil || port < 1 || port > 65535 {
-		return 0, fmt.Errorf("invalid host port %q", mapping)
-	}
-	return port, nil
 }
 
 func sortedDoctorServiceNames(cfg *service.AzureYaml) []string {
@@ -278,6 +349,9 @@ func sortDoctorChecks(checks []doctorCheck) {
 		if checks[i].Service != checks[j].Service {
 			return checks[i].Service < checks[j].Service
 		}
-		return checks[i].CheckID < checks[j].CheckID
+		if checks[i].CheckID != checks[j].CheckID {
+			return checks[i].CheckID < checks[j].CheckID
+		}
+		return checks[i].Tool < checks[j].Tool
 	})
 }
