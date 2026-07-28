@@ -59,6 +59,7 @@ var (
 	healthCacheTTL          time.Duration
 	healthProfileSave       bool
 	healthFailOnDegraded    bool
+	healthSummaryOnly       bool
 )
 
 // NewHealthCommand creates the health command.
@@ -126,6 +127,7 @@ Examples:
 	cmd.Flags().IntVar(&healthRateLimit, "rate-limit", 0, "Max health checks per second per service (0 = unlimited)")
 	cmd.Flags().DurationVar(&healthCacheTTL, "cache-ttl", 0, "Cache TTL for health results (0 = no caching)")
 	cmd.Flags().BoolVar(&healthFailOnDegraded, "fail-on-degraded", false, "Return a non-zero exit code when any service is degraded")
+	cmd.Flags().BoolVar(&healthSummaryOnly, "summary-only", false, "Print only the aggregate health summary for non-JSON output")
 
 	registerServiceFlagCompletion(cmd, "service")
 
@@ -447,6 +449,10 @@ func performStreamCheck(ctx context.Context, monitor *healthcheck.HealthMonitor,
 }
 
 func displayHealthReport(report *healthcheck.HealthReport) error {
+	if healthSummaryOnly && healthOutput != jsonOutputVal {
+		return displaySummaryOnlyReport(report)
+	}
+
 	switch healthOutput {
 	case jsonOutputVal:
 		return displayJSONReport(report)
@@ -454,6 +460,21 @@ func displayHealthReport(report *healthcheck.HealthReport) error {
 		return displayTableReport(report)
 	default: // text
 		return displayTextReport(report)
+	}
+}
+
+func displaySummaryOnlyReport(report *healthcheck.HealthReport) error {
+	for _, line := range healthReportSummaryLines(report) {
+		fmt.Println(line)
+	}
+	return nil
+}
+
+func healthReportSummaryLines(report *healthcheck.HealthReport) []string {
+	return []string{
+		fmt.Sprintf("Overall Status: %s", strings.ToUpper(string(report.Summary.Overall))),
+		fmt.Sprintf("Summary: %d healthy, %d degraded, %d unhealthy",
+			report.Summary.Healthy, report.Summary.Degraded, report.Summary.Unhealthy),
 	}
 }
 
