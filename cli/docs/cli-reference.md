@@ -67,6 +67,7 @@ azd app run --environment production
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
 | `add` | Add a well-known container service to azure.yaml | [→ Full Spec](commands/add.md) |
+| `remove` | Remove a service from azure.yaml | |
 | `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
 | `test` | Run tests for all services with coverage aggregation | [→ Full Spec](commands/test.md) |
 | `start` | Start stopped services | [→ Full Spec](commands/start.md) |
@@ -305,6 +306,34 @@ azd app add redis --output json
 - `postgres` - PostgreSQL database
 
 **→ [See full add command specification](commands/add.md)** for examples and configuration details.
+
+---
+
+## `azd app remove`
+
+Remove a service from the services section of azure.yaml. This is the inverse of `azd app add`. It deletes the named service entry while keeping the remaining services and settings semantically unchanged.
+
+### Usage
+
+```bash
+azd app remove <service>
+```
+
+### Examples
+
+```bash
+# Remove the redis service
+azd app remove redis
+
+# JSON output
+azd app remove redis --output json
+```
+
+### Behavior
+
+- Removing a service that is not present fails and lists the current service names.
+- Only the named service entry is deleted. The remaining services and settings are kept, though yaml formatting may be normalized.
+- Supports the global `--output json` flag for scripting.
 
 ---
 
