@@ -360,6 +360,14 @@ func buildFunctionsRuntime(serviceName string, service Service, projectDir strin
 		Interval: 2 * time.Second,
 	}
 
+	// Copy environment variables from service config so the Functions host
+	// receives its azure.yaml `environment:` block (orchestration resolves each
+	// service's effective env from runtime.Env). Mirrors detectContainerRuntime
+	// and the local-process path in DetectServiceRuntime.
+	for key, value := range service.GetEnvironment() {
+		runtime.Env[key] = value
+	}
+
 	return runtime, nil
 }
 

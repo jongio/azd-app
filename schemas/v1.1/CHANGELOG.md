@@ -16,11 +16,13 @@ All v1.0 azure.yaml files are **fully compatible** with v1.1, and all v1.0 prope
 
 2. **Development Commands** (`command`, `entrypoint`)
    - Override auto-detected run commands
+   - `command` accepts a **string or an array** of arguments
    - Specify custom entry points
 
 3. **Port Mappings** (`ports`)
    - Docker Compose-style port syntax
    - Support for host binding and protocols
+   - **All** ports are published for a container service (multi-port)
 
 4. **Enhanced Environment Variables** (`environment`)
    - Array or object format (Docker Compose compatible)
@@ -50,6 +52,19 @@ All v1.0 azure.yaml files are **fully compatible** with v1.1, and all v1.0 prope
 9. **Additional Hooks** (`hooks.prerun`, `hooks.postrun`, `hooks.prestop`, `hooks.poststop`)
    - Run hooks for `azd app run` command
    - Stop hooks for `azd app stop` command (drain connections, cleanup)
+
+10. **Container Volumes** (`volumes`)
+    - Named volumes (persistent) and bind mounts (Docker Compose style)
+    - Bind-mount host paths resolve relative to the project directory
+
+11. **Image Pull Policy** (`pull_policy`)
+    - `missing`, `always`, or `never`
+
+12. **Container Networking** (automatic)
+    - Container services in a project share a Docker network and resolve each
+      other by service name (Compose-style container-to-container DNS)
+    - `uses` provides health-gated startup ordering
+      (Compose `depends_on: { condition: service_healthy }`)
 
 ## Compatibility
 

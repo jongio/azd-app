@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "description": "Invalid project - corrupted host.json",
   "dependencies": {
-    "@azure/functions": "^4.16.1"
+    "@azure/functions": "^4.16.2"
   }
 }

@@ -67,9 +67,10 @@ func (e *depsExecutor) execute() error {
 	}
 
 	projects := DetectedProjects{
-		Node:   nodeProjects,
-		Python: pythonProjects,
-		Dotnet: dotnetProjects,
+		Node:          nodeProjects,
+		Python:        pythonProjects,
+		Dotnet:        dotnetProjects,
+		ServicesByDir: serviceDirsFromAzureYaml(searchRoot),
 	}
 
 	// Apply service filter if specified (further restricts to named services)
