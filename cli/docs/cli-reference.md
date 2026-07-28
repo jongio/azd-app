@@ -1,4 +1,4 @@
-# CLI Reference
+﻿# CLI Reference
 
 Complete reference for all `azd app` commands and flags.
 
@@ -67,6 +67,7 @@ azd app run --environment production
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
 | `add` | Add a well-known container service to azure.yaml | [→ Full Spec](commands/add.md) |
+| `remove` | Remove a service from azure.yaml | |
 | `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
 | `test` | Run tests for all services with coverage aggregation | [→ Full Spec](commands/test.md) |
 | `start` | Start stopped services | [→ Full Spec](commands/start.md) |
@@ -75,6 +76,7 @@ azd app run --environment production
 | `health` | Monitor health status of services (static or streaming mode) | [→ Full Spec](commands/health.md) |
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
+| `hooks` | List the lifecycle hooks configured in azure.yaml | [→ Full Spec](commands/hooks.md) |
 | `ports` | List the host ports each service binds and flag duplicate bindings | [→ Full Spec](commands/ports.md) |
 | `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
@@ -305,6 +307,34 @@ azd app add redis --output json
 - `postgres` - PostgreSQL database
 
 **→ [See full add command specification](commands/add.md)** for examples and configuration details.
+
+---
+
+## `azd app remove`
+
+Remove a service from the services section of azure.yaml. This is the inverse of `azd app add`. It deletes the named service entry while keeping the remaining services and settings semantically unchanged.
+
+### Usage
+
+```bash
+azd app remove <service>
+```
+
+### Examples
+
+```bash
+# Remove the redis service
+azd app remove redis
+
+# JSON output
+azd app remove redis --output json
+```
+
+### Behavior
+
+- Removing a service that is not present fails and lists the current service names.
+- Only the named service entry is deleted. The remaining services and settings are kept, though yaml formatting may be normalized.
+- Supports the global `--output json` flag for scripting.
 
 ---
 
@@ -1062,6 +1092,49 @@ api
 ```
 
 **→ [See full info command specification](commands/info.md)** for service registry details and detailed documentation.
+
+---
+
+## `azd app hooks`
+
+Reads `azure.yaml` and lists the project-level lifecycle hooks. For each configured hook it shows the command it runs, the shell it uses, and any per-platform override for Windows or POSIX. Use it to confirm what will run around a `run` or `stop` without opening the file.
+
+### Usage
+
+```bash
+azd app hooks [flags]
+```
+
+### Examples
+
+```bash
+# List configured hooks
+azd app hooks
+
+# JSON array of hooks
+azd app hooks --output json
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `text` | Output format: `text` or `json` |
+
+### Lifecycle hooks
+
+| Hook | When it runs |
+|------|--------------|
+| `prerun` | before services start |
+| `postrun` | after all services are ready |
+| `prestop` | before services are stopped |
+| `poststop` | after services are stopped |
+
+### Notes
+
+- Hooks are listed in lifecycle order. Hooks that are not configured are omitted.
+- A hook with a Windows or POSIX override shows the override command and shell on its own line.
+- When no hooks are configured the command prints a short message and exits zero.
 
 ---
 
