@@ -32,6 +32,7 @@ azd app logs [service-name] [flags]
 | `--timestamps` | | bool | `true` | Show timestamps with each log entry |
 | `--no-color` | | bool | `false` | Disable colored output |
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
+| `--min-level` | | string | | Show entries at this severity or higher (debug < info < warn < error); cannot be combined with an explicit --level (info/warn/error/debug) or --context |
 | `--context` | | int | `0` | Number of context lines before/after matching entries (0-10, requires --level) |
 | `--output` | `-o` | string | `text` | Output format (text, json) |
 | `--file` | | string | | Write logs to file instead of stdout |
@@ -520,6 +521,9 @@ azd app logs -f --service web
 # Show only errors
 azd app logs --level error
 
+# Show warnings and errors together (severity threshold)
+azd app logs --min-level warn
+
 # Show errors with 3 lines of context before and after each error
 azd app logs --level error --context 3
 
@@ -583,7 +587,7 @@ azd app logs --level error --since 1h --file errors.log
     ↓
 2. Time Filter      (--since or --tail)
     ↓
-3. Level Filter     (--level)
+3. Level Filter     (--level or --min-level)
     ↓
 4. Pattern Filter   (--exclude, azure.yaml logFilters, built-ins)
     ↓
