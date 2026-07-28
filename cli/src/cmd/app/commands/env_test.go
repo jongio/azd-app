@@ -229,7 +229,7 @@ func TestRunEnvCommand(t *testing.T) {
 		assert.NotContains(t, out, "OTHER_ENV_MARKER")
 	})
 
-	t.Run("prefix reports no matches for text output", func(t *testing.T) {
+	t.Run("prefix no match leaves stdout empty for dotenv output", func(t *testing.T) {
 		resetEnvFlags()
 		out, runErr := captureStdout(t, func() error {
 			cmd := NewEnvCommand()
@@ -237,8 +237,29 @@ func TestRunEnvCommand(t *testing.T) {
 			return cmd.Execute()
 		})
 		require.NoError(t, runErr)
-		assert.Contains(t, out, "No environment variables match prefix")
-		assert.Contains(t, out, "NO_SUCH_ENV_PREFIX_")
+		assert.Empty(t, strings.TrimSpace(out))
+	})
+
+	t.Run("prefix no match leaves stdout eval safe for shell formats", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			format string
+		}{
+			{name: "shell", format: envFormatShell},
+			{name: "powershell", format: envFormatPowerShell},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				resetEnvFlags()
+				out, runErr := captureStdout(t, func() error {
+					cmd := NewEnvCommand()
+					cmd.SetArgs([]string{"api", "--format", tt.format, "--prefix", "NO_SUCH_ENV_PREFIX_"})
+					return cmd.Execute()
+				})
+				require.NoError(t, runErr)
+				assertNoEvalContent(t, out)
+			})
+		}
 	})
 
 	t.Run("invalid format errors", func(t *testing.T) {
@@ -282,7 +303,7 @@ func TestRunEnvCommand(t *testing.T) {
 		assert.NotContains(t, out, "OTHER_ENV_MARKER")
 	})
 
-	t.Run("all reports no prefix matches in text output", func(t *testing.T) {
+	t.Run("all prefix no match leaves stdout empty for text output", func(t *testing.T) {
 		resetEnvFlags()
 		out, runErr := captureStdout(t, func() error {
 			cmd := NewEnvCommand()
@@ -290,7 +311,7 @@ func TestRunEnvCommand(t *testing.T) {
 			return cmd.Execute()
 		})
 		require.NoError(t, runErr)
-		assert.Contains(t, out, `No environment variables match prefix "NO_SUCH_ENV_PREFIX_"`)
+		assert.Empty(t, strings.TrimSpace(out))
 		assert.NotContains(t, out, "# api")
 		assert.NotContains(t, out, "# web")
 	})
@@ -361,7 +382,7 @@ func TestRunEnvCommand(t *testing.T) {
 		assert.NotContains(t, out, "marker-value")
 	})
 
-	t.Run("all keys reports no prefix matches in text output", func(t *testing.T) {
+	t.Run("all keys prefix no match leaves stdout empty for text output", func(t *testing.T) {
 		resetEnvFlags()
 		out, runErr := captureStdout(t, func() error {
 			cmd := NewEnvCommand()
@@ -369,7 +390,7 @@ func TestRunEnvCommand(t *testing.T) {
 			return cmd.Execute()
 		})
 		require.NoError(t, runErr)
-		assert.Contains(t, out, `No environment variables match prefix "NO_SUCH_ENV_PREFIX_"`)
+		assert.Empty(t, strings.TrimSpace(out))
 		assert.NotContains(t, out, "# api")
 		assert.NotContains(t, out, "# web")
 	})
@@ -770,6 +791,17 @@ func splitNonEmpty(s string) []string {
 		}
 	}
 	return out
+}
+
+func assertNoEvalContent(t *testing.T, out string) {
+	t.Helper()
+	for _, line := range strings.Split(out, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		assert.Failf(t, "stdout contains eval content", "line %q in output %q", line, out)
+	}
 }
 
 func indexOf(values []string, target string) int {

@@ -227,7 +227,7 @@ func runEnv(_ *cobra.Command, args []string) error {
 		return cliout.PrintJSON(maskEnv(resolved, mask))
 	}
 	if len(resolved) == 0 && len(prefixes) > 0 {
-		cliout.Info("No environment variables match prefix %s", formatEnvPrefixes(prefixes))
+		fmt.Fprintf(os.Stderr, "No environment variables match prefix %s\n", formatEnvPrefixes(prefixes))
 		return nil
 	}
 
@@ -260,7 +260,7 @@ func runEnvAll(azureYaml *service.AzureYaml, names []string, prefixes []string) 
 	}
 
 	if format != envFormatJSON && len(prefixes) > 0 && len(names) > 0 && allEnvMapsEmpty(resolvedByService, names) {
-		cliout.Info("No environment variables match prefix %s", formatEnvPrefixes(prefixes))
+		fmt.Fprintf(os.Stderr, "No environment variables match prefix %s\n", formatEnvPrefixes(prefixes))
 		return nil
 	}
 
@@ -286,7 +286,7 @@ func runEnvAllKeys(azureYaml *service.AzureYaml, names []string, prefixes []stri
 	}
 
 	if format != envFormatJSON && len(prefixes) > 0 && len(names) > 0 && allKeySlicesEmpty(keysByService, names) {
-		cliout.Info("No environment variables match prefix %s", formatEnvPrefixes(prefixes))
+		fmt.Fprintf(os.Stderr, "No environment variables match prefix %s\n", formatEnvPrefixes(prefixes))
 		return nil
 	}
 
@@ -370,7 +370,7 @@ func renderEnvKeys(keys []string, format string, prefixes []string) error {
 		return cliout.PrintJSON(keys)
 	}
 	if len(keys) == 0 && len(prefixes) > 0 {
-		cliout.Info("No environment variables match prefix %s", formatEnvPrefixes(prefixes))
+		fmt.Fprintf(os.Stderr, "No environment variables match prefix %s\n", formatEnvPrefixes(prefixes))
 		return nil
 	}
 	for _, key := range keys {
@@ -581,7 +581,7 @@ func runEnvExplain(serviceName string, svc service.Service, mask bool, prefixes 
 		}
 	}
 	if len(keys) == 0 && len(prefixes) > 0 {
-		cliout.Info("No environment variables match prefix %s", formatEnvPrefixes(prefixes))
+		fmt.Fprintf(os.Stderr, "No environment variables match prefix %s\n", formatEnvPrefixes(prefixes))
 	}
 	return nil
 }
