@@ -149,6 +149,7 @@ type logsOptions struct {
 	noTimestamps bool
 	noColor      bool
 	level        string
+	minLevel     string
 	output       string
 	file         string
 	exclude      string
@@ -252,6 +253,9 @@ Examples:
   # Filter by log level
   azd app logs --level error
 
+  # Show every entry at warn severity or higher (warn and error)
+  azd app logs --min-level warn
+
   # Only show lines matching a pattern
   azd app logs --grep "timeout|refused"
 
@@ -299,6 +303,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.noTimestamps, "no-timestamps", false, "Hide timestamps in text log output")
 	cmd.Flags().BoolVar(&opts.noColor, "no-color", false, "Disable colored output")
 	cmd.Flags().StringVar(&opts.level, "level", "all", "Filter by log level (info, warn, error, debug, all)")
+	cmd.Flags().StringVar(&opts.minLevel, "min-level", "", "Show entries at this severity or higher (debug < info < warn < error); cannot be combined with an explicit --level (info/warn/error/debug) or --context")
 	cmd.Flags().StringVarP(&opts.output, "output", "o", "text", "Output format (text, json)")
 
 	// Keep --format as hidden alias for backward compatibility
@@ -584,6 +589,12 @@ func (e *logsExecutor) collect(ctx context.Context, args []string) (*CollectedLo
 	} else {
 		// Regular mode: filter by level
 		logs = filterLogsByLevel(logs, levelFilter)
+
+		// Filter by minimum severity threshold when --min-level is set.
+		// Mutually exclusive with --level, so only one of these actually filters.
+		if minLevel, ok := parseMinLevel(e.opts.minLevel); ok {
+			logs = filterLogsByMinLevel(logs, minLevel)
+		}
 
 		// Apply final tail limit after all filtering
 		if e.opts.tail > 0 && len(logs) > e.opts.tail {
