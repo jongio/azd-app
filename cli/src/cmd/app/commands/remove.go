@@ -16,13 +16,14 @@ import (
 // NewRemoveCommand creates the remove command.
 func NewRemoveCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "remove [service]",
+		Use:   "remove <service>",
 		Short: "Remove a service from azure.yaml",
 		Long: `Remove a service from the services section of azure.yaml.
 
-This is the inverse of "azd app add". It deletes the named service entry and
-leaves every other service in the file untouched. Use it to undo an add or to
-drop a service you no longer run.
+This is the inverse of "azd app add". It removes only the named service entry.
+Other services and settings remain semantically unchanged, though yaml
+formatting may be normalized. Use it to undo an add or to drop a service you no
+longer run.
 
 Examples:
   # Remove the redis service
@@ -66,6 +67,13 @@ func runRemove(_ *cobra.Command, args []string) error {
 	}
 
 	if !removed {
+		if cliout.IsJSON() {
+			return cliout.PrintJSON(RemoveResult{
+				Service: serviceName,
+				Removed: false,
+				Message: serviceNotFoundMessage(serviceName, remaining),
+			})
+		}
 		return fmt.Errorf("%s", serviceNotFoundMessage(serviceName, remaining))
 	}
 
@@ -84,8 +92,9 @@ func runRemove(_ *cobra.Command, args []string) error {
 // removeServiceFromYaml deletes serviceName from the services mapping in the
 // azure.yaml at path. It returns whether the service was found and removed, plus
 // the sorted names of the services that remain (used to build a helpful error
-// when the service was not found). Every other part of the file is preserved by
-// editing the parsed node tree in place.
+// when the service was not found). Other services and settings are kept by
+// editing the parsed node tree in place, though yaml formatting may be
+// normalized when the file is written.
 func removeServiceFromYaml(path, serviceName string) (bool, []string, error) {
 	cleanPath := filepath.Clean(path)
 	data, err := os.ReadFile(cleanPath)
@@ -134,14 +143,15 @@ func removeServiceFromYaml(path, serviceName string) (bool, []string, error) {
 
 	// Drop the key node and its value node (two consecutive entries).
 	servicesNode.Content = append(servicesNode.Content[:removeIdx], servicesNode.Content[removeIdx+2:]...)
+	// Keep an empty services mapping when the last service is removed so
+	// tooling that expects the services key can still find it.
 
-	yamlOutput, err := yaml.Marshal(&doc)
+	yamlOutput, err := marshalYAMLNode(&doc)
 	if err != nil {
 		return false, nil, err
 	}
 
-	// #nosec G306 -- azure.yaml needs to be readable
-	if err := os.WriteFile(path, yamlOutput, 0o644); err != nil {
+	if err := writeFileAtomic(path, yamlOutput); err != nil {
 		return false, nil, err
 	}
 

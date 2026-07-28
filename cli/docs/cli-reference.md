@@ -310,12 +310,12 @@ azd app add redis --output json
 
 ## `azd app remove`
 
-Remove a service from the services section of azure.yaml. This is the inverse of `azd app add`. It deletes the named service entry and leaves every other service in the file untouched.
+Remove a service from the services section of azure.yaml. This is the inverse of `azd app add`. It deletes the named service entry while keeping the remaining services and settings semantically unchanged.
 
 ### Usage
 
 ```bash
-azd app remove [service]
+azd app remove <service>
 ```
 
 ### Examples
@@ -331,7 +331,7 @@ azd app remove redis --output json
 ### Behavior
 
 - Removing a service that is not present fails and lists the current service names.
-- The rest of azure.yaml is preserved; only the named service entry is deleted.
+- Only the named service entry is deleted. The remaining services and settings are kept, though yaml formatting may be normalized.
 - Supports the global `--output json` flag for scripting.
 
 ---

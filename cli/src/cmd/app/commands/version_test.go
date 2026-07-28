@@ -57,6 +57,7 @@ func TestNewVersionCommand(t *testing.T) {
 func TestVersionCommand_DefaultOutput(t *testing.T) {
 	outputFormat := "default"
 	cmd := NewVersionCommand(&outputFormat)
+	cmd.SetArgs([]string{})
 
 	var stdout bytes.Buffer
 	cmd.SetOut(&stdout)
