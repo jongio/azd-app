@@ -259,11 +259,6 @@ func runServicesFromAzureYaml(ctx context.Context, azureYamlPath string, runtime
 
 // runAzdMode runs services in azd mode with individual service orchestration.
 func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
 	// Parse azure.yaml
 	azureYaml, err := service.ParseAzureYaml(azureYamlPath)
 	if err != nil {
@@ -339,7 +334,7 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	}
 
 	// Execute and monitor services
-	return executeAndMonitorServices(ctx, runtimes, cwd, azureYaml, azureYamlDir)
+	return executeAndMonitorServices(ctx, runtimes, azureYamlDir, azureYaml)
 }
 
 // showNoServicesMessage displays a message when no services are defined.

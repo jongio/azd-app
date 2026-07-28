@@ -34,6 +34,8 @@ func TestResolveEnvFormat(t *testing.T) {
 		{"dotenv", envFormatDotenv, false},
 		{"DOTENV", envFormatDotenv, false},
 		{"shell", envFormatShell, false},
+		{"powershell", envFormatPowerShell, false},
+		{"PowerShell", envFormatPowerShell, false},
 		{"json", envFormatJSON, false},
 		{" json ", envFormatJSON, false},
 		{"yaml", "", true},
@@ -96,11 +98,37 @@ func TestFormatEnv(t *testing.T) {
 		assert.Contains(t, out, `export DB_PASSWORD="supersecret"`)
 	})
 
+	t.Run("powershell emits sorted $env assignments", func(t *testing.T) {
+		out := formatEnv(env, envFormatPowerShell, false)
+		lines := splitNonEmpty(out)
+		require.Len(t, lines, 3)
+		assert.Equal(t, "$env:A_KEY = 'one'", lines[0])
+		assert.Equal(t, "$env:B_KEY = 'two'", lines[1])
+		assert.Equal(t, "$env:DB_PASSWORD = 'supersecret'", lines[2])
+	})
+
 	t.Run("masking applies before formatting", func(t *testing.T) {
 		out := formatEnv(env, envFormatDotenv, true)
 		assert.NotContains(t, out, "supersecret")
 		assert.Contains(t, out, "DB_PASSWORD=su***et")
 	})
+}
+
+func TestPowerShellQuoteSingle(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"plain", `'plain'`},
+		{"", `''`},
+		{"with space", `'with space'`},
+		{"it's", `'it''s'`},
+		{"''", `''''''`},
+		{`dollar$var`, `'dollar$var'`},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.want, powerShellQuoteSingle(tt.in), "input %q", tt.in)
+	}
 }
 
 func TestShellQuoteDouble(t *testing.T) {

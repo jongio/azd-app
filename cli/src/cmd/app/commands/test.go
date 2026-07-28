@@ -311,7 +311,7 @@ func runTestDryRun(orchestrator *testing.TestOrchestrator, opts *TestOptions, se
 		services = filtered
 	}
 
-	validations := testing.ValidateServices(services)
+	validations := testing.ValidateServicesForType(services, opts.Type)
 	displayValidationSummary(validations)
 
 	return nil
@@ -368,15 +368,23 @@ func displayValidationSummary(validations []testing.ServiceValidation) {
 
 	// Show each service's validation status
 	for _, v := range validations {
-		if v.CanTest {
-			testFilesInfo := ""
-			if v.TestFiles > 0 {
-				testFilesInfo = fmt.Sprintf(" (%d test files)", v.TestFiles)
-			}
-			cliout.ItemSuccess("%s: %s detected%s", v.Name, v.Framework, testFilesInfo)
-		} else {
+		if !v.CanTest {
 			cliout.ItemWarning("%s: %s (skipping)", v.Name, v.SkipReason)
+			continue
 		}
+		// An explicit command wins over the configured framework, so report the
+		// command that will actually run rather than claiming the framework was
+		// detected.
+		if v.Command != "" {
+			cliout.ItemSuccess("%s: custom command (%s)", v.Name, v.Command)
+			continue
+		}
+
+		testFilesInfo := ""
+		if v.TestFiles > 0 {
+			testFilesInfo = fmt.Sprintf(" (%d test files)", v.TestFiles)
+		}
+		cliout.ItemSuccess("%s: %s detected%s", v.Name, v.Framework, testFilesInfo)
 	}
 
 	cliout.Newline()

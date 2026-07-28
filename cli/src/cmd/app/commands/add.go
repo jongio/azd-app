@@ -54,6 +54,7 @@ Examples:
 
 	cmd.Flags().Bool("list", false, "List all available services")
 	cmd.Flags().Bool("show-connection", false, "Show connection string after adding")
+	cmd.Flags().Bool("dry-run", false, "Show the azure.yaml service block without modifying the file")
 
 	return cmd
 }
@@ -63,12 +64,14 @@ type AddResult struct {
 	Service           string            `json:"service"`
 	Added             bool              `json:"added"`
 	Message           string            `json:"message,omitempty"`
+	Preview           string            `json:"preview,omitempty"`
 	ConnectionStrings map[string]string `json:"connectionStrings,omitempty"`
 }
 
 func runAdd(cmd *cobra.Command, args []string) error {
 	listServices, _ := cmd.Flags().GetBool("list")
 	showConnection, _ := cmd.Flags().GetBool("show-connection")
+	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 	// Handle --list flag
 	if listServices {
@@ -110,6 +113,28 @@ func runAdd(cmd *cobra.Command, args []string) error {
 			})
 		}
 		cliout.Warning("Service %q already exists in azure.yaml", serviceName)
+		return nil
+	}
+
+	if dryRun {
+		preview, previewErr := buildServicePreview(serviceName, def)
+		if previewErr != nil {
+			return fmt.Errorf("failed to build service preview: %w", previewErr)
+		}
+		if cliout.IsJSON() {
+			return cliout.PrintJSON(AddResult{
+				Service: serviceName,
+				Added:   false,
+				Message: fmt.Sprintf("Would add %s to azure.yaml", def.DisplayName),
+				Preview: preview,
+			})
+		}
+		cliout.Info("Dry run: would add %s to azure.yaml", def.DisplayName)
+		cliout.Newline()
+		fmt.Print(preview)
+		if !strings.HasSuffix(preview, "\n") {
+			cliout.Newline()
+		}
 		return nil
 	}
 
@@ -385,4 +410,26 @@ func buildServiceNode(def *wellknown.ServiceDefinition) *yaml.Node {
 	}
 
 	return node
+}
+
+func buildServicePreview(serviceName string, def *wellknown.ServiceDefinition) (string, error) {
+	servicesNode := &yaml.Node{
+		Kind: yaml.MappingNode,
+		Content: []*yaml.Node{
+			{Kind: yaml.ScalarNode, Value: serviceName, Tag: "!!str"},
+			buildServiceNode(def),
+		},
+	}
+	root := &yaml.Node{
+		Kind: yaml.MappingNode,
+		Content: []*yaml.Node{
+			{Kind: yaml.ScalarNode, Value: "services", Tag: "!!str"},
+			servicesNode,
+		},
+	}
+	out, err := yaml.Marshal(root)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
