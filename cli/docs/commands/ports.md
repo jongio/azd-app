@@ -10,11 +10,13 @@ azd app ports [flags]
 
 ## Description
 
-The `ports` command reads `azure.yaml` and prints the host port each service binds. For every service it shows each port binding as `host -> container/protocol`.
+The `ports` command reads `azure.yaml` and prints the host port each service binds. For every service it shows each port binding as `[bindIP:]host -> container/protocol`.
 
 An explicit host port is shown as its number. A port left for the tool to assign (for example a Docker service that only names the container port) is shown as `auto`. When two bindings claim the same explicit host port the command marks the conflict, prints a warning, and exits non-zero. That makes `azd app ports` a quick preflight check before `azd app run`, and it composes well in scripts and CI where a non-zero exit stops the pipeline.
 
 Only explicit host ports can conflict. Auto-assigned ports never count as a conflict because the runtime picks a free port for each one.
+
+Conflict detection uses the bind IP, host port, and protocol. Distinct specific IP addresses can reuse the same host port and protocol. Wildcard binds overlap specific IP addresses in the same family, and an empty bind IP overlaps both IPv4 and IPv6 addresses.
 
 ## Flags
 
@@ -35,6 +37,13 @@ web
   port: 3000 -> 8080/tcp
 api
   port: auto -> 9090/tcp
+```
+
+### Show a bind IP
+
+```
+api
+  port: 127.0.0.1:8080 -> 80/tcp
 ```
 
 ### Report a conflict
@@ -60,16 +69,19 @@ azd app ports --output json
 
 ```json
 {
-  "api": {
-    "ports": [
-      { "host": "auto", "container": 9090, "protocol": "tcp" }
-    ]
+  "services": {
+    "api": {
+      "ports": [
+        { "host": "auto", "container": 9090, "protocol": "tcp" }
+      ]
+    },
+    "web": {
+      "ports": [
+        { "host": "3000", "hostPort": 3000, "bindIP": "127.0.0.1", "container": 8080, "protocol": "tcp" }
+      ]
+    }
   },
-  "web": {
-    "ports": [
-      { "host": "3000", "hostPort": 3000, "container": 8080, "protocol": "tcp" }
-    ]
-  }
+  "conflicts": []
 }
 ```
 

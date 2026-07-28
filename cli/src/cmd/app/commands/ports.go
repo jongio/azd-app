@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"sort"
 	"strconv"
@@ -44,9 +45,10 @@ Examples:
 type portBinding struct {
 	Host      string `json:"host"`               // explicit host port number, or "auto"
 	HostPort  int    `json:"hostPort,omitempty"` // numeric host port when explicit
+	BindIP    string `json:"bindIP,omitempty"`
 	Container int    `json:"container,omitempty"`
 	Protocol  string `json:"protocol,omitempty"`
-	Conflict  bool   `json:"conflict,omitempty"` // true when this explicit host port is claimed more than once
+	Conflict  bool   `json:"conflict,omitempty"` // true when this binding overlaps another explicit host binding
 }
 
 // servicePorts is the set of port bindings for a single service.
@@ -54,10 +56,30 @@ type servicePorts struct {
 	Ports []portBinding `json:"ports"`
 }
 
-// portConflict records an explicit host port claimed by more than one binding.
+// portConflict records explicit host bindings that overlap.
 type portConflict struct {
-	Port   int
-	Owners []string
+	BindIP   string   `json:"bindIP,omitempty"`
+	HostPort int      `json:"hostPort"`
+	Protocol string   `json:"protocol"`
+	Owners   []string `json:"owners"`
+}
+
+// portJSONReport is the JSON payload for the ports command.
+type portJSONReport struct {
+	Services  map[string]servicePorts `json:"services"`
+	Conflicts []portConflict          `json:"conflicts"`
+}
+
+type portBindingKey struct {
+	BindIP   string
+	HostPort int
+	Protocol string
+}
+
+type collectedPortBinding struct {
+	Service string
+	Index   int
+	Key     portBindingKey
 }
 
 // portReport is the resolved port view for every service.
@@ -67,7 +89,7 @@ type portReport struct {
 	conflicts []portConflict
 }
 
-func runPorts(_ *cobra.Command, _ []string) error {
+func runPorts(cmd *cobra.Command, _ []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -81,7 +103,7 @@ func runPorts(_ *cobra.Command, _ []string) error {
 	report := collectPortReport(azureYaml)
 
 	if cliout.IsJSON() {
-		if err := cliout.PrintJSON(report.services); err != nil {
+		if err := cliout.PrintJSON(newPortJSONReport(report)); err != nil {
 			return err
 		}
 	} else {
@@ -89,31 +111,52 @@ func runPorts(_ *cobra.Command, _ []string) error {
 	}
 
 	if len(report.conflicts) > 0 {
+		if cliout.IsJSON() && cmd != nil {
+			cmd.SilenceErrors = true
+		}
 		return fmt.Errorf("duplicate explicit host port(s): %s", conflictSummary(report.conflicts))
 	}
 	return nil
 }
 
+func newPortJSONReport(report portReport) portJSONReport {
+	conflicts := report.conflicts
+	if conflicts == nil {
+		conflicts = []portConflict{}
+	}
+	return portJSONReport{Services: report.services, Conflicts: conflicts}
+}
+
 // collectPortReport resolves the port bindings for every service and flags any
-// explicit host port that is claimed by more than one binding.
+// explicit host binding that overlaps another binding.
 func collectPortReport(azureYaml *service.AzureYaml) portReport {
 	names := sortedServiceNames(azureYaml.Services)
 	services := make(map[string]servicePorts, len(names))
-	owners := make(map[int][]string) // explicit host port -> service names that bind it
+	explicit := make([]collectedPortBinding, 0)
 
 	for _, name := range names {
 		svc := azureYaml.Services[name]
 		mappings, _ := svc.GetPortMappings()
 		bindings := make([]portBinding, 0, len(mappings))
 		for _, m := range mappings {
+			protocol := protocolOrDefault(m.Protocol)
 			b := portBinding{
+				BindIP:    m.BindIP,
 				Container: m.ContainerPort,
-				Protocol:  protocolOrDefault(m.Protocol),
+				Protocol:  protocol,
 			}
 			if m.HostPort > 0 {
 				b.HostPort = m.HostPort
 				b.Host = strconv.Itoa(m.HostPort)
-				owners[m.HostPort] = append(owners[m.HostPort], name)
+				explicit = append(explicit, collectedPortBinding{
+					Service: name,
+					Index:   len(bindings),
+					Key: portBindingKey{
+						BindIP:   m.BindIP,
+						HostPort: m.HostPort,
+						Protocol: protocol,
+					},
+				})
 			} else {
 				b.Host = "auto"
 			}
@@ -122,32 +165,159 @@ func collectPortReport(azureYaml *service.AzureYaml) portReport {
 		services[name] = servicePorts{Ports: bindings}
 	}
 
-	conflictPorts := make(map[int]bool)
-	var conflicts []portConflict
-	for port, own := range owners {
-		if len(own) > 1 {
-			conflictPorts[port] = true
-			conflicts = append(conflicts, portConflict{Port: port, Owners: dedupeStrings(own)})
-		}
-	}
-	sort.Slice(conflicts, func(i, j int) bool { return conflicts[i].Port < conflicts[j].Port })
-
-	if len(conflictPorts) > 0 {
-		for name, sp := range services {
-			for i := range sp.Ports {
-				if sp.Ports[i].HostPort > 0 && conflictPorts[sp.Ports[i].HostPort] {
-					sp.Ports[i].Conflict = true
-				}
-			}
-			services[name] = sp
-		}
-	}
+	conflicts := detectPortConflicts(explicit, services)
 
 	return portReport{services: services, order: names, conflicts: conflicts}
 }
 
+func detectPortConflicts(explicit []collectedPortBinding, services map[string]servicePorts) []portConflict {
+	if len(explicit) < 2 {
+		return nil
+	}
+
+	parent := make([]int, len(explicit))
+	conflicting := make([]bool, len(explicit))
+	for i := range parent {
+		parent[i] = i
+	}
+
+	var find func(int) int
+	find = func(i int) int {
+		if parent[i] != i {
+			parent[i] = find(parent[i])
+		}
+		return parent[i]
+	}
+	union := func(i, j int) {
+		ri := find(i)
+		rj := find(j)
+		if ri != rj {
+			parent[rj] = ri
+		}
+	}
+
+	for i := range explicit {
+		for j := i + 1; j < len(explicit); j++ {
+			if portBindingsOverlap(explicit[i].Key, explicit[j].Key) {
+				conflicting[i] = true
+				conflicting[j] = true
+				union(i, j)
+			}
+		}
+	}
+
+	groups := make(map[int][]int)
+	for i, isConflict := range conflicting {
+		if !isConflict {
+			continue
+		}
+		ref := explicit[i]
+		sp := services[ref.Service]
+		sp.Ports[ref.Index].Conflict = true
+		services[ref.Service] = sp
+		root := find(i)
+		groups[root] = append(groups[root], i)
+	}
+
+	conflicts := make([]portConflict, 0, len(groups))
+	for _, indexes := range groups {
+		first := explicit[indexes[0]].Key
+		owners := make([]string, 0, len(indexes))
+		bindIPs := make([]string, 0, len(indexes))
+		for _, idx := range indexes {
+			owners = append(owners, explicit[idx].Service)
+			bindIPs = append(bindIPs, explicit[idx].Key.BindIP)
+		}
+		conflicts = append(conflicts, portConflict{
+			BindIP:   summarizeBindIPs(bindIPs),
+			HostPort: first.HostPort,
+			Protocol: first.Protocol,
+			Owners:   dedupeStrings(owners),
+		})
+	}
+
+	sort.Slice(conflicts, func(i, j int) bool {
+		if conflicts[i].HostPort != conflicts[j].HostPort {
+			return conflicts[i].HostPort < conflicts[j].HostPort
+		}
+		if conflicts[i].Protocol != conflicts[j].Protocol {
+			return conflicts[i].Protocol < conflicts[j].Protocol
+		}
+		return conflicts[i].BindIP < conflicts[j].BindIP
+	})
+	return conflicts
+}
+
+func portBindingsOverlap(a, b portBindingKey) bool {
+	if a.HostPort != b.HostPort || a.Protocol != b.Protocol {
+		return false
+	}
+	return bindIPsOverlap(a.BindIP, b.BindIP)
+}
+
+func bindIPsOverlap(a, b string) bool {
+	a = strings.TrimSpace(a)
+	b = strings.TrimSpace(b)
+	if a == b {
+		return true
+	}
+	// An empty bind IP means all interfaces for both IP families. 0.0.0.0 only
+	// overlaps IPv4 or hostname binds, and :: only overlaps IPv6 binds.
+	if a == "" || b == "" {
+		return true
+	}
+	if isIPv4Wildcard(a) {
+		return bindIPFamily(b) != "ipv6"
+	}
+	if isIPv4Wildcard(b) {
+		return bindIPFamily(a) != "ipv6"
+	}
+	if isIPv6Wildcard(a) {
+		return bindIPFamily(b) == "ipv6"
+	}
+	if isIPv6Wildcard(b) {
+		return bindIPFamily(a) == "ipv6"
+	}
+	return false
+}
+
+func bindIPFamily(bindIP string) string {
+	ip := net.ParseIP(bindIP)
+	if ip == nil {
+		return "unknown"
+	}
+	if ip.To4() != nil {
+		return "ipv4"
+	}
+	return "ipv6"
+}
+
+func isIPv4Wildcard(bindIP string) bool {
+	return bindIP == "0.0.0.0"
+}
+
+func isIPv6Wildcard(bindIP string) bool {
+	return bindIP == "::"
+}
+
+func summarizeBindIPs(bindIPs []string) string {
+	unique := dedupeStrings(bindIPs)
+	if len(unique) == 1 {
+		return unique[0]
+	}
+	labels := make([]string, 0, len(unique))
+	for _, bindIP := range unique {
+		if bindIP == "" {
+			labels = append(labels, "all")
+			continue
+		}
+		labels = append(labels, bindIP)
+	}
+	return strings.Join(labels, ", ")
+}
+
 // printPortReport writes the port bindings for each service, then a warning line
-// per conflicting host port.
+// per overlapping host binding.
 func printPortReport(report portReport) {
 	if len(report.order) == 0 {
 		cliout.Info("No services are defined in azure.yaml")
@@ -166,7 +336,8 @@ func printPortReport(report portReport) {
 			continue
 		}
 		for _, b := range sp.Ports {
-			line := fmt.Sprintf("%s -> %d/%s", b.Host, b.Container, b.Protocol)
+			host := formatHostBinding(b.BindIP, b.Host)
+			line := fmt.Sprintf("%s -> %d/%s", host, b.Container, b.Protocol)
 			if b.Conflict {
 				line += "  (conflict)"
 			}
@@ -177,19 +348,33 @@ func printPortReport(report portReport) {
 	if len(report.conflicts) > 0 {
 		cliout.Newline()
 		for _, c := range report.conflicts {
-			cliout.Warning("Host port %d is bound by more than one service: %s", c.Port, strings.Join(c.Owners, ", "))
+			cliout.Warning("Host binding %s is bound by more than one service: %s", conflictBindingLabel(c), strings.Join(c.Owners, ", "))
 		}
 	}
 }
 
 // conflictSummary renders the conflicts for the returned error, e.g.
-// "3000 (web, worker); 8080 (api, api2)".
+// "3000/tcp (web, worker); 127.0.0.1:8080/tcp (api, api2)".
 func conflictSummary(conflicts []portConflict) string {
 	parts := make([]string, 0, len(conflicts))
 	for _, c := range conflicts {
-		parts = append(parts, fmt.Sprintf("%d (%s)", c.Port, strings.Join(c.Owners, ", ")))
+		parts = append(parts, fmt.Sprintf("%s (%s)", conflictBindingLabel(c), strings.Join(c.Owners, ", ")))
 	}
 	return strings.Join(parts, "; ")
+}
+
+func conflictBindingLabel(c portConflict) string {
+	return fmt.Sprintf("%s/%s", formatHostBinding(c.BindIP, strconv.Itoa(c.HostPort)), c.Protocol)
+}
+
+func formatHostBinding(bindIP, host string) string {
+	if bindIP == "" {
+		return host
+	}
+	if strings.Contains(bindIP, ":") {
+		return fmt.Sprintf("[%s]:%s", bindIP, host)
+	}
+	return fmt.Sprintf("%s:%s", bindIP, host)
 }
 
 // protocolOrDefault returns the protocol, defaulting to "tcp" when unset.
