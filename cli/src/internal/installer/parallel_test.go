@@ -45,6 +45,21 @@ func TestNewParallelInstallerWithContext(t *testing.T) {
 	}
 }
 
+func TestAddNodeProjectLabeled(t *testing.T) {
+	pi := NewParallelInstaller()
+	pi.AddNodeProjectLabeled(types.NodeProject{Dir: "/app", PackageManager: "npm"}, "web, ingest, +6 more (npm)")
+
+	if len(pi.tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(pi.tasks))
+	}
+	if got := pi.tasks[0].Description; got != "web, ingest, +6 more (npm)" {
+		t.Errorf("Description = %q, want the custom label", got)
+	}
+	if got := pi.tasks[0].Dir; got != "/app" {
+		t.Errorf("Dir = %q, want /app", got)
+	}
+}
+
 func TestSeparateTasksByManager(t *testing.T) {
 	pi := NewParallelInstaller()
 
