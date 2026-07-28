@@ -23,6 +23,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.6
 	github.com/sony/gobreaker v1.0.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.22.0
 	golang.org/x/text v0.40.0
@@ -124,7 +125,6 @@ require (
 	github.com/sergeymakinen/go-ico v1.0.0 // indirect
 	github.com/sethvargo/go-retry v0.4.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/tadvi/systray v0.0.0-20190226123456-11a2b8fa57af // indirect
 	github.com/theckman/yacspin v0.13.12 // indirect
