@@ -14,6 +14,9 @@ The `config` command reads azure.yaml and prints the configuration for each
 service the way azd app resolves it. This is a static view of the parsed model,
 so you can confirm what the tool sees without starting anything.
 
+The `project` value is the resolved absolute path for the service project, not
+the literal string written in azure.yaml.
+
 For every service it shows:
 
 - `host` (when set)
@@ -50,6 +53,27 @@ azd app config api
 ```bash
 azd app config --output json
 ```
+
+The JSON output is an object keyed by service name. Each value uses the same
+field names as the text output where possible:
+
+```json
+{
+  "api": {
+    "type": "http",
+    "typeSource": "explicit",
+    "language": "python",
+    "project": "C:\\repo\\api",
+    "command": "python -m uvicorn main:app",
+    "ports": ["8000"],
+    "uses": ["redis"],
+    "configured": ["healthcheck", "azure"]
+  }
+}
+```
+
+Unset optional fields are omitted. The `project` field is the resolved absolute
+path.
 
 ## Notes
 

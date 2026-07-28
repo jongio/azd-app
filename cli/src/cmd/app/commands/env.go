@@ -178,11 +178,7 @@ func runEnv(_ *cobra.Command, args []string) error {
 
 	serviceName := args[0]
 	if _, ok := azureYaml.Services[serviceName]; !ok {
-		if len(names) == 0 {
-			return fmt.Errorf("service %q not found. No services are defined in azure.yaml", serviceName)
-		}
-		return fmt.Errorf("service %q not found. Available services: %s",
-			serviceName, strings.Join(names, ", "))
+		return serviceNotFoundError(serviceName, names)
 	}
 
 	format, err := resolveEnvFormat(envFormat)
@@ -350,11 +346,7 @@ func runEnvWrite(azureYaml *service.AzureYaml, names []string, args []string) er
 	} else {
 		serviceName := args[0]
 		if _, ok := azureYaml.Services[serviceName]; !ok {
-			if len(names) == 0 {
-				return fmt.Errorf("service %q not found. No services are defined in azure.yaml", serviceName)
-			}
-			return fmt.Errorf("service %q not found. Available services: %s",
-				serviceName, strings.Join(names, ", "))
+			return serviceNotFoundError(serviceName, names)
 		}
 		selected = []string{serviceName}
 	}

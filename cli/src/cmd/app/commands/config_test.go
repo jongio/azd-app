@@ -191,9 +191,9 @@ func TestServiceConfigJSONShape(t *testing.T) {
 	if api["typeSource"] != "explicit" {
 		t.Errorf("expected typeSource explicit, got %v", api["typeSource"])
 	}
-	blocks, ok := api["blocks"].([]any)
+	blocks, ok := api["configured"].([]any)
 	if !ok || len(blocks) != 1 || blocks[0] != "healthcheck" {
-		t.Errorf("expected blocks [healthcheck], got %v", api["blocks"])
+		t.Errorf("expected configured [healthcheck], got %v", api["configured"])
 	}
 	// Unset optional fields must be omitted.
 	if _, ok := api["project"]; ok {

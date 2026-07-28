@@ -24,6 +24,9 @@ inferred), language, project path, run command, image, ports, and dependencies
 (uses), plus which optional blocks are configured (docker, healthcheck, restart,
 resources, logs, local, azure).
 
+Project paths are shown as resolved absolute paths, not the literal values from
+azure.yaml.
+
 Run without arguments to print every service, or pass a service name to print
 just that one. Use --output json for a machine-readable object keyed by service
 name.
@@ -59,7 +62,7 @@ type serviceConfig struct {
 	Image      string   `json:"image,omitempty"`
 	Ports      []string `json:"ports,omitempty"`
 	Uses       []string `json:"uses,omitempty"`
-	Blocks     []string `json:"blocks,omitempty"` // optional blocks configured on this service
+	Blocks     []string `json:"configured,omitempty"` // optional blocks configured on this service
 }
 
 func runConfig(_ *cobra.Command, args []string) error {
@@ -112,10 +115,7 @@ func selectServiceConfigs(azureYaml *service.AzureYaml, args []string) (map[stri
 	if len(args) == 1 {
 		name := args[0]
 		if _, ok := azureYaml.Services[name]; !ok {
-			if len(names) == 0 {
-				return nil, nil, fmt.Errorf("service %q not found. No services are defined in azure.yaml", name)
-			}
-			return nil, nil, fmt.Errorf("service %q not found. Available services: %s", name, strings.Join(names, ", "))
+			return nil, nil, serviceNotFoundError(name, names)
 		}
 		order = []string{name}
 	}
