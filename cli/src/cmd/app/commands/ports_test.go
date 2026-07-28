@@ -370,11 +370,88 @@ services:
 func TestConflictSummary(t *testing.T) {
 	got := conflictSummary([]portConflict{
 		{HostPort: 3000, Protocol: "tcp", Owners: []string{"web", "api"}},
-		{BindIP: "127.0.0.1", HostPort: 8080, Protocol: "udp", Owners: []string{"svc"}},
+		{BindIPs: []string{"127.0.0.1"}, HostPort: 8080, Protocol: "udp", Owners: []string{"svc"}},
 	})
 	want := "3000/tcp (web, api); 127.0.0.1:8080/udp (svc)"
 	if got != want {
 		t.Errorf("expected %q, got %q", want, got)
+	}
+}
+
+// A conflict group can chain a wildcard to the specific addresses it covers.
+// Each bind target must render as its own well-formed host binding instead of
+// being joined into one string and bracketed as a single malformed address.
+func TestConflictBindingLabelRendersEachBindIndependently(t *testing.T) {
+	tests := []struct {
+		name     string
+		conflict portConflict
+		want     string
+	}{
+		{
+			name:     "all interfaces omits the address",
+			conflict: portConflict{HostPort: 3000, Protocol: "tcp"},
+			want:     "3000/tcp",
+		},
+		{
+			name:     "single ipv4",
+			conflict: portConflict{BindIPs: []string{"127.0.0.1"}, HostPort: 8080, Protocol: "tcp"},
+			want:     "127.0.0.1:8080/tcp",
+		},
+		{
+			name:     "single ipv6 is bracketed",
+			conflict: portConflict{BindIPs: []string{"::1"}, HostPort: 8080, Protocol: "tcp"},
+			want:     "[::1]:8080/tcp",
+		},
+		{
+			name:     "ipv6 wildcard chained to a specific address",
+			conflict: portConflict{BindIPs: []string{"::", "::1"}, HostPort: 3000, Protocol: "tcp"},
+			want:     "[::]:3000/tcp, [::1]:3000/tcp",
+		},
+		{
+			name:     "mixed all interfaces and a literal",
+			conflict: portConflict{BindIPs: []string{"", "127.0.0.1"}, HostPort: 3000, Protocol: "tcp"},
+			want:     "3000/tcp, 127.0.0.1:3000/tcp",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := conflictBindingLabel(tt.conflict); got != tt.want {
+				t.Errorf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
+// ParsePortSpec stores the bind target verbatim, so a hostname such as
+// localhost reaches bindIPsOverlap. net.ParseIP cannot parse it, so localhost
+// has to be compared as a loopback alias or a real collision is missed.
+func TestBindIPsOverlapHandlesLocalhost(t *testing.T) {
+	tests := []struct {
+		name string
+		a    string
+		b    string
+		want bool
+	}{
+		{name: "localhost and ipv4 loopback", a: "localhost", b: "127.0.0.1", want: true},
+		{name: "localhost and ipv6 loopback", a: "localhost", b: "::1", want: true},
+		{name: "localhost is case insensitive", a: "LocalHost", b: "127.0.0.1", want: true},
+		{name: "localhost and ipv4 wildcard", a: "localhost", b: "0.0.0.0", want: true},
+		{name: "localhost and ipv6 wildcard", a: "localhost", b: "::", want: true},
+		{name: "localhost and all interfaces", a: "localhost", b: "", want: true},
+		{name: "reversed order still overlaps", a: "127.0.0.1", b: "localhost", want: true},
+		{name: "localhost and a routable address", a: "localhost", b: "192.168.1.5", want: false},
+		{name: "localhost and an unresolvable hostname", a: "localhost", b: "db.internal", want: false},
+		{name: "localhost and a non canonical loopback", a: "localhost", b: "127.0.0.2", want: false},
+		{name: "distinct loopback literals stay separate", a: "127.0.0.1", b: "127.0.0.2", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := bindIPsOverlap(tt.a, tt.b); got != tt.want {
+				t.Errorf("bindIPsOverlap(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
+			}
+		})
 	}
 }
 

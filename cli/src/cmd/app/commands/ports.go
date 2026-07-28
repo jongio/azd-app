@@ -56,9 +56,12 @@ type servicePorts struct {
 	Ports []portBinding `json:"ports"`
 }
 
-// portConflict records explicit host bindings that overlap.
+// portConflict records explicit host bindings that overlap. A conflict group
+// can span several distinct bind targets (a wildcard chained to the specific
+// addresses it covers), so the addresses are kept structured rather than
+// flattened into one string, and each is rendered independently.
 type portConflict struct {
-	BindIP   string   `json:"bindIP,omitempty"`
+	BindIPs  []string `json:"bindIPs,omitempty"`
 	HostPort int      `json:"hostPort"`
 	Protocol string   `json:"protocol"`
 	Owners   []string `json:"owners"`
@@ -228,8 +231,15 @@ func detectPortConflicts(explicit []collectedPortBinding, services map[string]se
 			owners = append(owners, explicit[idx].Service)
 			bindIPs = append(bindIPs, explicit[idx].Key.BindIP)
 		}
+		distinct := dedupeStrings(bindIPs)
+		// A group that only binds all interfaces has no address to report, so
+		// the field is omitted. This matches portBinding.BindIP, where an empty
+		// value carries the same meaning.
+		if len(distinct) == 1 && distinct[0] == "" {
+			distinct = nil
+		}
 		conflicts = append(conflicts, portConflict{
-			BindIP:   summarizeBindIPs(bindIPs),
+			BindIPs:  distinct,
 			HostPort: first.HostPort,
 			Protocol: first.Protocol,
 			Owners:   dedupeStrings(owners),
@@ -243,7 +253,7 @@ func detectPortConflicts(explicit []collectedPortBinding, services map[string]se
 		if conflicts[i].Protocol != conflicts[j].Protocol {
 			return conflicts[i].Protocol < conflicts[j].Protocol
 		}
-		return conflicts[i].BindIP < conflicts[j].BindIP
+		return strings.Join(conflicts[i].BindIPs, ",") < strings.Join(conflicts[j].BindIPs, ",")
 	})
 	return conflicts
 }
@@ -265,6 +275,15 @@ func bindIPsOverlap(a, b string) bool {
 	// overlaps IPv4 or hostname binds, and :: only overlaps IPv6 binds.
 	if a == "" || b == "" {
 		return true
+	}
+	// localhost is a hostname, not an IP literal, so net.ParseIP cannot compare
+	// it against a bind address. On a standard host it resolves to a loopback
+	// address in either family, so treat it as overlapping any bind target that
+	// covers loopback. Other hostnames are resolver dependent and fall through
+	// to the net.ParseIP check below, which reports no overlap rather than
+	// guessing.
+	if isLoopbackAlias(a) || isLoopbackAlias(b) {
+		return coversLoopback(a) && coversLoopback(b)
 	}
 	if isIPv4Wildcard(a) {
 		return bindIPFamily(b) != "ipv6"
@@ -306,20 +325,25 @@ func isIPv6Wildcard(bindIP string) bool {
 	return bindIP == "::"
 }
 
-func summarizeBindIPs(bindIPs []string) string {
-	unique := dedupeStrings(bindIPs)
-	if len(unique) == 1 {
-		return unique[0]
+// isLoopbackAlias reports whether the bind target is the localhost hostname.
+func isLoopbackAlias(bindIP string) bool {
+	return strings.EqualFold(bindIP, "localhost")
+}
+
+// coversLoopback reports whether the bind target includes an address that
+// localhost resolves to on a standard host: the all-interfaces bind, either
+// wildcard, the canonical loopback literals 127.0.0.1 and ::1, or localhost
+// itself. A non-canonical loopback such as 127.0.0.2 is excluded because
+// localhost does not resolve there, so the two really do not collide.
+func coversLoopback(bindIP string) bool {
+	if bindIP == "" || isIPv4Wildcard(bindIP) || isIPv6Wildcard(bindIP) || isLoopbackAlias(bindIP) {
+		return true
 	}
-	labels := make([]string, 0, len(unique))
-	for _, bindIP := range unique {
-		if bindIP == "" {
-			labels = append(labels, "all")
-			continue
-		}
-		labels = append(labels, bindIP)
+	ip := net.ParseIP(bindIP)
+	if ip == nil {
+		return false
 	}
-	return strings.Join(labels, ", ")
+	return ip.Equal(net.IPv4(127, 0, 0, 1)) || ip.Equal(net.IPv6loopback)
 }
 
 // printPortReport writes the port bindings for each service, then a warning line
@@ -369,8 +393,20 @@ func conflictSummary(conflicts []portConflict) string {
 	return strings.Join(parts, "; ")
 }
 
+// conflictBindingLabel renders every bind target in a conflict group as its own
+// well-formed host binding, so a group that chains a wildcard to the addresses
+// it covers reads as "[::]:3000/tcp, [::1]:3000/tcp" rather than bracketing the
+// whole list into one malformed address.
 func conflictBindingLabel(c portConflict) string {
-	return fmt.Sprintf("%s/%s", formatHostBinding(c.BindIP, strconv.Itoa(c.HostPort)), c.Protocol)
+	host := strconv.Itoa(c.HostPort)
+	if len(c.BindIPs) == 0 {
+		return fmt.Sprintf("%s/%s", host, c.Protocol)
+	}
+	labels := make([]string, 0, len(c.BindIPs))
+	for _, bindIP := range c.BindIPs {
+		labels = append(labels, fmt.Sprintf("%s/%s", formatHostBinding(bindIP, host), c.Protocol))
+	}
+	return strings.Join(labels, ", ")
 }
 
 func formatHostBinding(bindIP, host string) string {
