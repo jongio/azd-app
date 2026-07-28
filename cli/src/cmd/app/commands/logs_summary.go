@@ -142,18 +142,18 @@ func displayLogSummary(summary LogSummaryResult, w io.Writer, asJSON bool) {
 		return
 	}
 
-	fmt.Fprintf(w, "Total log entries: %d\n", summary.Total)
+	_, _ = fmt.Fprintf(w, "Total log entries: %d\n", summary.Total)
 	if summary.StartTime != nil && summary.EndTime != nil {
-		fmt.Fprintf(w, "Time range: %s to %s\n", summary.StartTime.Format(time.RFC3339), summary.EndTime.Format(time.RFC3339))
+		_, _ = fmt.Fprintf(w, "Time range: %s to %s\n", summary.StartTime.Format(time.RFC3339), summary.EndTime.Format(time.RFC3339))
 	}
 	if len(summary.Services) == 0 {
 		return
 	}
 
-	fmt.Fprintln(w)
-	fmt.Fprintf(w, "%-20s %6s %6s %6s %6s %8s %6s\n", "Service", "Info", "Warn", "Error", "Debug", "Unknown", "Total")
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintf(w, "%-20s %6s %6s %6s %6s %8s %6s\n", "Service", "Info", "Warn", "Error", "Debug", "Unknown", "Total")
 	for _, row := range summary.Services {
-		fmt.Fprintf(w, "%-20s %6d %6d %6d %6d %8d %6d\n",
+		_, _ = fmt.Fprintf(w, "%-20s %6d %6d %6d %6d %8d %6d\n",
 			row.Service, row.Info, row.Warn, row.Error, row.Debug, row.Unknown, row.Total)
 	}
 }
