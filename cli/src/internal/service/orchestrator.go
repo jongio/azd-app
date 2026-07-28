@@ -38,6 +38,7 @@ const DefaultHealthWaitTimeout = 2 * time.Minute
 //   - runtimes: Slice of ServiceRuntime definitions containing service metadata
 //   - services: Map of service definitions from azure.yaml (for dependency information)
 //   - envVars: Additional environment variables (e.g., from --env-file)
+//   - inlineEnvVars: Inline CLI environment variables from --env
 //   - logger: ServiceLogger for structured logging of orchestration events
 //   - restartContainers: If true, restart containers even if already running; if false, reuse existing running containers
 //
@@ -60,7 +61,7 @@ const DefaultHealthWaitTimeout = 2 * time.Minute
 //
 // Process Isolation:
 // Each service runs in a separate goroutine with panic recovery to prevent cascading failures.
-func OrchestrateServices(ctx context.Context, runtimes []*ServiceRuntime, services map[string]Service, envVars map[string]string, logger *ServiceLogger, restartContainers bool) (*OrchestrationResult, error) {
+func OrchestrateServices(ctx context.Context, runtimes []*ServiceRuntime, services map[string]Service, envVars map[string]string, inlineEnvVars map[string]string, logger *ServiceLogger, restartContainers bool) (*OrchestrationResult, error) {
 	result := &OrchestrationResult{
 		Processes: make(map[string]*ServiceProcess),
 		Errors:    make(map[string]error),
@@ -119,7 +120,7 @@ func OrchestrateServices(ctx context.Context, runtimes []*ServiceRuntime, servic
 			go func(rt *ServiceRuntime) {
 				defer wg.Done()
 
-				process, startErr := startSingleService(ctx, rt, envVars, reg, logger, projectDir, restartContainers, functionsParser)
+				process, startErr := startSingleService(ctx, rt, envVars, inlineEnvVars, reg, logger, projectDir, restartContainers, functionsParser)
 
 				mu.Lock()
 				if startErr != nil {
@@ -196,7 +197,7 @@ func OrchestrateServices(ctx context.Context, runtimes []*ServiceRuntime, servic
 
 // startSingleService starts a single service and returns the process.
 // This is extracted from the original OrchestrateServices to be reused for level-based startup.
-func startSingleService(ctx context.Context, rt *ServiceRuntime, envVars map[string]string, reg *registry.ServiceRegistry, logger *ServiceLogger, projectDir string, restartContainers bool, functionsParser *FunctionsOutputParser) (*ServiceProcess, error) {
+func startSingleService(ctx context.Context, rt *ServiceRuntime, envVars map[string]string, inlineEnvVars map[string]string, reg *registry.ServiceRegistry, logger *ServiceLogger, projectDir string, restartContainers bool, functionsParser *FunctionsOutputParser) (*ServiceProcess, error) {
 	// Extract Azure URL from environment variables if available
 	azureURL := ""
 	serviceNameUpper := strings.ToUpper(rt.Name)
@@ -244,7 +245,7 @@ func startSingleService(ctx context.Context, rt *ServiceRuntime, envVars map[str
 	resolveCtx, resolveCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer resolveCancel()
 
-	serviceEnv, resolveErr := ResolveEnvironment(resolveCtx, dummyService, make(map[string]string), "", envVars)
+	serviceEnv, resolveErr := ResolveEnvironment(resolveCtx, dummyService, make(map[string]string), "", envVars, inlineEnvVars)
 	if resolveErr != nil {
 		slog.Warn("environment resolution warning",
 			slog.String("service", rt.Name),

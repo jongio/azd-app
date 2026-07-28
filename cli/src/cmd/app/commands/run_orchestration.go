@@ -30,13 +30,13 @@ func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceR
 	logger.LogStartup(len(runtimes))
 
 	// Load environment variables
-	envVars, err := loadEnvironmentVariables()
+	envVars, inlineEnvVars, err := loadRunEnvironmentVariables()
 	if err != nil {
 		return err
 	}
 
 	// Orchestrate services with dependency ordering
-	result, err := service.OrchestrateServices(ctx, runtimes, azureYaml.Services, envVars, logger, runRestartContainers)
+	result, err := service.OrchestrateServices(ctx, runtimes, azureYaml.Services, envVars, inlineEnvVars, logger, runRestartContainers)
 	if err != nil {
 		return fmt.Errorf("service orchestration failed: %w", err)
 	}

@@ -38,6 +38,8 @@ func TestResolveEnvFormat(t *testing.T) {
 		{"PowerShell", envFormatPowerShell, false},
 		{"json", envFormatJSON, false},
 		{" json ", envFormatJSON, false},
+		{"github-actions", envFormatGitHubActions, false},
+		{"GitHub-Actions", envFormatGitHubActions, false},
 		{"yaml", "", true},
 	}
 	for _, tt := range tests {
@@ -128,6 +130,125 @@ func TestFilterEnvByPrefixes(t *testing.T) {
 		"DB_HOST":         "localhost",
 	}, filtered)
 	assert.Equal(t, env, filterEnvByPrefixes(env, nil))
+}
+
+func TestFormatGitHubEnv(t *testing.T) {
+	t.Run("single-line values are sorted KEY=value", func(t *testing.T) {
+		env := map[string]string{
+			"B_KEY": "two",
+			"A_KEY": "one",
+		}
+		out, err := formatGitHubEnv(env, false)
+		require.NoError(t, err)
+		lines := splitNonEmpty(out)
+		require.Len(t, lines, 2)
+		assert.Equal(t, "A_KEY=one", lines[0])
+		assert.Equal(t, "B_KEY=two", lines[1])
+	})
+
+	t.Run("values with special shell characters are not quoted or escaped", func(t *testing.T) {
+		env := map[string]string{"URL": "postgres://user:pw@host:5432/db?x=1"}
+		out, err := formatGitHubEnv(env, false)
+		require.NoError(t, err)
+		assert.Equal(t, "URL=postgres://user:pw@host:5432/db?x=1\n", out)
+	})
+
+	t.Run("multiline values use a heredoc block with a matching delimiter", func(t *testing.T) {
+		value := "line one\nline two\nline three"
+		env := map[string]string{"CERT": value}
+		out, err := formatGitHubEnv(env, false)
+		require.NoError(t, err)
+
+		lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+		require.GreaterOrEqual(t, len(lines), 5)
+
+		header := lines[0]
+		require.True(t, strings.HasPrefix(header, "CERT<<"), "header was %q", header)
+		delim := strings.TrimPrefix(header, "CERT<<")
+		assert.NotEmpty(t, delim)
+		assert.False(t, strings.Contains(value, delim), "delimiter must not appear in the value")
+
+		body := strings.Join(lines[1:len(lines)-1], "\n")
+		assert.Equal(t, value, body)
+		assert.Equal(t, delim, lines[len(lines)-1], "block must close with the delimiter")
+	})
+
+	t.Run("masking applies before formatting", func(t *testing.T) {
+		env := map[string]string{"DB_PASSWORD": "supersecret"}
+		out, err := formatGitHubEnv(env, true)
+		require.NoError(t, err)
+		assert.NotContains(t, out, "supersecret")
+		assert.Contains(t, out, "DB_PASSWORD=su***et")
+	})
+
+	t.Run("invalid variable names are rejected", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			key     string
+			wantErr string
+		}{
+			{
+				name:    "empty",
+				key:     "",
+				wantErr: `invalid GitHub Actions environment variable name ""`,
+			},
+			{
+				name:    "newline",
+				key:     "SAFE\nINJECTED",
+				wantErr: `invalid GitHub Actions environment variable name "SAFE\nINJECTED"`,
+			},
+			{
+				name:    "equals",
+				key:     "SAFE=INJECTED",
+				wantErr: `invalid GitHub Actions environment variable name "SAFE=INJECTED"`,
+			},
+			{
+				name:    "heredoc marker",
+				key:     "SAFE<<INJECTED",
+				wantErr: `invalid GitHub Actions environment variable name "SAFE<<INJECTED"`,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				_, err := formatGitHubEnv(map[string]string{tt.key: "value"}, false)
+				require.Error(t, err)
+				assert.EqualError(t, err, tt.wantErr)
+			})
+		}
+	})
+
+	t.Run("bare carriage return values use a heredoc block", func(t *testing.T) {
+		value := "line one\rline two"
+		out, err := formatGitHubEnv(map[string]string{"CERT": value}, false)
+		require.NoError(t, err)
+
+		lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+		require.Len(t, lines, 3)
+		header := lines[0]
+		require.True(t, strings.HasPrefix(header, "CERT<<"), "header was %q", header)
+		delim := strings.TrimPrefix(header, "CERT<<")
+		assert.Equal(t, value, lines[1])
+		assert.Equal(t, delim, lines[2])
+	})
+
+}
+
+func TestGithubEnvDelimiter(t *testing.T) {
+	t.Run("delimiter is never a substring of the value", func(t *testing.T) {
+		value := "some multiline\ncontent"
+		delim, err := githubEnvDelimiter(value)
+		require.NoError(t, err)
+		assert.True(t, strings.HasPrefix(delim, "ghadelimiter_"))
+		assert.False(t, strings.Contains(value, delim))
+	})
+
+	t.Run("delimiters are randomized between calls", func(t *testing.T) {
+		a, err := githubEnvDelimiter("value")
+		require.NoError(t, err)
+		b, err := githubEnvDelimiter("value")
+		require.NoError(t, err)
+		assert.NotEqual(t, a, b)
+	})
 }
 
 func TestPowerShellQuoteSingle(t *testing.T) {
@@ -444,6 +565,83 @@ func TestRunEnvCommand(t *testing.T) {
 		var parsed []string
 		require.NoError(t, json.Unmarshal([]byte(out), &parsed))
 		assert.Contains(t, parsed, "SERVICE_ENV_MARKER")
+	})
+
+	t.Run("keys with supported formats still emits names", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			args   []string
+			all    bool
+			format string
+		}{
+			{"single dotenv", []string{"api", "--keys", "--format", "dotenv"}, false, envFormatDotenv},
+			{"single shell", []string{"api", "--keys", "--format", "shell"}, false, envFormatShell},
+			{"single powershell", []string{"api", "--keys", "--format", "powershell"}, false, envFormatPowerShell},
+			{"single json", []string{"api", "--keys", "--format", "json"}, false, envFormatJSON},
+			{"all dotenv", []string{"--all", "--keys", "--format", "dotenv"}, true, envFormatDotenv},
+			{"all shell", []string{"--all", "--keys", "--format", "shell"}, true, envFormatShell},
+			{"all powershell", []string{"--all", "--keys", "--format", "powershell"}, true, envFormatPowerShell},
+			{"all json", []string{"--all", "--keys", "--format", "json"}, true, envFormatJSON},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				resetEnvFlags()
+				t.Setenv("SERVICE_ENV_MARKER", "marker-value")
+				out, runErr := captureStdout(t, func() error {
+					cmd := NewEnvCommand()
+					cmd.SetArgs(tt.args)
+					return cmd.Execute()
+				})
+				require.NoError(t, runErr)
+
+				if tt.format == envFormatJSON {
+					if tt.all {
+						var parsed map[string][]string
+						require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+						assert.Contains(t, parsed["api"], "SERVICE_ENV_MARKER")
+					} else {
+						var parsed []string
+						require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+						assert.Contains(t, parsed, "SERVICE_ENV_MARKER")
+					}
+					return
+				}
+
+				assert.Contains(t, out, "SERVICE_ENV_MARKER")
+				assert.NotContains(t, out, "marker-value")
+				if tt.all {
+					assert.Contains(t, out, "# api")
+					assert.Contains(t, out, "# web")
+				} else {
+					assert.NotContains(t, out, "# api")
+				}
+			})
+		}
+	})
+
+	t.Run("keys rejects github actions format", func(t *testing.T) {
+		tests := []struct {
+			name string
+			args []string
+		}{
+			{"single service", []string{"api", "--keys", "--format", "github-actions"}},
+			{"all services", []string{"--all", "--keys", "--format", "github-actions"}},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				resetEnvFlags()
+				out, runErr := captureStdout(t, func() error {
+					cmd := NewEnvCommand()
+					cmd.SetArgs(tt.args)
+					return cmd.Execute()
+				})
+				require.Error(t, runErr)
+				assert.EqualError(t, runErr, "cannot combine --keys with --format github-actions because that format requires KEY=VALUE pairs")
+				assert.Empty(t, out)
+			})
+		}
 	})
 
 	t.Run("keys without service or all errors", func(t *testing.T) {
