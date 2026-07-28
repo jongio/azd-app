@@ -4,7 +4,7 @@
  */
 import * as React from 'react'
 import { cn } from '@/lib/utils'
-import { Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { Wifi, WifiOff, RefreshCw, Search, X } from 'lucide-react'
 import { Header, type View } from './Header'
 import { ServiceCard } from './ServiceCard'
 import { ServiceTable } from './ServiceTable'
@@ -15,6 +15,7 @@ import { EnvironmentPanel } from './EnvironmentPanel'
 import { KeyboardShortcuts } from '@/components/modals/KeyboardShortcuts'
 import type { Service, HealthCheckResult, HealthSummary, HealthReportEvent } from '@/types'
 import { useTimeout } from '@/hooks/useTimeout'
+import { filterServicesByQuery } from '@/lib/service-filter'
 
 // =============================================================================
 // Types
@@ -76,6 +77,29 @@ function EmptyState({ connected }: EmptyStateProps) {
           : 'Attempting to connect to the dashboard server. Make sure azd is running.'
         }
       </p>
+    </div>
+  )
+}
+
+function SearchEmptyState({ query, onClear }: { query: string; onClear: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+      <div className="w-16 h-16 mb-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+        <Search className="w-8 h-8 text-slate-400" />
+      </div>
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+        No services match "{query}"
+      </h3>
+      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mb-4">
+        Search checks service name, language, framework, project path, and URLs.
+      </p>
+      <button
+        type="button"
+        onClick={onClear}
+        className="px-4 py-2 text-sm font-medium rounded-lg bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 transition-colors"
+      >
+        Clear search
+      </button>
     </div>
   )
 }
@@ -142,6 +166,12 @@ export function App({
   const [viewMode, setViewMode] = React.useState<ViewMode>('grid')
   const [selectedService, setSelectedService] = React.useState<Service | null>(null)
   const [isPanelOpen, setIsPanelOpen] = React.useState(false)
+  const [serviceSearch, setServiceSearch] = React.useState('')
+  const filteredServices = React.useMemo(
+    () => filterServicesByQuery(services, serviceSearch),
+    [services, serviceSearch]
+  )
+  const hasServiceSearch = serviceSearch.trim().length > 0
 
   // Sync selected service with services list (in case it updates) — render-time reset
   const [prevServices, setPrevServices] = React.useState(services)
@@ -404,39 +434,71 @@ export function App({
                   Services
                 </h2>
                 <span className="px-2.5 py-1 text-xs font-medium bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-full">
-                  {services.length} {services.length === 1 ? 'service' : 'services'}
+                  {hasServiceSearch
+                    ? `${filteredServices.length} of ${services.length}`
+                    : `${services.length} ${services.length === 1 ? 'service' : 'services'}`}
                 </span>
               </div>
 
-              {/* View Mode Toggle */}
               {services.length > 0 && (
-                <div className="flex items-center gap-1 p-1 bg-slate-200/80 dark:bg-slate-700/80 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('grid')}
-                    className={cn(
-                      'px-3 py-1.5 text-sm font-medium rounded-md transition-all',
-                      viewMode === 'grid'
-                        ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="search"
+                      value={serviceSearch}
+                      onChange={(event) => setServiceSearch(event.target.value)}
+                      placeholder="Search services..."
+                      aria-label="Search services"
+                      className={cn(
+                        'w-64 pl-9 pr-9 py-2 text-sm rounded-lg',
+                        'bg-white dark:bg-slate-800',
+                        'border border-slate-200 dark:border-slate-700',
+                        'text-slate-900 dark:text-slate-100',
+                        'placeholder:text-slate-400',
+                        'focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500'
+                      )}
+                    />
+                    {hasServiceSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setServiceSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        aria-label="Clear service search"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     )}
-                    aria-pressed={viewMode === 'grid'}
-                  >
-                    Grid
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('table')}
-                    className={cn(
-                      'px-3 py-1.5 text-sm font-medium rounded-md transition-all',
-                      viewMode === 'table'
-                        ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                    )}
-                    aria-pressed={viewMode === 'table'}
-                  >
-                    Table
-                  </button>
+                  </div>
+
+                  <div className="flex items-center gap-1 p-1 bg-slate-200/80 dark:bg-slate-700/80 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('grid')}
+                      className={cn(
+                        'px-3 py-1.5 text-sm font-medium rounded-md transition-all',
+                        viewMode === 'grid'
+                          ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                      )}
+                      aria-pressed={viewMode === 'grid'}
+                    >
+                      Grid
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('table')}
+                      className={cn(
+                        'px-3 py-1.5 text-sm font-medium rounded-md transition-all',
+                        viewMode === 'table'
+                          ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                      )}
+                      aria-pressed={viewMode === 'table'}
+                    >
+                      Table
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -444,15 +506,17 @@ export function App({
             {/* Services Content */}
             {services.length === 0 ? (
               <EmptyState connected={connected} />
+            ) : filteredServices.length === 0 ? (
+              <SearchEmptyState query={serviceSearch.trim()} onClear={() => setServiceSearch('')} />
             ) : viewMode === 'grid' ? (
               <ServicesGrid
-                services={services}
+                services={filteredServices}
                 healthMap={healthMap}
                 onSelectService={handleSelectService}
               />
             ) : (
               <ServiceTable
-                services={services}
+                services={filteredServices}
                 healthReport={healthReport}
                 onServiceClick={handleSelectService}
               />

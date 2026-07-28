@@ -21,12 +21,30 @@ type ServiceValidation struct {
 	TestFiles int
 	// CanTest indicates if the service can be tested
 	CanTest bool
+	// Command is the explicit test command that will run for the requested test
+	// type, when the service configures one in azure.yaml. Empty when the
+	// service is driven by framework detection. When the request spans every
+	// test type and more than one is configured, it lists each as
+	// "<type>: <command>".
+	Command string
 	// SkipReason explains why a service cannot be tested (if CanTest is false)
 	SkipReason string
 }
 
-// ValidateService checks if a service is testable and returns validation details.
+// ValidateService checks if a service is testable and returns validation details
+// for a request covering every test type.
 func ValidateService(service ServiceInfo) ServiceValidation {
+	return ValidateServiceForType(service, testFilterAll)
+}
+
+// ValidateServiceForType checks if a service is testable and returns validation
+// details for the requested test type (unit, integration, e2e, or all).
+//
+// The test type matters for reporting: a service can declare both a `framework`
+// and an explicit `test.<type>.command`, in which case the command is what
+// actually runs. Reporting the framework alone makes it look like the command
+// was ignored.
+func ValidateServiceForType(service ServiceInfo, testType string) ServiceValidation {
 	validation := ServiceValidation{
 		Name:     service.Name,
 		Language: service.Language,
@@ -42,6 +60,33 @@ func ValidateService(service ServiceInfo) ServiceValidation {
 	// Check if directory exists
 	if _, err := os.Stat(service.Dir); os.IsNotExist(err) {
 		validation.SkipReason = "Service directory does not exist"
+		return validation
+	}
+
+	// An explicit `test:` block with a command makes a service testable
+	// regardless of its language. This lets container/`docker` (or
+	// language-less) services opt into `azd app test` by declaring
+	// `test.<type>.command` in azure.yaml; the runner is then selected by the
+	// configured `framework` (see executeServiceTests).
+	if service.Config.HasExplicitCommand() {
+		command := explicitCommandForType(service.Config, testType)
+
+		// A service whose language has no framework runner can only run the
+		// types it explicitly configures. executeServiceTests already skips the
+		// rest, so reporting them as testable would promise a run that never
+		// happens and is then summarised as passing. This mirrors the guard in
+		// executeServiceTests; the two must agree.
+		if command == "" && !isRecognizedTestLanguage(service.Language) {
+			validation.SkipReason = "No " + testType + " command configured"
+			return validation
+		}
+
+		validation.CanTest = true
+		validation.Framework = service.Config.Framework
+		if validation.Framework == "" {
+			validation.Framework = "custom"
+		}
+		validation.Command = command
 		return validation
 	}
 
@@ -335,13 +380,47 @@ func countTestFiles(dir string, patterns []string) int {
 	return count
 }
 
-// ValidateServices validates all services and returns validation results.
+// ValidateServices validates all services and returns validation results for a
+// request covering every test type.
 func ValidateServices(services []ServiceInfo) []ServiceValidation {
+	return ValidateServicesForType(services, testFilterAll)
+}
+
+// ValidateServicesForType validates all services for the requested test type.
+func ValidateServicesForType(services []ServiceInfo, testType string) []ServiceValidation {
 	validations := make([]ServiceValidation, 0, len(services))
 	for _, service := range services {
-		validations = append(validations, ValidateService(service))
+		validations = append(validations, ValidateServiceForType(service, testType))
 	}
 	return validations
+}
+
+// explicitCommandForType returns the explicit command that will run for the
+// requested test type. A request for a specific type resolves to that type's
+// command, or empty when the type has none. A request spanning every type
+// resolves to the single configured command, or to a "<type>: <command>" list
+// when several are configured, because each runs in turn.
+func explicitCommandForType(config *ServiceTestConfig, testType string) string {
+	commands := config.explicitCommands()
+	if len(commands) == 0 {
+		return ""
+	}
+
+	switch normalized := strings.ToLower(strings.TrimSpace(testType)); normalized {
+	case testTypeUnit, testTypeIntegration, testTypeE2E:
+		return commands[normalized]
+	}
+
+	parts := make([]string, 0, len(commands))
+	for _, name := range orderedTestTypes {
+		if cmd, ok := commands[name]; ok {
+			if len(commands) == 1 {
+				return cmd
+			}
+			parts = append(parts, name+": "+cmd)
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 // GetTestableServices returns only the services that can be tested.

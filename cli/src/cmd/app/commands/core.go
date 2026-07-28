@@ -44,7 +44,8 @@ func newCommandOrchestrator() *orchestrator.Orchestrator {
 
 // ExecutionContext holds runtime configuration for command execution.
 type ExecutionContext struct {
-	CacheEnabled bool
+	CacheEnabled    bool
+	ReqsOnlyMissing bool
 }
 
 // ReqsResult represents the JSON output structure for reqs command.
@@ -94,6 +95,11 @@ func SetCacheEnabled(enabled bool) {
 	execContext.CacheEnabled = enabled
 }
 
+// SetReqsOnlyMissing configures whether reqs output should include only failures.
+func SetReqsOnlyMissing(enabled bool) {
+	execContext.ReqsOnlyMissing = enabled
+}
+
 // executeReqs is the core logic for the reqs command.
 func executeReqs() error {
 	cliout.CommandHeader("reqs", "Check required prerequisites")
@@ -132,17 +138,24 @@ func executeReqs() error {
 
 	// Check requirements (with caching)
 	results, allSatisfied := checkRequirementsWithCache(effectiveReqs, azureYamlPath, cacheManager)
+	displayResults := results
+	if execContext.ReqsOnlyMissing {
+		displayResults = filterUnsatisfiedReqResults(results)
+	}
 
 	// JSON output
 	if cliout.IsJSON() {
 		return cliout.PrintJSON(ReqsResult{
 			Satisfied: allSatisfied,
-			Reqs:      results,
+			Reqs:      displayResults,
 		})
 	}
 
 	// Default output
 	cliout.Newline()
+	if execContext.ReqsOnlyMissing {
+		NewResultFormatter().PrintAll(displayResults)
+	}
 	if !allSatisfied {
 		cliout.Info("%s If you recently installed any missing tools, run 'azd app reqs --fix' to refresh PATH", cliout.IconBulb)
 		return fmt.Errorf("requirement check failed")

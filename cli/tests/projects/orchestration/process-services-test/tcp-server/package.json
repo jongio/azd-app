@@ -1,6 +1,6 @@
 {
   "name": "tcp-server",
   "version": "1.0.0",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.17.0",
   "main": "server.js"
 }

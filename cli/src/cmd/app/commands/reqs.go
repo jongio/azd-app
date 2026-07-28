@@ -210,6 +210,7 @@ func NewReqsCommand() *cobra.Command {
 	var noCache bool
 	var clearCache bool
 	var fixMode bool
+	var onlyMissing bool
 
 	cmd := &cobra.Command{
 		Use:          "reqs",
@@ -247,6 +248,8 @@ Use --no-cache to force a fresh check and bypass cached results.`,
 
 			// Configure cache based on flag
 			SetCacheEnabled(!noCache)
+			SetReqsOnlyMissing(onlyMissing)
+			defer SetReqsOnlyMissing(false)
 
 			if generateMode {
 				// Get current working directory
@@ -277,6 +280,7 @@ Use --no-cache to force a fresh check and bypass cached results.`,
 	cmd.Flags().BoolVar(&noCache, "no-cache", false, "Force fresh reqs check and bypass cached results")
 	cmd.Flags().BoolVar(&clearCache, "clear-cache", false, "Clear cached reqs results")
 	cmd.Flags().BoolVar(&fixMode, "fix", false, "Attempt to fix PATH issues for missing tools")
+	cmd.Flags().BoolVar(&onlyMissing, "only-missing", false, "Show only requirements that are missing, too old, or not running")
 
 	return cmd
 }
