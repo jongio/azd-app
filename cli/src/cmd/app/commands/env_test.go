@@ -166,12 +166,37 @@ func TestFormatGitHubEnv(t *testing.T) {
 	})
 
 	t.Run("invalid variable names are rejected", func(t *testing.T) {
-		tests := []string{"SAFE\nINJECTED", "SAFE=INJECTED", "SAFE<<INJECTED"}
-		for _, key := range tests {
-			t.Run(key, func(t *testing.T) {
-				_, err := formatGitHubEnv(map[string]string{key: "value"}, false)
+		tests := []struct {
+			name    string
+			key     string
+			wantErr string
+		}{
+			{
+				name:    "empty",
+				key:     "",
+				wantErr: `invalid GitHub Actions environment variable name ""`,
+			},
+			{
+				name:    "newline",
+				key:     "SAFE\nINJECTED",
+				wantErr: `invalid GitHub Actions environment variable name "SAFE\nINJECTED"`,
+			},
+			{
+				name:    "equals",
+				key:     "SAFE=INJECTED",
+				wantErr: `invalid GitHub Actions environment variable name "SAFE=INJECTED"`,
+			},
+			{
+				name:    "heredoc marker",
+				key:     "SAFE<<INJECTED",
+				wantErr: `invalid GitHub Actions environment variable name "SAFE<<INJECTED"`,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				_, err := formatGitHubEnv(map[string]string{tt.key: "value"}, false)
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "invalid GitHub Actions environment variable name")
+				assert.EqualError(t, err, tt.wantErr)
 			})
 		}
 	})

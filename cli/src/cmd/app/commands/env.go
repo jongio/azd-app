@@ -200,13 +200,9 @@ func runEnv(_ *cobra.Command, args []string) error {
 			serviceName, strings.Join(names, ", "))
 	}
 
-	format, err := resolveEnvFormat(envFormat)
+	format, err := currentEnvFormat()
 	if err != nil {
 		return err
-	}
-	// The global --json flag takes precedence over --format.
-	if cliout.IsJSON() {
-		format = envFormatJSON
 	}
 
 	svc := azureYaml.Services[serviceName]
@@ -246,13 +242,9 @@ func runEnv(_ *cobra.Command, args []string) error {
 // is resolved before any output is written so a resolution failure is reported
 // without emitting a partial dump.
 func runEnvAll(azureYaml *service.AzureYaml, names []string) error {
-	format, err := resolveEnvFormat(envFormat)
+	format, err := currentEnvFormat()
 	if err != nil {
 		return err
-	}
-	// The global --json flag takes precedence over --format.
-	if cliout.IsJSON() {
-		format = envFormatJSON
 	}
 
 	resolvedByService := make(map[string]map[string]string, len(names))
@@ -269,12 +261,9 @@ func runEnvAll(azureYaml *service.AzureYaml, names []string) error {
 }
 
 func runEnvAllKeys(azureYaml *service.AzureYaml, names []string) error {
-	format, err := resolveEnvFormat(envFormat)
+	format, err := currentEnvFormat()
 	if err != nil {
 		return err
-	}
-	if cliout.IsJSON() {
-		format = envFormatJSON
 	}
 
 	keysByService := make(map[string][]string, len(names))
@@ -660,7 +649,7 @@ func formatGitHubEnv(env map[string]string, mask bool) (string, error) {
 
 	var b strings.Builder
 	for _, k := range keys {
-		if strings.ContainsAny(k, "\r\n=") || strings.Contains(k, "<<") {
+		if k == "" || strings.ContainsAny(k, "\r\n=") || strings.Contains(k, "<<") {
 			return "", fmt.Errorf("invalid GitHub Actions environment variable name %q", k)
 		}
 
