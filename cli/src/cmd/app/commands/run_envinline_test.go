@@ -48,10 +48,28 @@ func TestMergeInlineEnv(t *testing.T) {
 			want:    map[string]string{"CONN": "a=b=c"},
 		},
 		{
+			name:    "key whitespace trimmed",
+			initial: map[string]string{},
+			entries: []string{" FOO=bar"},
+			want:    map[string]string{"FOO": "bar"},
+		},
+		{
+			name:    "value whitespace preserved",
+			initial: map[string]string{},
+			entries: []string{"FOO= bar "},
+			want:    map[string]string{"FOO": " bar "},
+		},
+		{
 			name:    "missing equals is an error",
 			initial: map[string]string{},
 			entries: []string{"NOEQUALS"},
 			wantErr: `invalid --env value "NOEQUALS"`,
+		},
+		{
+			name:    "blank trimmed key is an error",
+			initial: map[string]string{},
+			entries: []string{"  =value"},
+			wantErr: `invalid --env value "  =value"`,
 		},
 		{
 			name:    "empty key is an error",

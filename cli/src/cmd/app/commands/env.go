@@ -201,7 +201,7 @@ func runEnv(_ *cobra.Command, args []string) error {
 		return runEnvExplain(serviceName, svc, mask)
 	}
 
-	resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
+	resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to resolve environment for %q: %w", serviceName, err)
 	}
@@ -234,7 +234,7 @@ func runEnvAll(azureYaml *service.AzureYaml, names []string) error {
 	resolvedByService := make(map[string]map[string]string, len(names))
 	for _, name := range names {
 		svc := azureYaml.Services[name]
-		resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
+		resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to resolve environment for %q: %w", name, err)
 		}
@@ -255,7 +255,7 @@ func runEnvAllKeys(azureYaml *service.AzureYaml, names []string) error {
 
 	keysByService := make(map[string][]string, len(names))
 	for _, name := range names {
-		resolved, err := service.ResolveEnvironment(context.Background(), azureYaml.Services[name], getAzureEnvironmentValues(), envFile, nil)
+		resolved, err := service.ResolveEnvironment(context.Background(), azureYaml.Services[name], getAzureEnvironmentValues(), envFile, nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to resolve environment for %q: %w", name, err)
 		}
@@ -379,7 +379,7 @@ func runEnvWrite(azureYaml *service.AzureYaml, names []string, args []string) er
 			return perr
 		}
 
-		resolved, rerr := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
+		resolved, rerr := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil, nil)
 		if rerr != nil {
 			return fmt.Errorf("failed to resolve environment for %q: %w", name, rerr)
 		}
@@ -453,7 +453,7 @@ type envExplainEntry struct {
 // runEnvExplain prints each effective variable with the source that won and,
 // when a higher-priority source replaced a lower one, the sources it overrode.
 func runEnvExplain(serviceName string, svc service.Service, mask bool) error {
-	resolved, prov, err := service.ResolveEnvironmentWithSources(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
+	resolved, prov, err := service.ResolveEnvironmentWithSources(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to resolve environment for %q: %w", serviceName, err)
 	}

@@ -396,21 +396,33 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 // specified) and merges any inline --env KEY=VALUE overrides on top. Inline
 // values take precedence over values loaded from the file.
 func loadEnvironmentVariables() (map[string]string, error) {
+	envVars, inlineEnvVars, err := loadRunEnvironmentVariables()
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range inlineEnvVars {
+		envVars[k] = v
+	}
+	return envVars, nil
+}
+
+func loadRunEnvironmentVariables() (map[string]string, map[string]string, error) {
 	envVars := make(map[string]string)
 
 	if runEnvFile != "" {
 		loaded, err := service.LoadDotEnv(runEnvFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load env file: %w", err)
+			return nil, nil, fmt.Errorf("failed to load env file: %w", err)
 		}
 		envVars = loaded
 	}
 
-	if err := mergeInlineEnv(envVars, runEnvInline); err != nil {
-		return nil, err
+	inlineEnvVars := make(map[string]string)
+	if err := mergeInlineEnv(inlineEnvVars, runEnvInline); err != nil {
+		return nil, nil, err
 	}
 
-	return envVars, nil
+	return envVars, inlineEnvVars, nil
 }
 
 // mergeInlineEnv parses KEY=VALUE entries and merges them into envVars,
@@ -419,6 +431,7 @@ func loadEnvironmentVariables() (map[string]string, error) {
 func mergeInlineEnv(envVars map[string]string, entries []string) error {
 	for _, entry := range entries {
 		key, value, found := strings.Cut(entry, "=")
+		key = strings.TrimSpace(key)
 		if !found || key == "" {
 			return fmt.Errorf("invalid --env value %q: expected KEY=VALUE", entry)
 		}
