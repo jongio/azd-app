@@ -21,6 +21,7 @@ const (
 	graphOutputMermaid  = "mermaid"
 	graphOutputDOT      = "dot"
 	graphOutputD2       = "d2"
+	graphOutputPlantUML = "plantuml"
 )
 
 type graphOptions struct {
@@ -61,8 +62,9 @@ func NewGraphCommand() *cobra.Command {
 		Long: `Show services, resources, dependency edges, and startup levels from azure.yaml.
 
 Use --output to change the output. text, json, and markdown print to stdout.
-mermaid, dot, and d2 emit a diagram you can drop into a README or an architecture doc.
-Combine with --output-file to write the result to a file instead of stdout.
+mermaid, dot, d2, and plantuml emit a diagram you can drop into a README or an
+architecture doc. Combine with --output-file to write the result to a file
+instead of stdout.
 
 Pass --focus <service> to narrow the graph to one service, everything it depends
 on, and everything that depends on it. This works with every output format.
@@ -84,6 +86,9 @@ Examples:
   # D2 diagram written to a file
   azd app graph --output d2 --output-file docs/services.d2
 
+  # PlantUML component diagram written to a file
+  azd app graph --output plantuml --output-file docs/services.puml
+
   # Markdown tables for docs or issue comments
   azd app graph --output markdown
 
@@ -97,7 +102,7 @@ Examples:
 			return runGraph(opts)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, markdown, mermaid, dot, or d2")
+	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, markdown, mermaid, dot, d2, or plantuml")
 	cmd.Flags().StringVar(&opts.outputFile, "output-file", "", "Write output to this file instead of stdout")
 	cmd.Flags().StringVar(&opts.focus, "focus", "", "Limit the graph to a service, its dependencies, and its dependents")
 	cmd.Flags().BoolVar(&opts.servicesOnly, "services-only", false, "Show only services and service-to-service edges")
@@ -115,9 +120,9 @@ func runGraph(opts *graphOptions) error {
 		opts.output = graphOutputText
 	}
 	switch opts.output {
-	case graphOutputText, graphOutputJSON, graphOutputMarkdown, graphOutputMermaid, graphOutputDOT, graphOutputD2:
+	case graphOutputText, graphOutputJSON, graphOutputMarkdown, graphOutputMermaid, graphOutputDOT, graphOutputD2, graphOutputPlantUML:
 	default:
-		return fmt.Errorf("invalid output format: %s (must be text, json, markdown, mermaid, dot, or d2)", opts.output)
+		return fmt.Errorf("invalid output format: %s (must be text, json, markdown, mermaid, dot, d2, or plantuml)", opts.output)
 	}
 
 	azureYamlPath, err := findAzureYaml()
@@ -225,6 +230,8 @@ func renderGraph(w io.Writer, format string, result graphResult) error {
 		renderGraphDOT(w, result)
 	case graphOutputD2:
 		renderGraphD2(w, result)
+	case graphOutputPlantUML:
+		renderGraphPlantUML(w, result)
 	default:
 		printGraphText(w, result)
 	}
@@ -570,6 +577,18 @@ func escapeD2Label(s string) string {
 	return replacer.Replace(s)
 }
 
+// escapePlantUMLLabel escapes a label for use inside a double-quoted PlantUML
+// element name. PlantUML has no escape for a literal double quote inside a
+// quoted name, so double quotes are replaced with single quotes; newlines
+// become the \n line-break sequence PlantUML renders inside a label.
+func escapePlantUMLLabel(s string) string {
+	replacer := strings.NewReplacer(
+		"\"", "'",
+		"\n", "\\n",
+	)
+	return replacer.Replace(s)
+}
+
 func renderGraphD2(w io.Writer, result graphResult) {
 	ids := mermaidNodeIDs(result.Nodes)
 
@@ -596,4 +615,37 @@ func renderGraphD2(w io.Writer, result graphResult) {
 		}
 		_, _ = fmt.Fprintf(w, "%s -> %s\n", from, to)
 	}
+}
+
+func renderGraphPlantUML(w io.Writer, result graphResult) {
+	// PlantUML aliases share Mermaid's alphanumeric-or-underscore constraint, so
+	// the same sanitized identifiers work for both formats.
+	ids := mermaidNodeIDs(result.Nodes)
+
+	_, _ = fmt.Fprintln(w, "@startuml")
+	if result.Project != "" {
+		_, _ = fmt.Fprintf(w, "title %s\n", escapePlantUMLLabel(result.Project))
+	}
+	for _, node := range result.Nodes {
+		label := node.Name
+		if node.Type != "" {
+			label += " (" + node.Type + ")"
+		}
+		id := ids[node.Name]
+		// Resources render as databases to distinguish them from services.
+		if node.Type == "resource" {
+			_, _ = fmt.Fprintf(w, "database \"%s\" as %s\n", escapePlantUMLLabel(label), id)
+		} else {
+			_, _ = fmt.Fprintf(w, "component \"%s\" as %s\n", escapePlantUMLLabel(label), id)
+		}
+	}
+	for _, edge := range result.Edges {
+		from, okFrom := ids[edge.From]
+		to, okTo := ids[edge.To]
+		if !okFrom || !okTo {
+			continue
+		}
+		_, _ = fmt.Fprintf(w, "%s --> %s\n", from, to)
+	}
+	_, _ = fmt.Fprintln(w, "@enduml")
 }
