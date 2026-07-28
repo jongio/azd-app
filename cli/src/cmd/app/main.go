@@ -43,8 +43,15 @@ func main() {
 			}
 		}
 
-		// Handle environment selection
-		if extCtx.Environment != "" {
+		// Handle environment selection.
+		//
+		// The detached background run already inherits the values its parent
+		// resolved, so reloading them is redundant. It is also actively harmful:
+		// LoadAzdEnvironment shells out to `azd env get-values`, and the azd host
+		// that served the parent exits as soon as the parent returns. That left
+		// the detached child blocked and completely silent for seconds, which is
+		// why its run.log was empty before it died.
+		if extCtx.Environment != "" && !commands.IsDetachedChild() {
 			if err := env.LoadAzdEnvironment(cmd.Context(), extCtx.Environment); err != nil {
 				return fmt.Errorf("failed to load environment '%s': %w", extCtx.Environment, err)
 			}
@@ -107,6 +114,7 @@ func main() {
 		commands.NewSupportBundleCommand(),
 		commands.NewGraphCommand(),
 		commands.NewValidateCommand(),
+		commands.NewOpenCommand(),
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
 	)
 

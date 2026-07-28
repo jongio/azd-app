@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,7 +18,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// restoreStatusFlags snapshots the package-level vars that NewStatusCommand
+// binds its flags to and restores them when the test ends. Constructing or
+// executing the status command mutates these globals, which otherwise leaks
+// into every subsequent test in this binary.
+func restoreStatusFlags(t *testing.T) {
+	t.Helper()
+	watch, interval, service := statusWatch, statusInterval, statusService
+	t.Cleanup(func() {
+		statusWatch, statusInterval, statusService = watch, interval, service
+	})
+}
+
 func TestNewStatusCommand(t *testing.T) {
+	restoreStatusFlags(t)
+
 	cmd := NewStatusCommand()
 	require.NotNil(t, cmd)
 	assert.Equal(t, "status", cmd.Use)
@@ -26,6 +41,8 @@ func TestNewStatusCommand(t *testing.T) {
 	assert.NotNil(t, cmd.Flags().Lookup("watch"), "expected --watch flag")
 	assert.NotNil(t, cmd.Flags().Lookup("interval"), "expected --interval flag")
 	assert.NotNil(t, cmd.Flags().Lookup("service"), "expected --service flag")
+	assert.NotNil(t, cmd.Flags().Lookup("dashboard-url"), "expected --dashboard-url flag")
+	assert.NotNil(t, cmd.Flags().Lookup("exit-code"), "expected --exit-code flag")
 }
 
 func TestRenderStatusReport(t *testing.T) {
@@ -85,6 +102,11 @@ func TestRunStatusWatchIntervalTooSmall(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "azure.yaml"), []byte("name: statustest\nservices: {}\n"), 0o600))
 	t.Chdir(dir)
 
+	// NewStatusCommand binds its flags to package-level vars, so executing it
+	// here leaves statusWatch/statusInterval set for every later test in this
+	// binary. Restore them so repeated runs (go test -count=2) stay isolated.
+	restoreStatusFlags(t)
+
 	cmd := NewStatusCommand()
 	cmd.SetArgs([]string{"--watch", "--interval", "100ms"})
 	err := cmd.Execute()
@@ -132,12 +154,67 @@ func TestBuildStatusReportRunning(t *testing.T) {
 	assert.Contains(t, text, "Dashboard: http://localhost:40000")
 	assert.Contains(t, text, "Services:")
 	assert.Contains(t, text, "  - api: http://localhost:8080")
+	assert.NotEmpty(t, report.Uptime, "expected uptime to be computed for a running app")
 
 	payload, err := json.Marshal(report)
 	require.NoError(t, err)
 	assert.Contains(t, string(payload), `"running":true`)
 	assert.Contains(t, string(payload), `"dashboardUrl":"http://localhost:40000"`)
 	assert.Contains(t, string(payload), `"name":"api"`)
+	assert.Contains(t, string(payload), `"uptime":`)
+}
+
+func TestStatusTextLinesUptime(t *testing.T) {
+	t.Run("uptime line is shown when set", func(t *testing.T) {
+		report := statusReport{
+			Running:   true,
+			PID:       123,
+			StartTime: time.Now().Add(-90 * time.Second),
+			Uptime:    "1m30s",
+		}
+		lines := statusTextLines(report)
+		assert.Contains(t, lines, "Uptime: 1m30s")
+
+		startedIdx, uptimeIdx := -1, -1
+		for i, line := range lines {
+			switch {
+			case strings.HasPrefix(line, "Started: "):
+				startedIdx = i
+			case strings.HasPrefix(line, "Uptime: "):
+				uptimeIdx = i
+			}
+		}
+		require.GreaterOrEqual(t, startedIdx, 0)
+		require.GreaterOrEqual(t, uptimeIdx, 0)
+		assert.Equal(t, startedIdx+1, uptimeIdx, "Uptime should follow Started")
+	})
+
+	t.Run("uptime line is omitted when empty", func(t *testing.T) {
+		report := statusReport{Running: true, PID: 123}
+		for _, line := range statusTextLines(report) {
+			assert.NotContains(t, line, "Uptime:")
+		}
+	})
+}
+
+func TestFormatUptime(t *testing.T) {
+	tests := []struct {
+		name string
+		in   time.Duration
+		want string
+	}{
+		{"negative clamps to zero", -5 * time.Second, "0s"},
+		{"seconds only", 45 * time.Second, "45s"},
+		{"minutes and seconds", 3*time.Minute + 12*time.Second, "3m12s"},
+		{"pads seconds", 3*time.Minute + 2*time.Second, "3m02s"},
+		{"hours and minutes drop seconds", time.Hour + 4*time.Minute + 9*time.Second, "1h04m"},
+		{"days and hours", 2*24*time.Hour + 3*time.Hour + 30*time.Minute, "2d03h"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, formatUptime(tt.in))
+		})
+	}
 }
 
 func TestFilterStatusReport(t *testing.T) {
@@ -170,6 +247,39 @@ func TestFilterStatusReportNotRunning(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, filtered.Running)
 	assert.Empty(t, filtered.Services)
+}
+
+func TestDashboardURLFromStatusReport(t *testing.T) {
+	url, err := dashboardURLFromStatusReport(statusReport{
+		Running:      true,
+		DashboardURL: "http://localhost:40000",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "http://localhost:40000", url)
+
+	_, err = dashboardURLFromStatusReport(statusReport{Running: false})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "app is not running")
+
+	_, err = dashboardURLFromStatusReport(statusReport{Running: true})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "dashboard URL is not available")
+}
+
+func TestStatusExitCodeError(t *testing.T) {
+	t.Cleanup(func() {
+		statusExitCode = false
+	})
+
+	statusExitCode = true
+	err := statusExitCodeError(statusReport{Running: false})
+	require.Error(t, err)
+	// Matches the text report wording so both surfaces describe the same state.
+	assert.Equal(t, "app is not running", err.Error())
+	require.NoError(t, statusExitCodeError(statusReport{Running: true}))
+
+	statusExitCode = false
+	require.NoError(t, statusExitCodeError(statusReport{Running: false}))
 }
 
 func TestBuildStatusReportStaleStateRemovesFile(t *testing.T) {

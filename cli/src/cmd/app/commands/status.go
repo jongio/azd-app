@@ -23,9 +23,11 @@ import (
 const minStatusWatchInterval = time.Second
 
 var (
-	statusWatch    bool
-	statusInterval time.Duration
-	statusService  string
+	statusWatch        bool
+	statusInterval     time.Duration
+	statusService      string
+	statusDashboardURL bool
+	statusExitCode     bool
 )
 
 type statusReport struct {
@@ -33,6 +35,7 @@ type statusReport struct {
 	PID          int                     `json:"pid,omitempty"`
 	DashboardURL string                  `json:"dashboardUrl,omitempty"`
 	StartTime    time.Time               `json:"startTime,omitempty"`
+	Uptime       string                  `json:"uptime,omitempty"`
 	Services     []runstate.ServiceState `json:"services,omitempty"`
 }
 
@@ -41,12 +44,15 @@ func NewStatusCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show whether azd app run is active",
-		Long: `Show whether azd app run is active, along with its PID, dashboard URL, and
-running services.
+		Long: `Show whether azd app run is active, along with its PID, dashboard URL,
+uptime, and running services.
 
 Pass --watch to refresh the status on an interval until you press Ctrl+C, which
 is handy for keeping an eye on services while they start. The global --json flag
 prints a single snapshot and ignores --watch.
+
+Pass --exit-code to exit non-zero when the app is not running, which is handy in
+scripts and CI. It is ignored by the interactive --watch view.
 
 Examples:
   # One-time snapshot
@@ -54,6 +60,9 @@ Examples:
 
   # Show one service
   azd app status --service api
+
+  # Exit non-zero when the app is not running
+  azd app status --exit-code
 
   # Live view, refreshed every 2 seconds
   azd app status --watch
@@ -66,6 +75,8 @@ Examples:
 	cmd.Flags().BoolVar(&statusWatch, "watch", false, "Refresh the status on an interval until interrupted")
 	cmd.Flags().DurationVar(&statusInterval, "interval", 2*time.Second, "Refresh interval for --watch (minimum 1s)")
 	cmd.Flags().StringVarP(&statusService, "service", "s", "", "Filter to specific service(s), comma-separated")
+	cmd.Flags().BoolVar(&statusDashboardURL, "dashboard-url", false, "Print only the dashboard URL for the active run")
+	cmd.Flags().BoolVar(&statusExitCode, "exit-code", false, "Return a non-zero exit code when the app is not running (ignored with --watch)")
 	return cmd
 }
 
@@ -90,8 +101,6 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 		return watchStatus(ctx, os.Stdout, projectDir, statusInterval, requested)
 	}
 
-	cliout.CommandHeader("status", "Show app status")
-
 	report, err := buildStatusReport(projectDir)
 	if err != nil {
 		return err
@@ -103,12 +112,45 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	if cliout.IsJSON() {
-		return cliout.PrintJSON(report)
+	if statusDashboardURL {
+		url, err := dashboardURLFromStatusReport(report)
+		if err != nil {
+			return err
+		}
+		fmt.Println(url)
+		return nil
 	}
 
+	if cliout.IsJSON() {
+		if err := cliout.PrintJSON(report); err != nil {
+			return err
+		}
+		return statusExitCodeError(report)
+	}
+
+	cliout.CommandHeader("status", "Show app status")
 	printStatusReport(report)
+	return statusExitCodeError(report)
+}
+
+// statusExitCodeError returns a non-nil error when --exit-code is set and the
+// app is not running, so the command exits non-zero. The message matches the
+// text report so both surfaces describe the same state the same way.
+func statusExitCodeError(report statusReport) error {
+	if statusExitCode && !report.Running {
+		return fmt.Errorf("app is not running")
+	}
 	return nil
+}
+
+func dashboardURLFromStatusReport(report statusReport) (string, error) {
+	if !report.Running {
+		return "", fmt.Errorf("app is not running")
+	}
+	if report.DashboardURL == "" {
+		return "", fmt.Errorf("dashboard URL is not available")
+	}
+	return report.DashboardURL, nil
 }
 
 // watchStatus renders the status to w immediately and then again on every tick
@@ -180,13 +222,17 @@ func buildStatusReport(projectDir string) (statusReport, error) {
 		dashboardURL = fmt.Sprintf("http://localhost:%d", port)
 	}
 
-	return statusReport{
+	report := statusReport{
 		Running:      true,
 		PID:          st.PID,
 		DashboardURL: dashboardURL,
 		StartTime:    st.StartTime,
 		Services:     statusServices(projectDir, st.Services),
-	}, nil
+	}
+	if !st.StartTime.IsZero() {
+		report.Uptime = formatUptime(time.Since(st.StartTime))
+	}
+	return report, nil
 }
 
 func filterStatusReport(report statusReport, requested []string) (statusReport, error) {
@@ -278,6 +324,9 @@ func statusTextLines(report statusReport) []string {
 	if !report.StartTime.IsZero() {
 		lines = append(lines, fmt.Sprintf("Started: %s", report.StartTime.Format(time.RFC3339)))
 	}
+	if report.Uptime != "" {
+		lines = append(lines, fmt.Sprintf("Uptime: %s", report.Uptime))
+	}
 
 	if len(report.Services) == 0 {
 		lines = append(lines, "Services: none")
@@ -290,6 +339,31 @@ func statusTextLines(report statusReport) []string {
 	}
 
 	return lines
+}
+
+// formatUptime renders a duration as a compact human-readable string such as
+// "45s", "3m12s", "1h04m", or "2d03h". Negative durations are clamped to zero.
+// The largest two units are shown so the value stays short at any scale.
+func formatUptime(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	totalSeconds := int64(d / time.Second)
+	days := totalSeconds / 86400
+	hours := (totalSeconds % 86400) / 3600
+	minutes := (totalSeconds % 3600) / 60
+	seconds := totalSeconds % 60
+
+	switch {
+	case days > 0:
+		return fmt.Sprintf("%dd%02dh", days, hours)
+	case hours > 0:
+		return fmt.Sprintf("%dh%02dm", hours, minutes)
+	case minutes > 0:
+		return fmt.Sprintf("%dm%02ds", minutes, seconds)
+	default:
+		return fmt.Sprintf("%ds", seconds)
+	}
 }
 
 func formatStatusService(svc runstate.ServiceState) string {

@@ -2,6 +2,8 @@ package commands
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -16,9 +18,11 @@ import (
 )
 
 const (
-	envFormatDotenv = "dotenv"
-	envFormatShell  = "shell"
-	envFormatJSON   = "json"
+	envFormatDotenv        = "dotenv"
+	envFormatShell         = "shell"
+	envFormatPowerShell    = "powershell"
+	envFormatJSON          = "json"
+	envFormatGitHubActions = "github-actions"
 )
 
 var (
@@ -49,8 +53,10 @@ Secret-shaped values are masked by default. Use --no-mask to print raw values,
 for example when piping the output into another command.
 
 Pass --all to print the resolved environment for every service in one run. The
-dotenv and shell formats group each service under a "# <service>" header; the
-json format emits an object keyed by service name.
+dotenv, shell, and powershell formats group each service under a "# <service>"
+header; the json format emits an object keyed by service name; the github-actions
+format emits plain KEY=value and heredoc lines with no headers so the output
+stays valid for $GITHUB_ENV.
 
 Examples:
   # Resolved environment for the api service (KEY=value lines)
@@ -59,8 +65,14 @@ Examples:
   # Shell export statements
   azd app env api --format shell
 
+  # PowerShell $env: assignments (load with: azd app env api --format powershell | iex)
+  azd app env api --format powershell
+
   # JSON object (also selected by the global --json flag)
   azd app env api --format json
+
+  # GitHub Actions env lines for $GITHUB_ENV (multiline values use heredocs)
+  azd app env api --format github-actions --no-mask >> $GITHUB_ENV
 
   # Raw values, no masking
   azd app env api --no-mask
@@ -88,7 +100,7 @@ Examples:
 		ValidArgsFunction: completeServiceArgs,
 	}
 
-	cmd.Flags().StringVar(&envFormat, "format", envFormatDotenv, "Output format: dotenv, shell, or json")
+	cmd.Flags().StringVar(&envFormat, "format", envFormatDotenv, "Output format: dotenv, shell, powershell, json, or github-actions")
 	cmd.Flags().BoolVar(&envNoMask, "no-mask", false, "Print raw values instead of masking secret-shaped values")
 	cmd.Flags().StringVar(&envFile, "env-file", "", "Path to a .env file to merge, matching azd app run")
 	cmd.Flags().BoolVar(&envAll, "all", false, "Print the resolved environment for every service")
@@ -148,6 +160,13 @@ func runEnv(_ *cobra.Command, args []string) error {
 		if envWrite {
 			return fmt.Errorf("cannot combine --keys with --write")
 		}
+		format, err := currentEnvFormat()
+		if err != nil {
+			return err
+		}
+		if format == envFormatGitHubActions {
+			return fmt.Errorf("cannot combine --keys with --format github-actions because that format requires KEY=VALUE pairs")
+		}
 		if envAll {
 			return runEnvAllKeys(azureYaml, names)
 		}
@@ -181,13 +200,9 @@ func runEnv(_ *cobra.Command, args []string) error {
 			serviceName, strings.Join(names, ", "))
 	}
 
-	format, err := resolveEnvFormat(envFormat)
+	format, err := currentEnvFormat()
 	if err != nil {
 		return err
-	}
-	// The global --json flag takes precedence over --format.
-	if cliout.IsJSON() {
-		format = envFormatJSON
 	}
 
 	svc := azureYaml.Services[serviceName]
@@ -197,7 +212,7 @@ func runEnv(_ *cobra.Command, args []string) error {
 		return runEnvExplain(serviceName, svc, mask)
 	}
 
-	resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
+	resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to resolve environment for %q: %w", serviceName, err)
 	}
@@ -210,6 +225,15 @@ func runEnv(_ *cobra.Command, args []string) error {
 		return cliout.PrintJSON(maskEnv(resolved, mask))
 	}
 
+	if format == envFormatGitHubActions {
+		out, err := formatGitHubEnv(resolved, mask)
+		if err != nil {
+			return err
+		}
+		fmt.Print(out)
+		return nil
+	}
+
 	fmt.Print(formatEnv(resolved, format, mask))
 	return nil
 }
@@ -218,19 +242,15 @@ func runEnv(_ *cobra.Command, args []string) error {
 // is resolved before any output is written so a resolution failure is reported
 // without emitting a partial dump.
 func runEnvAll(azureYaml *service.AzureYaml, names []string) error {
-	format, err := resolveEnvFormat(envFormat)
+	format, err := currentEnvFormat()
 	if err != nil {
 		return err
-	}
-	// The global --json flag takes precedence over --format.
-	if cliout.IsJSON() {
-		format = envFormatJSON
 	}
 
 	resolvedByService := make(map[string]map[string]string, len(names))
 	for _, name := range names {
 		svc := azureYaml.Services[name]
-		resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
+		resolved, err := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to resolve environment for %q: %w", name, err)
 		}
@@ -241,17 +261,14 @@ func runEnvAll(azureYaml *service.AzureYaml, names []string) error {
 }
 
 func runEnvAllKeys(azureYaml *service.AzureYaml, names []string) error {
-	format, err := resolveEnvFormat(envFormat)
+	format, err := currentEnvFormat()
 	if err != nil {
 		return err
-	}
-	if cliout.IsJSON() {
-		format = envFormatJSON
 	}
 
 	keysByService := make(map[string][]string, len(names))
 	for _, name := range names {
-		resolved, err := service.ResolveEnvironment(context.Background(), azureYaml.Services[name], getAzureEnvironmentValues(), envFile, nil)
+		resolved, err := service.ResolveEnvironment(context.Background(), azureYaml.Services[name], getAzureEnvironmentValues(), envFile, nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to resolve environment for %q: %w", name, err)
 		}
@@ -301,9 +318,9 @@ func renderAllEnvKeys(keysByService map[string][]string, names []string, format 
 }
 
 // renderAllEnv writes the resolved environment for every service. The json format
-// emits an object keyed by service name; the dotenv and shell formats group each
-// service under a "# <service>" header separated by a blank line. names controls
-// the ordering. Secret-shaped values are masked when mask is true.
+// emits an object keyed by service name; the dotenv, shell, and powershell formats
+// group each service under a "# <service>" header separated by a blank line. names
+// controls the ordering. Secret-shaped values are masked when mask is true.
 func renderAllEnv(resolvedByService map[string]map[string]string, names []string, format string, mask bool) error {
 	if format == envFormatJSON {
 		out := make(map[string]map[string]string, len(resolvedByService))
@@ -315,6 +332,20 @@ func renderAllEnv(resolvedByService map[string]map[string]string, names []string
 
 	if len(names) == 0 {
 		cliout.Info("No services are defined in azure.yaml")
+		return nil
+	}
+
+	// GitHub Actions parses $GITHUB_ENV line by line and rejects lines that are
+	// not KEY=VALUE or heredoc blocks, so the "# <service>" headers used by the
+	// other formats are omitted here.
+	if format == envFormatGitHubActions {
+		for _, name := range names {
+			block, err := formatGitHubEnv(resolvedByService[name], mask)
+			if err != nil {
+				return err
+			}
+			fmt.Print(block)
+		}
 		return nil
 	}
 
@@ -375,7 +406,7 @@ func runEnvWrite(azureYaml *service.AzureYaml, names []string, args []string) er
 			return perr
 		}
 
-		resolved, rerr := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
+		resolved, rerr := service.ResolveEnvironment(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil, nil)
 		if rerr != nil {
 			return fmt.Errorf("failed to resolve environment for %q: %w", name, rerr)
 		}
@@ -422,6 +453,9 @@ func envFileContent(resolved map[string]string, format string, mask bool) (strin
 		}
 		return string(b) + "\n", nil
 	}
+	if format == envFormatGitHubActions {
+		return formatGitHubEnv(resolved, mask)
+	}
 	return formatEnv(resolved, format, mask), nil
 }
 
@@ -449,7 +483,7 @@ type envExplainEntry struct {
 // runEnvExplain prints each effective variable with the source that won and,
 // when a higher-priority source replaced a lower one, the sources it overrode.
 func runEnvExplain(serviceName string, svc service.Service, mask bool) error {
-	resolved, prov, err := service.ResolveEnvironmentWithSources(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil)
+	resolved, prov, err := service.ResolveEnvironmentWithSources(context.Background(), svc, getAzureEnvironmentValues(), envFile, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to resolve environment for %q: %w", serviceName, err)
 	}
@@ -509,6 +543,18 @@ func printServiceList(names []string) error {
 	return nil
 }
 
+// currentEnvFormat resolves the requested format and applies global output flags.
+func currentEnvFormat() (string, error) {
+	format, err := resolveEnvFormat(envFormat)
+	if err != nil {
+		return "", err
+	}
+	if cliout.IsJSON() {
+		return envFormatJSON, nil
+	}
+	return format, nil
+}
+
 // resolveEnvFormat normalizes and validates the requested output format.
 func resolveEnvFormat(format string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(format)) {
@@ -516,10 +562,14 @@ func resolveEnvFormat(format string) (string, error) {
 		return envFormatDotenv, nil
 	case envFormatShell:
 		return envFormatShell, nil
+	case envFormatPowerShell:
+		return envFormatPowerShell, nil
 	case envFormatJSON:
 		return envFormatJSON, nil
+	case envFormatGitHubActions:
+		return envFormatGitHubActions, nil
 	default:
-		return "", fmt.Errorf("invalid --format %q: expected dotenv, shell, or json", format)
+		return "", fmt.Errorf("invalid --format %q: expected dotenv, shell, powershell, json, or github-actions", format)
 	}
 }
 
@@ -537,8 +587,8 @@ func maskEnv(env map[string]string, mask bool) map[string]string {
 	return out
 }
 
-// formatEnv renders the environment as sorted dotenv or shell lines. Secret
-// masking is applied first when mask is true.
+// formatEnv renders the environment as sorted dotenv, shell, or powershell lines.
+// Secret masking is applied first when mask is true.
 func formatEnv(env map[string]string, format string, mask bool) string {
 	masked := maskEnv(env, mask)
 
@@ -550,13 +600,24 @@ func formatEnv(env map[string]string, format string, mask bool) string {
 
 	var b strings.Builder
 	for _, k := range keys {
-		if format == envFormatShell {
+		switch format {
+		case envFormatShell:
 			fmt.Fprintf(&b, "export %s=%s\n", k, shellQuoteDouble(masked[k]))
-		} else {
+		case envFormatPowerShell:
+			fmt.Fprintf(&b, "$env:%s = %s\n", k, powerShellQuoteSingle(masked[k]))
+		default:
 			fmt.Fprintf(&b, "%s=%s\n", k, masked[k])
 		}
 	}
 	return b.String()
+}
+
+// powerShellQuoteSingle wraps a value in single quotes for a PowerShell string
+// literal, escaping embedded single quotes by doubling them. Single-quoted
+// PowerShell strings are literal, so no other characters need escaping and the
+// result is safe to load with Invoke-Expression.
+func powerShellQuoteSingle(v string) string {
+	return "'" + strings.ReplaceAll(v, "'", "''") + "'"
 }
 
 // shellQuoteDouble wraps a value in double quotes, escaping the characters that
@@ -569,4 +630,57 @@ func shellQuoteDouble(v string) string {
 		`$`, `\$`,
 	)
 	return `"` + replacer.Replace(v) + `"`
+}
+
+// formatGitHubEnv renders the environment for appending to the GitHub Actions
+// $GITHUB_ENV file. Single-line values use KEY=value; values that contain CR or
+// LF use the KEY<<DELIM heredoc form with a random delimiter that does not
+// appear in the value, matching how GitHub Actions expects multiline values.
+// Keys are emitted in sorted order and secret-shaped values are masked when mask
+// is true.
+func formatGitHubEnv(env map[string]string, mask bool) (string, error) {
+	masked := maskEnv(env, mask)
+
+	keys := make([]string, 0, len(masked))
+	for k := range masked {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var b strings.Builder
+	for _, k := range keys {
+		if k == "" || strings.ContainsAny(k, "\r\n=") || strings.Contains(k, "<<") {
+			return "", fmt.Errorf("invalid GitHub Actions environment variable name %q", k)
+		}
+
+		v := masked[k]
+		if strings.ContainsAny(v, "\r\n") {
+			delim, err := githubEnvDelimiter(v)
+			if err != nil {
+				return "", err
+			}
+			fmt.Fprintf(&b, "%s<<%s\n%s\n%s\n", k, delim, v, delim)
+			continue
+		}
+		fmt.Fprintf(&b, "%s=%s\n", k, v)
+	}
+	return b.String(), nil
+}
+
+// githubEnvDelimiter returns a random heredoc delimiter that does not appear in
+// value, so a multiline value can be written to $GITHUB_ENV without the closing
+// marker colliding with the content. The random suffix uses crypto/rand so the
+// delimiter is not predictable from the value.
+func githubEnvDelimiter(value string) (string, error) {
+	buf := make([]byte, 16)
+	for attempt := 0; attempt < 8; attempt++ {
+		if _, err := rand.Read(buf); err != nil {
+			return "", fmt.Errorf("failed to generate heredoc delimiter: %w", err)
+		}
+		delim := "ghadelimiter_" + hex.EncodeToString(buf)
+		if !strings.Contains(value, delim) {
+			return delim, nil
+		}
+	}
+	return "", fmt.Errorf("failed to generate a unique heredoc delimiter")
 }

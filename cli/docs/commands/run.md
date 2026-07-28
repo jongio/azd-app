@@ -26,6 +26,7 @@ azd app run [flags]
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Run specific service(s) only (comma-separated) |
+| `--except` | | string | | Run every service except the named one(s) (comma-separated); cannot be combined with `--service` |
 | `--scale` | | string[] | | Run multiple instances of a service, e.g. --scale worker=3 (repeatable, comma-separated) |
 | `--runtime` | | string | `azd` | Runtime mode: 'azd' or 'aspire' |
 | `--env-file` | | string | | Load environment variables from .env file |
@@ -774,11 +775,21 @@ azd app run --service web
 # Run multiple services
 azd app run --service web,api
 
+# Run everything except one service
+azd app run --except worker
+
+# Run everything except a few services
+azd app run --except worker,cache
+
 # Useful for:
 # - Testing individual services
 # - Reducing resource usage
 # - Debugging specific components
 ```
+
+`--service` and `--except` are opposites and cannot be combined. Use `--service`
+to name what runs, or `--except` to name what to skip. An unknown name passed to
+`--except` fails with the list of available services.
 
 **Filter Flow**:
 ```

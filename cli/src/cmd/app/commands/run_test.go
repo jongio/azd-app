@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
+	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/browser"
 	"github.com/spf13/cobra"
@@ -50,6 +51,8 @@ func TestRunCommandFlags(t *testing.T) {
 			// Reset flags for each test
 			cmd = NewRunCommand()
 			runRuntime = "azd" // reset to default
+			runNoDeps = false
+			runForce = false
 
 			// Parse flags
 			if err := cmd.ParseFlags(tt.args); err != nil {
@@ -168,6 +171,92 @@ func TestRunCommandFlagDefaults(t *testing.T) {
 	if envFileFlag == nil {
 		t.Fatal("--env-file flag not found")
 	}
+
+	noDepsFlag := cmd.Flags().Lookup("no-deps")
+	if noDepsFlag == nil {
+		t.Fatal("--no-deps flag not found")
+	}
+	if noDepsFlag.DefValue != "false" {
+		t.Errorf("Expected default no-deps to be 'false', got %q", noDepsFlag.DefValue)
+	}
+}
+
+func TestRunCommandNoDepsFlagParsing(t *testing.T) {
+	cmd := NewRunCommand()
+	runNoDeps = false
+	t.Cleanup(func() { runNoDeps = false })
+
+	if err := cmd.ParseFlags([]string{"--no-deps"}); err != nil {
+		t.Fatalf("ParseFlags failed: %v", err)
+	}
+	if !runNoDeps {
+		t.Fatal("Expected --no-deps to set runNoDeps")
+	}
+}
+
+func TestValidateRunOptionsRejectsNoDepsWithForce(t *testing.T) {
+	runRuntime = runtimeModeAzd
+	runNoDeps = true
+	runForce = true
+	t.Cleanup(func() {
+		runRuntime = runtimeModeAzd
+		runNoDeps = false
+		runForce = false
+	})
+
+	err := validateRunOptions()
+	if err == nil {
+		t.Fatal("Expected --no-deps and --force conflict error")
+	}
+	if !strings.Contains(err.Error(), "--no-deps cannot be combined with --force") {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+}
+
+func TestRunRunDependenciesSkipsWhenNoDeps(t *testing.T) {
+	executed := 0
+	orch := orchestrator.NewOrchestrator()
+	if err := orch.Register(&orchestrator.Command{
+		Name: "run",
+		Execute: func() error {
+			executed++
+			return nil
+		},
+	}); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	runNoDeps = true
+	t.Cleanup(func() { runNoDeps = false })
+
+	if err := runRunDependencies(orch); err != nil {
+		t.Fatalf("runRunDependencies() error = %v", err)
+	}
+	if executed != 0 {
+		t.Fatalf("dependency command executed %d time(s), want 0", executed)
+	}
+}
+
+func TestRunRunDependenciesExecutesByDefault(t *testing.T) {
+	executed := 0
+	orch := orchestrator.NewOrchestrator()
+	if err := orch.Register(&orchestrator.Command{
+		Name: "run",
+		Execute: func() error {
+			executed++
+			return nil
+		},
+	}); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	runNoDeps = false
+	if err := runRunDependencies(orch); err != nil {
+		t.Fatalf("runRunDependencies() error = %v", err)
+	}
+	if executed != 1 {
+		t.Fatalf("dependency command executed %d time(s), want 1", executed)
+	}
 }
 
 func TestRunAspireMode(t *testing.T) {
@@ -269,7 +358,7 @@ func TestMonitorServicesUntilShutdown_StartupTimeout(t *testing.T) {
 	// Run monitoring in goroutine with timeout
 	done := make(chan error, 1)
 	go func() {
-		done <- monitorServicesUntilShutdown(result, tmpDir, nil, "")
+		done <- monitorServicesUntilShutdown(result, tmpDir, nil)
 	}()
 
 	// Ensure cleanup if test exits early
@@ -353,7 +442,7 @@ func TestMonitorServicesUntilShutdown_SignalHandling(t *testing.T) {
 	}()
 
 	startTime := time.Now()
-	_ = monitorServicesUntilShutdown(result, tmpDir, nil, "")
+	_ = monitorServicesUntilShutdown(result, tmpDir, nil)
 	elapsed := time.Since(startTime)
 
 	// Should complete reasonably quickly after signal
@@ -608,7 +697,7 @@ func TestMonitorServices_RunsIndefinitely(t *testing.T) {
 	}()
 
 	startTime := time.Now()
-	_ = monitorServicesUntilShutdown(result, tmpDir, nil, "")
+	_ = monitorServicesUntilShutdown(result, tmpDir, nil)
 	elapsed := time.Since(startTime)
 
 	// Should have run for approximately 5 seconds (not stop at 30 seconds or earlier)
@@ -848,7 +937,7 @@ func TestProcessExit_DoesNotStopOtherServices(t *testing.T) {
 	// Run monitoring in a goroutine since it waits indefinitely for signals
 	done := make(chan error, 1)
 	go func() {
-		done <- monitorServicesUntilShutdown(result, tmpDir, nil, "")
+		done <- monitorServicesUntilShutdown(result, tmpDir, nil)
 	}()
 
 	// Ensure cleanup if test exits

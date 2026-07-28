@@ -65,21 +65,44 @@ type ServiceTestConfig struct {
 	Coverage *CoverageConfig `yaml:"coverage" json:"coverage"`
 }
 
+// orderedTestTypes lists the test types in the order they are configured,
+// reported, and executed.
+var orderedTestTypes = []string{testTypeUnit, testTypeIntegration, testTypeE2E}
+
+// customRunnerLabel describes a service whose test run is driven by an explicit
+// `test.<type>.command` rather than by framework detection.
+const customRunnerLabel = "custom command"
+
+// explicitCommands returns the service's non-empty explicit test commands keyed
+// by test type. A nil config yields a nil map, which is safe to read from.
+func (c *ServiceTestConfig) explicitCommands() map[string]string {
+	if c == nil {
+		return nil
+	}
+	byType := map[string]*TestTypeConfig{
+		testTypeUnit:        c.Unit,
+		testTypeIntegration: c.Integration,
+		testTypeE2E:         c.E2E,
+	}
+	commands := make(map[string]string, len(byType))
+	for name, cfg := range byType {
+		if cfg == nil {
+			continue
+		}
+		if cmd := strings.TrimSpace(cfg.Command); cmd != "" {
+			commands[name] = cmd
+		}
+	}
+	return commands
+}
+
 // HasExplicitCommand reports whether the service declares an explicit test
 // command for at least one test type (unit, integration, or e2e). A service
 // with an explicit command is testable regardless of its detected language,
 // which lets container/`docker` (or language-less) services opt into
 // `azd app test` by specifying `test.<type>.command` in azure.yaml.
 func (c *ServiceTestConfig) HasExplicitCommand() bool {
-	if c == nil {
-		return false
-	}
-	for _, t := range []*TestTypeConfig{c.Unit, c.Integration, c.E2E} {
-		if t != nil && strings.TrimSpace(t.Command) != "" {
-			return true
-		}
-	}
-	return false
+	return len(c.explicitCommands()) > 0
 }
 
 // TestTypeConfig represents configuration for a specific test type.

@@ -25,6 +25,9 @@ func TestNewGraphCommand(t *testing.T) {
 	if cmd.Flags().Lookup("focus") == nil {
 		t.Fatal("focus flag not found")
 	}
+	if cmd.Flags().Lookup("services-only") == nil {
+		t.Fatal("services-only flag not found")
+	}
 }
 
 func focusSampleGraph() graphResult {
@@ -115,6 +118,30 @@ func TestFocusGraphResult(t *testing.T) {
 	})
 }
 
+func TestFilterGraphServicesOnly(t *testing.T) {
+	result := filterGraphServicesOnly(focusSampleGraph())
+
+	names := nodeNameSet(result.Nodes)
+	for _, want := range []string{"api", "web", "worker"} {
+		if !names[want] {
+			t.Fatalf("expected service %q in graph, got %#v", want, result.Nodes)
+		}
+	}
+	if names["db"] {
+		t.Fatalf("resource db should be excluded, got %#v", result.Nodes)
+	}
+	if len(result.Edges) != 1 || result.Edges[0] != (graphEdge{From: "web", To: "api"}) {
+		t.Fatalf("edges = %#v, want only web -> api", result.Edges)
+	}
+	for _, level := range result.Levels {
+		for _, name := range level {
+			if name == "db" {
+				t.Fatalf("resource db should be excluded from levels: %#v", result.Levels)
+			}
+		}
+	}
+}
+
 func TestRunGraphFocus(t *testing.T) {
 	dir := t.TempDir()
 	azureYaml := []byte(`
@@ -143,6 +170,7 @@ resources:
 	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), azureYaml, 0o600); err != nil {
 		t.Fatalf("write azure.yaml: %v", err)
 	}
+
 	for _, sub := range []string{"api", "web", "lonely"} {
 		if err := os.Mkdir(filepath.Join(dir, sub), 0o750); err != nil {
 			t.Fatalf("mkdir %s: %v", sub, err)
@@ -165,6 +193,58 @@ resources:
 	}
 	if names["lonely"] {
 		t.Fatalf("lonely service should be excluded when focusing api: %#v", got.Nodes)
+	}
+}
+
+func TestRunGraphServicesOnly(t *testing.T) {
+	dir := t.TempDir()
+	azureYaml := []byte(`
+name: graph-test
+services:
+  api:
+    host: local
+    language: go
+    project: ./api
+    uses:
+      - db
+  web:
+    host: local
+    language: node
+    project: ./web
+    uses:
+      - api
+resources:
+  db:
+    type: postgres
+`)
+	if err := os.WriteFile(filepath.Join(dir, "azure.yaml"), azureYaml, 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+	for _, sub := range []string{"api", "web"} {
+		if err := os.Mkdir(filepath.Join(dir, sub), 0o750); err != nil {
+			t.Fatalf("mkdir %s: %v", sub, err)
+		}
+	}
+	t.Chdir(dir)
+
+	var buf bytes.Buffer
+	err := runGraph(&graphOptions{output: graphOutputJSON, servicesOnly: true, writer: &buf})
+	if err != nil {
+		t.Fatalf("runGraph failed: %v", err)
+	}
+	var got graphResult
+	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, buf.String())
+	}
+	names := nodeNameSet(got.Nodes)
+	if !names["api"] || !names["web"] {
+		t.Fatalf("services-only graph should contain services: %#v", got.Nodes)
+	}
+	if names["db"] {
+		t.Fatalf("services-only graph should exclude resources: %#v", got.Nodes)
+	}
+	if len(got.Edges) != 1 || got.Edges[0] != (graphEdge{From: "web", To: "api"}) {
+		t.Fatalf("edges = %#v, want only web -> api", got.Edges)
 	}
 }
 
@@ -333,6 +413,40 @@ func TestRenderGraphDOT(t *testing.T) {
 	}
 }
 
+func TestRenderGraphPlantUML(t *testing.T) {
+	var buf bytes.Buffer
+	renderGraphPlantUML(&buf, sampleGraphResult())
+	out := buf.String()
+
+	if !strings.HasPrefix(out, "@startuml") {
+		t.Fatalf("plantuml output should start with @startuml:\n%s", out)
+	}
+	if !strings.HasSuffix(strings.TrimSpace(out), "@enduml") {
+		t.Fatalf("plantuml output should end with @enduml:\n%s", out)
+	}
+	for _, want := range []string{
+		"title project",
+		// Service nodes use component, resources use database.
+		"component \"api (service)\" as ",
+		"database \"db (resource)\" as ",
+		" --> ",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("plantuml output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestRenderGraphPlantUMLNoProject(t *testing.T) {
+	result := sampleGraphResult()
+	result.Project = ""
+	var buf bytes.Buffer
+	renderGraphPlantUML(&buf, result)
+	if strings.Contains(buf.String(), "title") {
+		t.Fatalf("plantuml output should omit title when project is empty:\n%s", buf.String())
+	}
+}
+
 func TestRenderGraphMarkdown(t *testing.T) {
 	var buf bytes.Buffer
 	renderGraphMarkdown(&buf, sampleGraphResult())
@@ -422,6 +536,72 @@ func TestEscapeDOTString(t *testing.T) {
 	for _, tt := range tests {
 		if got := escapeDOTString(tt.in); got != tt.want {
 			t.Errorf("escapeDOTString(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestRenderGraphD2(t *testing.T) {
+	var buf bytes.Buffer
+	renderGraphD2(&buf, sampleGraphResult())
+	out := buf.String()
+
+	if !strings.HasPrefix(out, "direction: right") {
+		t.Fatalf("d2 output should start with direction: right:\n%s", out)
+	}
+	for _, want := range []string{
+		"napi_0: \"api (service)\"",
+		"ndb_1: \"db (resource)\" {",
+		"shape: cylinder",
+		"napi_0 -> ndb_1",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("d2 output missing %q:\n%s", want, out)
+		}
+	}
+	// Service nodes must not carry a shape block.
+	if strings.Contains(out, "napi_0: \"api (service)\" {") {
+		t.Fatalf("service node should not have a shape block:\n%s", out)
+	}
+}
+
+func TestRenderGraphD2Dispatch(t *testing.T) {
+	var buf bytes.Buffer
+	if err := renderGraph(&buf, graphOutputD2, sampleGraphResult()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "napi_0 -> ndb_1") {
+		t.Fatalf("renderGraph did not dispatch to d2:\n%s", buf.String())
+	}
+}
+
+func TestEscapeD2Label(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"plain", "plain"},
+		{"say \"hi\"", "say 'hi'"},
+		{"line\nbreak", "line break"},
+	}
+	for _, tt := range tests {
+		if got := escapeD2Label(tt.in); got != tt.want {
+			t.Errorf("escapeD2Label(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestEscapePlantUMLLabel(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"plain", "plain"},
+		{"say \"hi\"", "say 'hi'"},
+		{"line\nbreak", "line\\nbreak"},
+	}
+	for _, tt := range tests {
+		if got := escapePlantUMLLabel(tt.in); got != tt.want {
+			t.Errorf("escapePlantUMLLabel(%q) = %q, want %q", tt.in, got, tt.want)
 		}
 	}
 }

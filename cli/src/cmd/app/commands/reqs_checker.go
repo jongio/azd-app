@@ -92,8 +92,9 @@ var installURLRegistry = map[string]string{
 
 // PrerequisiteChecker handles checking of prerequisites.
 type PrerequisiteChecker struct {
-	registry map[string]ToolConfig
-	aliases  map[string]string
+	registry       map[string]ToolConfig
+	aliases        map[string]string
+	suppressOutput bool
 }
 
 // NewPrerequisiteChecker creates a new prerequisite checker.
@@ -102,6 +103,10 @@ func NewPrerequisiteChecker() *PrerequisiteChecker {
 		registry: toolRegistry,
 		aliases:  toolAliases,
 	}
+}
+
+func (pc *PrerequisiteChecker) shouldPrint() bool {
+	return !pc.suppressOutput && !cliout.IsJSON()
 }
 
 // Check checks a prerequisite and returns structured result.
@@ -134,7 +139,7 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 
 	if !installed {
 		result.Message = "Not installed"
-		if !cliout.IsJSON() {
+		if pc.shouldPrint() {
 			cliout.ItemError("%s: NOT INSTALLED (required: %s)", prereq.Name, prereq.MinVersion)
 			if installURL != "" {
 				cliout.Item("   Install: %s", installURL)
@@ -147,7 +152,7 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 	// Podman uses its own versioning (e.g., 5.7.0) which is not comparable to Docker versions (e.g., 20.10.0).
 	if isPodman && prereq.Name == toolDocker {
 		result.Message = "Podman detected (version check skipped)"
-		if !cliout.IsJSON() {
+		if pc.shouldPrint() {
 			cliout.ItemSuccess("%s: %s via Podman (version check skipped)", prereq.Name, version)
 		}
 		// Continue to check if running if needed, otherwise mark satisfied
@@ -157,7 +162,7 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 		}
 	} else if version == "" {
 		result.Message = "Version unknown"
-		if !cliout.IsJSON() {
+		if pc.shouldPrint() {
 			cliout.ItemWarning("%s: INSTALLED (version unknown, required: %s)", prereq.Name, prereq.MinVersion)
 		}
 		// Continue to check if it's running if needed
@@ -165,7 +170,7 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 		versionOk := compareVersions(version, prereq.MinVersion)
 		if !versionOk {
 			result.Message = fmt.Sprintf("Version %s does not meet minimum %s", version, prereq.MinVersion)
-			if !cliout.IsJSON() {
+			if pc.shouldPrint() {
 				cliout.ItemError("%s: %s (required: %s)", prereq.Name, version, prereq.MinVersion)
 				if installURL != "" {
 					cliout.Item("   Install: %s", installURL)
@@ -173,7 +178,7 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 			}
 			return result
 		}
-		if !cliout.IsJSON() {
+		if pc.shouldPrint() {
 			cliout.ItemSuccess("%s: %s (required: %s)", prereq.Name, version, prereq.MinVersion)
 		}
 	}
@@ -185,14 +190,14 @@ func (pc *PrerequisiteChecker) Check(prereq Prerequisite) ReqResult {
 		result.Running = isRunning
 		if !isRunning {
 			result.Message = "Not running"
-			if !cliout.IsJSON() {
+			if pc.shouldPrint() {
 				cliout.Item("- %s✗%s NOT RUNNING", cliout.Red, cliout.Reset)
 			}
 			return result
 		}
 		result.Satisfied = true
 		result.Message = "Running"
-		if !cliout.IsJSON() {
+		if pc.shouldPrint() {
 			cliout.Item("- %s✓%s RUNNING", cliout.Green, cliout.Reset)
 		}
 		return result

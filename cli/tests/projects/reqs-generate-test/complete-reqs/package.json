@@ -2,7 +2,7 @@
   "name": "reqs-generate-complete-reqs",
   "version": "1.0.0",
   "description": "Test: azure.yaml with all reqs already present",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.17.0",
   "scripts": {
     "test": "echo 'No tests'"
   }
