@@ -239,7 +239,7 @@ func TestLogsCommandStructure(t *testing.T) {
 	t.Run("flags exist", func(t *testing.T) {
 		flags := []string{
 			"follow", "service", "tail", "since", "timestamps",
-			"no-color", "level", "output", "format", "file", "exclude", "no-builtins", "context",
+			"no-timestamps", "no-color", "level", "output", "format", "file", "exclude", "no-builtins", "context",
 		}
 		for _, flag := range flags {
 			if cmd.Flags().Lookup(flag) == nil {
@@ -275,6 +275,11 @@ func TestLogsCommandStructure(t *testing.T) {
 			t.Errorf("timestamps default = %q, want %q", timestampsFlag.DefValue, "true")
 		}
 
+		noTimestampsFlag := cmd.Flags().Lookup("no-timestamps")
+		if noTimestampsFlag.DefValue != "false" {
+			t.Errorf("no-timestamps default = %q, want %q", noTimestampsFlag.DefValue, "false")
+		}
+
 		levelFlag := cmd.Flags().Lookup("level")
 		if levelFlag.DefValue != "all" {
 			t.Errorf("level default = %q, want %q", levelFlag.DefValue, "all")
@@ -300,6 +305,7 @@ func TestLogsOptionsDocumentation(t *testing.T) {
 		tail:         100,
 		since:        "5m",
 		timestamps:   true,
+		noTimestamps: false,
 		noColor:      false,
 		level:        "info",
 		output:       "text",
@@ -325,6 +331,9 @@ func TestLogsOptionsDocumentation(t *testing.T) {
 	if opts.timestamps != true {
 		t.Error("timestamps field")
 	}
+	if opts.noTimestamps != false {
+		t.Error("noTimestamps field")
+	}
 	if opts.noColor != false {
 		t.Error("noColor field")
 	}
@@ -348,5 +357,14 @@ func TestLogsOptionsDocumentation(t *testing.T) {
 	}
 	if opts.source != "local" {
 		t.Error("source field")
+	}
+}
+
+func TestApplyLogTimestampAliases(t *testing.T) {
+	opts := &logsOptions{timestamps: true, noTimestamps: true}
+	applyLogTimestampAliases(opts)
+
+	if opts.timestamps {
+		t.Fatal("no-timestamps should disable timestamp rendering")
 	}
 }

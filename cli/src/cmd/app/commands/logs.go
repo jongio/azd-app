@@ -146,6 +146,7 @@ type logsOptions struct {
 	tail         int
 	since        string
 	timestamps   bool
+	noTimestamps bool
 	noColor      bool
 	level        string
 	output       string
@@ -263,6 +264,9 @@ Examples:
   # View logs from the last 5 minutes
   azd app logs --since 5m
 
+  # Hide timestamp prefixes in text output
+  azd app logs --no-timestamps
+
   # Export logs to a file
   azd app logs --file logs.txt
 
@@ -292,6 +296,7 @@ Examples:
 	cmd.Flags().IntVarP(&opts.tail, "tail", "n", defaultTailLines, "Number of lines to show from the end")
 	cmd.Flags().StringVar(&opts.since, "since", "", "Show logs since duration (e.g., 5m, 1h)")
 	cmd.Flags().BoolVar(&opts.timestamps, "timestamps", true, "Show timestamps with each log entry")
+	cmd.Flags().BoolVar(&opts.noTimestamps, "no-timestamps", false, "Hide timestamps in text log output")
 	cmd.Flags().BoolVar(&opts.noColor, "no-color", false, "Disable colored output")
 	cmd.Flags().StringVar(&opts.level, "level", "all", "Filter by log level (info, warn, error, debug, all)")
 	cmd.Flags().StringVarP(&opts.output, "output", "o", "text", "Output format (text, json)")
@@ -316,6 +321,8 @@ Examples:
 func runLogsWithOptions(opts *logsOptions, args []string) error {
 	cliout.CommandHeader("logs", "View logs from running services")
 
+	applyLogTimestampAliases(opts)
+
 	// Validate inputs
 	if err := validateLogsOptions(opts); err != nil {
 		return err
@@ -333,6 +340,12 @@ func runLogsWithOptions(opts *logsOptions, args []string) error {
 	executor.alertEngine = engine
 
 	return executor.execute(context.Background(), args)
+}
+
+func applyLogTimestampAliases(opts *logsOptions) {
+	if opts != nil && opts.noTimestamps {
+		opts.timestamps = false
+	}
 }
 
 // execute runs the logs command with the configured dependencies and options.
