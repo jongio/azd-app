@@ -2,9 +2,16 @@ package commands
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/cliout"
+	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func boolPtr(b bool) *bool { return &b }
@@ -158,4 +165,194 @@ func TestOverrideSummary(t *testing.T) {
 	if got != "setup.ps1 (interactive: false)" {
 		t.Errorf("unexpected summary with unset continueOnError: %q", got)
 	}
+}
+
+func TestNewHooksCommand(t *testing.T) {
+	cmd := NewHooksCommand()
+
+	assert.Equal(t, "hooks", cmd.Use)
+	assert.Equal(t, "List the lifecycle hooks configured in azure.yaml", cmd.Short)
+	assert.True(t, cmd.SilenceUsage)
+	assert.NoError(t, cmd.Args(cmd, []string{}))
+	assert.EqualError(t, cmd.Args(cmd, []string{"extra"}), `unknown command "extra" for "hooks"`)
+	flagCount := 0
+	cmd.LocalFlags().VisitAll(func(*pflag.Flag) {
+		flagCount++
+	})
+	assert.Equal(t, 0, flagCount)
+}
+
+func TestPrintHooks(t *testing.T) {
+	originalFormat := cliout.GetFormat()
+	t.Cleanup(func() { _ = cliout.SetFormat(string(originalFormat)) })
+	require.NoError(t, cliout.SetFormat("default"))
+
+	tests := []struct {
+		name  string
+		hooks []hookInfo
+		want  []string
+	}{
+		{
+			name:  "empty",
+			hooks: nil,
+			want:  []string{"No lifecycle hooks are configured in azure.yaml"},
+		},
+		{
+			name: "configured hooks",
+			hooks: []hookInfo{
+				{
+					Name:            "prerun",
+					Run:             "npm run setup",
+					Shell:           "bash",
+					ContinueOnError: true,
+					Interactive:     true,
+					Windows: &hookOverride{
+						Run:             "setup.ps1",
+						Shell:           "pwsh",
+						ContinueOnError: boolPtr(false),
+					},
+				},
+				{
+					Name: "postrun",
+					Posix: &hookOverride{
+						Interactive: boolPtr(true),
+					},
+				},
+			},
+			want: []string{
+				"azd app hooks",
+				"prerun",
+				"run",
+				"npm run setup",
+				"shell",
+				"bash",
+				"continueOnError",
+				"true",
+				"interactive",
+				"windows",
+				"setup.ps1 (shell: pwsh) (continueOnError: false)",
+				"postrun",
+				"(none)",
+				"(default)",
+				"posix",
+				"(none) (interactive: true)",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := captureStdout(t, func() error {
+				printHooks(tt.hooks)
+				return nil
+			})
+
+			require.NoError(t, err)
+			for _, want := range tt.want {
+				assert.Contains(t, out, want)
+			}
+		})
+	}
+}
+
+func TestRunHooks(t *testing.T) {
+	originalFormat := cliout.GetFormat()
+	t.Cleanup(func() { _ = cliout.SetFormat(string(originalFormat)) })
+
+	originalDir, err := os.Getwd()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
+
+	chdirTemp := func(t *testing.T, dir string) {
+		t.Helper()
+		require.NoError(t, os.Chdir(dir))
+		t.Cleanup(func() { _ = os.Chdir(originalDir) })
+	}
+
+	writeHooksAzureYaml := func(t *testing.T, dir string) {
+		t.Helper()
+		content := `name: hooks-command-test
+hooks:
+  prerun:
+    run: npm run setup
+    shell: bash
+    continueOnError: true
+    interactive: true
+    windows:
+      run: setup.ps1
+      shell: pwsh
+      continueOnError: false
+  poststop:
+    run: echo stopped
+`
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "azure.yaml"), []byte(content), 0o600))
+	}
+
+	t.Run("text output lists hooks from azure yaml", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeHooksAzureYaml(t, tmpDir)
+		chdirTemp(t, tmpDir)
+		require.NoError(t, cliout.SetFormat("default"))
+
+		out, runErr := captureStdout(t, func() error {
+			return runHooks(nil, nil)
+		})
+
+		require.NoError(t, runErr)
+		for _, want := range []string{
+			"azd app hooks",
+			"prerun",
+			"npm run setup",
+			"bash",
+			"continueOnError",
+			"interactive",
+			"windows",
+			"setup.ps1 (shell: pwsh) (continueOnError: false)",
+			"poststop",
+			"echo stopped",
+		} {
+			assert.Contains(t, out, want)
+		}
+	})
+
+	t.Run("json output lists hooks from azure yaml", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		writeHooksAzureYaml(t, tmpDir)
+		chdirTemp(t, tmpDir)
+		require.NoError(t, cliout.SetFormat("json"))
+
+		out, runErr := captureStdout(t, func() error {
+			return runHooks(nil, nil)
+		})
+
+		require.NoError(t, runErr)
+		var got []hookInfo
+		require.NoError(t, json.Unmarshal([]byte(out), &got))
+		require.Len(t, got, 2)
+		assert.Equal(t, "prerun", got[0].Name)
+		assert.Equal(t, "npm run setup", got[0].Run)
+		assert.Equal(t, "bash", got[0].Shell)
+		assert.True(t, got[0].ContinueOnError)
+		assert.True(t, got[0].Interactive)
+		require.NotNil(t, got[0].Windows)
+		assert.Equal(t, "setup.ps1", got[0].Windows.Run)
+		assert.Equal(t, "pwsh", got[0].Windows.Shell)
+		require.NotNil(t, got[0].Windows.ContinueOnError)
+		assert.False(t, *got[0].Windows.ContinueOnError)
+		assert.Equal(t, "poststop", got[1].Name)
+		assert.Equal(t, "echo stopped", got[1].Run)
+	})
+
+	t.Run("missing azure yaml returns load error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		chdirTemp(t, tmpDir)
+		require.NoError(t, cliout.SetFormat("default"))
+
+		_, runErr := captureStdout(t, func() error {
+			return runHooks(nil, nil)
+		})
+
+		require.Error(t, runErr)
+		assert.True(t, strings.HasPrefix(runErr.Error(), "failed to load azure.yaml:"))
+	})
 }
