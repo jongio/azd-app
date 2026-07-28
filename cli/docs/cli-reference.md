@@ -64,6 +64,7 @@ azd app run --environment production
 | Command | Description | Detailed Spec |
 |---------|-------------|---------------|
 | `init` | Initialize azure.yaml for local development by scanning your project | [→ Full Spec](commands/init.md) |
+| `validate` | Validate azure.yaml with read-only checks before running services | [→ Full Spec](commands/validate.md) |
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
 | `add` | Add a well-known container service to azure.yaml | [→ Full Spec](commands/add.md) |
@@ -122,6 +123,83 @@ azd app init --force
 - ✅ Non-destructive enrichment of existing azure.yaml
 - ✅ Deduplicates services when multiple detectors match the same directory
 - ✅ JSON output for programmatic consumption
+
+---
+
+## `azd app validate`
+
+Validates `azure.yaml` with read-only checks for service references, project paths, ports, service types, modes, and command readiness. Nothing is started and no files are written.
+
+### Usage
+
+```bash
+azd app validate
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `default` | Output format: 'default' or 'json' (inherited from parent) |
+
+### Checks
+
+| Check ID | Severity | Description |
+|----------|----------|-------------|
+| `yaml.parse` | error | `azure.yaml` is not valid YAML |
+| `schema.parse` | error | The parser rejected the configuration (reported only when no other error is found) |
+| `services.empty` | warning | No services are defined |
+| `service.name` | error | Service name contains unsupported characters |
+| `project.missing` | error | `project` path does not exist |
+| `project.not-directory` | error | `project` path is not a directory |
+| `project.outside-root` | error | `project` path resolves outside the project root |
+| `uses.unknown` | error | `uses` entry is not a defined service or resource |
+| `port.invalid` | error | Host port is not between 1 and 65535 |
+| `port.duplicate` | error | Two services request the same host port |
+| `type.unsupported` | error | Service `type` is not http, tcp, process, or container |
+| `mode.unsupported` | error | Service `mode` is not watch, build, daemon, or task |
+| `command.missing` | warning | Process service has no command in `azure.yaml` |
+
+### Examples
+
+```bash
+# Validate azure.yaml in the current project
+azd app validate
+
+# Validate as JSON for scripts and CI
+azd app validate --output json
+```
+
+### Output
+
+Findings are sorted by service, then by check ID. Warnings alone do not fail the command; any error-severity finding does.
+
+```
+azd app validate
+──────────────────────────────
+
+   [FAIL] web port.duplicate: host port 8080 is also used by service "api"
+         fix: Assign a unique host port to one of the services.
+   [WARN] worker command.missing: process service has no command in azure.yaml
+         fix: Set command or make sure detection can infer how to run it.
+```
+
+JSON output emits the findings array (`[]` when there is nothing to report):
+
+```json
+[
+  {
+    "file": "/path/to/azure.yaml",
+    "service": "web",
+    "checkId": "port.duplicate",
+    "severity": "error",
+    "message": "host port 8080 is also used by service \"api\"",
+    "hint": "Assign a unique host port to one of the services."
+  }
+]
+```
+
+**→ [See full validate command specification](commands/validate.md)** for the complete check list and exit codes.
 
 ---
 
