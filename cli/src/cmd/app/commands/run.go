@@ -29,8 +29,10 @@ const (
 
 var (
 	runServiceFilter     string
+	runExcept            string
 	runScale             []string
 	runEnvFile           string
+	runEnvInline         []string
 	runVerbose           bool
 	runDryRun            bool
 	runDetach            bool
@@ -38,6 +40,7 @@ var (
 	runWeb               bool
 	runRestartContainers bool
 	runForce             bool
+	runNoDeps            bool
 	runTrust             bool
 	runNoTiming          bool
 	runSkipSecretScan    bool
@@ -60,14 +63,17 @@ func NewRunCommand() *cobra.Command {
 
 	// Add flags for service orchestration
 	cmd.Flags().StringVarP(&runServiceFilter, "service", "s", "", "Run specific service(s) only (comma-separated)")
+	cmd.Flags().StringVar(&runExcept, "except", "", "Run every service except the named one(s) (comma-separated)")
 	cmd.Flags().StringSliceVar(&runScale, "scale", nil, "Run multiple instances of a service, e.g. --scale worker=3 (repeatable, comma-separated)")
 	cmd.Flags().StringVar(&runEnvFile, "env-file", "", "Load environment variables from .env file")
+	cmd.Flags().StringArrayVar(&runEnvInline, "env", nil, "Set an environment variable inline as KEY=VALUE (repeatable, overrides --env-file)")
 	cmd.Flags().BoolVarP(&runVerbose, "verbose", "v", false, "Enable verbose logging")
 	cmd.Flags().BoolVar(&runDryRun, "dry-run", false, "Show what would be run without starting services")
 	cmd.Flags().StringVar(&runRuntime, "runtime", runtimeModeAzd, "Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run)")
 	cmd.Flags().BoolVarP(&runWeb, "web", "w", false, "Open dashboard in browser")
 	cmd.Flags().BoolVar(&runRestartContainers, "restart-containers", false, "Restart containers even if they are already running")
 	cmd.Flags().BoolVar(&runForce, "force", false, "Force clean dependency reinstall and auto-resolve port conflicts without prompting")
+	cmd.Flags().BoolVar(&runNoDeps, "no-deps", false, "Skip reqs and dependency installation before starting services")
 	cmd.Flags().BoolVarP(&runTrust, "trust", "y", false, "Trust this workspace for code execution and remember the decision")
 	cmd.Flags().BoolVar(&runDetach, "detach", false, "Run the app in the background and return to the shell")
 	cmd.Flags().BoolVar(&runNoTiming, "no-timing", false, "Hide the per-service startup timing summary shown after services are ready")
@@ -75,6 +81,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&runSkipExposureCheck, "skip-exposure-check", false, "Skip the warning shown when a service binds to all network interfaces")
 
 	registerServiceFlagCompletion(cmd, "service")
+	registerServiceFlagCompletion(cmd, "except")
 
 	return cmd
 }
@@ -82,8 +89,14 @@ func NewRunCommand() *cobra.Command {
 // runWithServices runs services from azure.yaml.
 func runWithServices(ctx context.Context, commandOrchestrator *orchestrator.Orchestrator, _ *cobra.Command, _ []string) error {
 	cliout.CommandHeader("run", "Run the development environment")
-	if err := validateRuntimeMode(runRuntime); err != nil {
+	if err := validateRunOptions(); err != nil {
 		return err
+	}
+
+	// --service and --except are mutually exclusive: one names the services to
+	// run, the other names the services to skip.
+	if runServiceFilter != "" && runExcept != "" {
+		return errors.New("--service and --except cannot be used together")
 	}
 
 	// Locate azure.yaml before spawning any subprocesses so we can compute
@@ -115,13 +128,37 @@ func runWithServices(ctx context.Context, commandOrchestrator *orchestrator.Orch
 		setDepsOptions(opts)
 	}
 
-	// Execute dependencies first (reqs -> deps -> run)
-	// The orchestrator automatically sets orchestrated mode for dependencies
-	if err := commandOrchestrator.Run("run"); err != nil {
-		return fmt.Errorf("failed to execute command dependencies: %w", err)
+	if err := runRunDependencies(commandOrchestrator); err != nil {
+		return err
 	}
 
 	return runServicesFromAzureYaml(ctx, azureYamlPath, runRuntime)
+}
+
+func validateRunOptions() error {
+	if err := validateRuntimeMode(runRuntime); err != nil {
+		return err
+	}
+	if runNoDeps && runForce {
+		return fmt.Errorf("--no-deps cannot be combined with --force")
+	}
+	return nil
+}
+
+func runRunDependencies(commandOrchestrator *orchestrator.Orchestrator) error {
+	if runNoDeps {
+		if !cliout.IsJSON() {
+			cliout.Info("Skipping reqs and dependency installation (--no-deps)")
+		}
+		return nil
+	}
+
+	// Execute dependencies first (reqs -> deps -> run). The orchestrator
+	// automatically sets orchestrated mode for dependencies.
+	if err := commandOrchestrator.Run("run"); err != nil {
+		return fmt.Errorf("failed to execute command dependencies: %w", err)
+	}
+	return nil
 }
 
 // ensureWorkspaceTrusted enforces the workspace trust gate before any
@@ -281,8 +318,14 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	}
 
 	// Filter and detect services
-	services := filterServices(azureYaml)
+	services, err := selectRunServices(azureYaml)
+	if err != nil {
+		return err
+	}
 	if len(services) == 0 {
+		if runExcept != "" {
+			return fmt.Errorf("no services remain after excluding: %s", runExcept)
+		}
 		return fmt.Errorf("no services match filter: %s", runServiceFilter)
 	}
 
@@ -352,6 +395,48 @@ func filterServices(azureYaml *service.AzureYaml) map[string]service.Service {
 	return service.FilterServices(azureYaml, filterList)
 }
 
+// selectRunServices resolves which services to run from the --service and
+// --except flags. The two are mutually exclusive (checked earlier in
+// runWithServices). --except removes the named services and returns the rest;
+// naming a service that does not exist is an error so typos do not silently run
+// more than intended.
+func selectRunServices(azureYaml *service.AzureYaml) (map[string]service.Service, error) {
+	if runExcept == "" {
+		return filterServices(azureYaml), nil
+	}
+	return excludeServices(azureYaml, strings.Split(runExcept, ","))
+}
+
+// excludeServices returns every service except the named ones. Unknown names
+// produce an error that lists the available services.
+func excludeServices(azureYaml *service.AzureYaml, exclude []string) (map[string]service.Service, error) {
+	excludeSet := make(map[string]bool, len(exclude))
+	var unknown []string
+	for _, name := range exclude {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if _, ok := azureYaml.Services[name]; !ok {
+			unknown = append(unknown, name)
+		}
+		excludeSet[name] = true
+	}
+
+	if len(unknown) > 0 {
+		return nil, fmt.Errorf("unknown service(s) in --except: %s. Available services: %s",
+			strings.Join(unknown, ", "), strings.Join(sortedServiceNames(azureYaml.Services), ", "))
+	}
+
+	remaining := make(map[string]service.Service, len(azureYaml.Services))
+	for name, svc := range azureYaml.Services {
+		if !excludeSet[name] {
+			remaining[name] = svc
+		}
+	}
+	return remaining, nil
+}
+
 // detectServiceRuntimes detects runtime information for all services.
 //
 // CONCURRENCY: This function is NOT thread-safe and must be called sequentially.
@@ -390,17 +475,38 @@ func detectServiceRuntimes(services map[string]service.Service, azureYamlDir, ru
 	return runtimes, nil
 }
 
-// loadEnvironmentVariables loads environment variables from --env-file if specified.
-func loadEnvironmentVariables() (map[string]string, error) {
-	if runEnvFile == "" {
-		return make(map[string]string), nil
+func loadRunEnvironmentVariables() (map[string]string, map[string]string, error) {
+	envVars := make(map[string]string)
+
+	if runEnvFile != "" {
+		loaded, err := service.LoadDotEnv(runEnvFile)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to load env file: %w", err)
+		}
+		envVars = loaded
 	}
 
-	envVars, err := service.LoadDotEnv(runEnvFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load env file: %w", err)
+	inlineEnvVars := make(map[string]string)
+	if err := mergeInlineEnv(inlineEnvVars, runEnvInline); err != nil {
+		return nil, nil, err
 	}
-	return envVars, nil
+
+	return envVars, inlineEnvVars, nil
+}
+
+// mergeInlineEnv parses KEY=VALUE entries and merges them into envVars,
+// overriding any existing keys. Each entry must contain '=' and a non-empty
+// key. The value may be empty or contain additional '=' characters.
+func mergeInlineEnv(envVars map[string]string, entries []string) error {
+	for _, entry := range entries {
+		key, value, found := strings.Cut(entry, "=")
+		key = strings.TrimSpace(key)
+		if !found || key == "" {
+			return fmt.Errorf("invalid --env value %q: expected KEY=VALUE", entry)
+		}
+		envVars[key] = value
+	}
+	return nil
 }
 
 // buildServiceSummaries composes URL summaries for display, preferring rich data from serviceinfo.

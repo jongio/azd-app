@@ -68,6 +68,7 @@ azd app run --environment production
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
 | `add` | Add a well-known container service to azure.yaml | [→ Full Spec](commands/add.md) |
 | `config` | Show the effective resolved configuration for each service | [→ Full Spec](commands/config.md) |
+| `remove` | Remove a service from azure.yaml | |
 | `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
 | `test` | Run tests for all services with coverage aggregation | [→ Full Spec](commands/test.md) |
 | `start` | Start stopped services | [→ Full Spec](commands/start.md) |
@@ -76,6 +77,7 @@ azd app run --environment production
 | `health` | Monitor health status of services (static or streaming mode) | [→ Full Spec](commands/health.md) |
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
+| `hooks` | List the lifecycle hooks configured in azure.yaml | [→ Full Spec](commands/hooks.md) |
 | `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
@@ -348,6 +350,34 @@ azd app config --output json
 
 ---
 
+## `azd app remove`
+
+Remove a service from the services section of azure.yaml. This is the inverse of `azd app add`. It deletes the named service entry while keeping the remaining services and settings semantically unchanged.
+
+### Usage
+
+```bash
+azd app remove <service>
+```
+
+### Examples
+
+```bash
+# Remove the redis service
+azd app remove redis
+
+# JSON output
+azd app remove redis --output json
+```
+
+### Behavior
+
+- Removing a service that is not present fails and lists the current service names.
+- Only the named service entry is deleted. The remaining services and settings are kept, though yaml formatting may be normalized.
+- Supports the global `--output json` flag for scripting.
+
+---
+
 ## `azd app run`
 
 Starts your development environment based on project type with support for multi-service orchestration.
@@ -367,6 +397,9 @@ azd app run
 # Run specific services only
 azd app run --service web,api
 
+# Run every service except one
+azd app run --except worker
+
 # Use native Aspire dashboard (for .NET Aspire projects)
 azd app run --runtime aspire
 
@@ -378,6 +411,9 @@ azd app run --verbose
 
 # Load environment variables from custom file
 azd app run --env-file .env.local
+
+# Override a single variable inline (repeatable, wins over --env-file)
+azd app run --env LOG_LEVEL=debug --env FEATURE_X=on
 
 # Combine multiple flags
 azd app run -s web -v --runtime aspire
@@ -391,8 +427,10 @@ azd app run --force
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Run specific service(s) only (comma-separated) |
+| `--except` | | string | | Run every service except the named one(s) (comma-separated); cannot be combined with `--service` |
 | `--runtime` | | string | `azd` | Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run) |
 | `--env-file` | | string | | Load environment variables from .env file |
+| `--env` | | stringArray | | Set an environment variable inline as KEY=VALUE (repeatable, overrides --env-file) |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show what would be run without starting services |
 | `--no-timing` | | bool | `false` | Hide the per-service startup timing summary shown after services are ready |
@@ -950,6 +988,9 @@ azd app logs --since 5m
 # Filter by log level
 azd app logs --level error
 
+# Show every entry at warn severity or higher
+azd app logs --min-level warn
+
 # Show errors with 3 lines of context before and after
 azd app logs --level error --context 3
 
@@ -978,6 +1019,7 @@ azd app logs --no-color
 | `--timestamps` | | bool | `true` | Show timestamps with each log entry |
 | `--no-color` | | bool | `false` | Disable colored output |
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
+| `--min-level` | | string | | Show entries at this severity or higher (debug < info < warn < error); cannot be combined with an explicit --level (info/warn/error/debug) or --context |
 | `--context` | | int | `0` | Number of context lines before/after matching entries (0-10, requires --level) |
 | `--format` | | string | `text` | Output format (text, json) |
 | `--file` | | string | | Write logs to file instead of stdout |
@@ -1090,6 +1132,49 @@ api
 ```
 
 **→ [See full info command specification](commands/info.md)** for service registry details and detailed documentation.
+
+---
+
+## `azd app hooks`
+
+Reads `azure.yaml` and lists the project-level lifecycle hooks. For each configured hook it shows the command it runs, the shell it uses, and any per-platform override for Windows or POSIX. Use it to confirm what will run around a `run` or `stop` without opening the file.
+
+### Usage
+
+```bash
+azd app hooks [flags]
+```
+
+### Examples
+
+```bash
+# List configured hooks
+azd app hooks
+
+# JSON array of hooks
+azd app hooks --output json
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `text` | Output format: `text` or `json` |
+
+### Lifecycle hooks
+
+| Hook | When it runs |
+|------|--------------|
+| `prerun` | before services start |
+| `postrun` | after all services are ready |
+| `prestop` | before services are stopped |
+| `poststop` | after services are stopped |
+
+### Notes
+
+- Hooks are listed in lifecycle order. Hooks that are not configured are omitted.
+- A hook with a Windows or POSIX override shows the override command and shell on its own line.
+- When no hooks are configured the command prints a short message and exits zero.
 
 ---
 

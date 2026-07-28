@@ -146,8 +146,10 @@ type logsOptions struct {
 	tail         int
 	since        string
 	timestamps   bool
+	noTimestamps bool
 	noColor      bool
 	level        string
+	minLevel     string
 	output       string
 	file         string
 	exclude      string
@@ -157,6 +159,7 @@ type logsOptions struct {
 	source       string // Log source: "local", "azure", or "all"
 	redact       bool
 	alerts       bool // Enable log-pattern alert rules
+	summary      bool // Print counts by service and level instead of raw logs
 }
 
 // logsExecutor encapsulates the logs command execution with injectable dependencies.
@@ -251,6 +254,9 @@ Examples:
   # Filter by log level
   azd app logs --level error
 
+  # Show every entry at warn severity or higher (warn and error)
+  azd app logs --min-level warn
+
   # Only show lines matching a pattern
   azd app logs --grep "timeout|refused"
 
@@ -263,6 +269,9 @@ Examples:
   # View logs from the last 5 minutes
   azd app logs --since 5m
 
+  # Hide timestamp prefixes in text output
+  azd app logs --no-timestamps
+
   # Export logs to a file
   azd app logs --file logs.txt
 
@@ -271,6 +280,9 @@ Examples:
 
   # Output errors as JSON with context
   azd app logs --level error --context 3 --output json
+
+  # Show counts by service and level
+  azd app logs --summary
 
   # View logs from Azure-deployed services
   azd app logs --source azure
@@ -292,8 +304,10 @@ Examples:
 	cmd.Flags().IntVarP(&opts.tail, "tail", "n", defaultTailLines, "Number of lines to show from the end")
 	cmd.Flags().StringVar(&opts.since, "since", "", "Show logs since duration (e.g., 5m, 1h)")
 	cmd.Flags().BoolVar(&opts.timestamps, "timestamps", true, "Show timestamps with each log entry")
+	cmd.Flags().BoolVar(&opts.noTimestamps, "no-timestamps", false, "Hide timestamps in text log output")
 	cmd.Flags().BoolVar(&opts.noColor, "no-color", false, "Disable colored output")
 	cmd.Flags().StringVar(&opts.level, "level", "all", "Filter by log level (info, warn, error, debug, all)")
+	cmd.Flags().StringVar(&opts.minLevel, "min-level", "", "Show entries at this severity or higher (debug < info < warn < error); cannot be combined with an explicit --level (info/warn/error/debug) or --context")
 	cmd.Flags().StringVarP(&opts.output, "output", "o", "text", "Output format (text, json)")
 
 	// Keep --format as hidden alias for backward compatibility
@@ -307,6 +321,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.source, "source", "local", "Log source: 'local' (default), 'azure', or 'all'")
 	cmd.Flags().BoolVar(&opts.redact, "redact", false, "Redact secret-shaped values before printing logs")
 	cmd.Flags().BoolVar(&opts.alerts, "alerts", false, "Raise alerts for log lines matching built-in patterns (panic, unhandled exception, fatal)")
+	cmd.Flags().BoolVar(&opts.summary, "summary", false, "Show counts by service and level instead of raw log entries")
 
 	registerServiceFlagCompletion(cmd, "service")
 
@@ -315,6 +330,8 @@ Examples:
 
 func runLogsWithOptions(opts *logsOptions, args []string) error {
 	cliout.CommandHeader("logs", "View logs from running services")
+
+	applyLogTimestampAliases(opts)
 
 	// Validate inputs
 	if err := validateLogsOptions(opts); err != nil {
@@ -333,6 +350,12 @@ func runLogsWithOptions(opts *logsOptions, args []string) error {
 	executor.alertEngine = engine
 
 	return executor.execute(context.Background(), args)
+}
+
+func applyLogTimestampAliases(opts *logsOptions) {
+	if opts != nil && opts.noTimestamps {
+		opts.timestamps = false
+	}
 }
 
 // execute runs the logs command with the configured dependencies and options.
@@ -383,6 +406,15 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	}
 	if cleanup != nil {
 		defer cleanup()
+	}
+
+	if e.opts.summary {
+		if collected.HasContext {
+			displayLogSummary(buildLogSummaryFromContextLogs(collected.EntriesWithContext), outputWriter, e.opts.output == jsonOutputVal)
+		} else {
+			displayLogSummary(buildLogSummaryFromEntries(collected.Entries), outputWriter, e.opts.output == jsonOutputVal)
+		}
+		return nil
 	}
 
 	// Display logs
@@ -571,6 +603,12 @@ func (e *logsExecutor) collect(ctx context.Context, args []string) (*CollectedLo
 	} else {
 		// Regular mode: filter by level
 		logs = filterLogsByLevel(logs, levelFilter)
+
+		// Filter by minimum severity threshold when --min-level is set.
+		// Mutually exclusive with --level, so only one of these actually filters.
+		if minLevel, ok := parseMinLevel(e.opts.minLevel); ok {
+			logs = filterLogsByMinLevel(logs, minLevel)
+		}
 
 		// Apply final tail limit after all filtering
 		if e.opts.tail > 0 && len(logs) > e.opts.tail {

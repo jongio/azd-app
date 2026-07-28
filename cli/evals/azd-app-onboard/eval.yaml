@@ -16,7 +16,7 @@ environment:
   skills:
     - ../../src/internal/skills/azd-app-onboard
 
-config:
+defaults:
   runs: 5
   timeout: "10m"
   model: claude-sonnet-4.6

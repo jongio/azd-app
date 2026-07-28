@@ -29,6 +29,7 @@ func TestValidateLogsOptions(t *testing.T) {
 		{"valid since 1h", 100, "text", "all", "1h", "local", 0, false, ""},
 		{"valid source azure", 100, "text", "all", "", "azure", 0, false, ""},
 		{"valid source all", 100, "text", "all", "", "all", 0, false, ""},
+		{"summary with follow", 100, "text", "all", "", "local", 0, true, "--summary cannot be combined with --follow"},
 		{"negative tail", -1, "text", "all", "", "local", 0, true, "--tail must be a positive"},
 		{"invalid format", 100, "xml", "all", "", "local", 0, true, "--output must be"},
 		{"invalid level", 100, "text", "trace", "", "local", 0, true, "--level must be one of"},
@@ -52,6 +53,10 @@ func TestValidateLogsOptions(t *testing.T) {
 				since:        tt.since,
 				source:       tt.source,
 				contextLines: tt.contextLines,
+			}
+			if tt.name == "summary with follow" {
+				opts.summary = true
+				opts.follow = true
 			}
 
 			err := validateLogsOptions(opts)
@@ -172,6 +177,53 @@ func TestValidateLogsOptions(t *testing.T) {
 	})
 }
 
+func TestValidateLogsOptionsMinLevel(t *testing.T) {
+	tests := []struct {
+		name         string
+		level        string
+		minLevel     string
+		contextLines int
+		wantErr      bool
+		errSubstr    string
+	}{
+		{"min-level debug", "all", "debug", 0, false, ""},
+		{"min-level info", "all", "info", 0, false, ""},
+		{"min-level warn", "all", "warn", 0, false, ""},
+		{"min-level error", "all", "error", 0, false, ""},
+		{"min-level warning alias", "all", "warning", 0, false, ""},
+		{"min-level uppercase", "all", "WARN", 0, false, ""},
+		{"empty min-level is unset", "all", "", 0, false, ""},
+		{"invalid min-level", "all", "trace", 0, true, "--min-level must be one of"},
+		{"min-level with level rejected", "error", "warn", 0, true, "cannot be combined with an explicit --level"},
+		{"min-level with context rejected", "all", "warn", 3, true, "cannot be combined with --context"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := &logsOptions{
+				tail:         100,
+				output:       "text",
+				level:        tt.level,
+				minLevel:     tt.minLevel,
+				source:       "local",
+				contextLines: tt.contextLines,
+			}
+
+			err := validateLogsOptions(opts)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("validateLogsOptions() expected error containing %q, got nil", tt.errSubstr)
+				} else if !strings.Contains(err.Error(), tt.errSubstr) {
+					t.Errorf("validateLogsOptions() error = %v, want error containing %q", err, tt.errSubstr)
+				}
+			} else if err != nil {
+				t.Errorf("validateLogsOptions() unexpected error: %v", err)
+			}
+		})
+	}
+}
+
 func TestLogsConstants(t *testing.T) {
 	t.Run("defaultTailLines", func(t *testing.T) {
 		if defaultTailLines != 100 {
@@ -239,7 +291,7 @@ func TestLogsCommandStructure(t *testing.T) {
 	t.Run("flags exist", func(t *testing.T) {
 		flags := []string{
 			"follow", "service", "tail", "since", "timestamps",
-			"no-color", "level", "output", "format", "file", "exclude", "no-builtins", "context",
+			"no-timestamps", "no-color", "level", "min-level", "output", "format", "file", "exclude", "no-builtins", "context", "summary",
 		}
 		for _, flag := range flags {
 			if cmd.Flags().Lookup(flag) == nil {
@@ -275,6 +327,11 @@ func TestLogsCommandStructure(t *testing.T) {
 			t.Errorf("timestamps default = %q, want %q", timestampsFlag.DefValue, "true")
 		}
 
+		noTimestampsFlag := cmd.Flags().Lookup("no-timestamps")
+		if noTimestampsFlag.DefValue != "false" {
+			t.Errorf("no-timestamps default = %q, want %q", noTimestampsFlag.DefValue, "false")
+		}
+
 		levelFlag := cmd.Flags().Lookup("level")
 		if levelFlag.DefValue != "all" {
 			t.Errorf("level default = %q, want %q", levelFlag.DefValue, "all")
@@ -300,6 +357,7 @@ func TestLogsOptionsDocumentation(t *testing.T) {
 		tail:         100,
 		since:        "5m",
 		timestamps:   true,
+		noTimestamps: false,
 		noColor:      false,
 		level:        "info",
 		output:       "text",
@@ -325,6 +383,9 @@ func TestLogsOptionsDocumentation(t *testing.T) {
 	if opts.timestamps != true {
 		t.Error("timestamps field")
 	}
+	if opts.noTimestamps != false {
+		t.Error("noTimestamps field")
+	}
 	if opts.noColor != false {
 		t.Error("noColor field")
 	}
@@ -348,5 +409,14 @@ func TestLogsOptionsDocumentation(t *testing.T) {
 	}
 	if opts.source != "local" {
 		t.Error("source field")
+	}
+}
+
+func TestApplyLogTimestampAliases(t *testing.T) {
+	opts := &logsOptions{timestamps: true, noTimestamps: true}
+	applyLogTimestampAliases(opts)
+
+	if opts.timestamps {
+		t.Fatal("no-timestamps should disable timestamp rendering")
 	}
 }

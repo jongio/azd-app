@@ -112,8 +112,11 @@ func main() {
 		commands.NewCertCommand(),
 		commands.NewAddCommand(),
 		commands.NewConfigCommand(),
+		commands.NewRemoveCommand(),
 		commands.NewSupportBundleCommand(),
 		commands.NewGraphCommand(),
+		commands.NewHooksCommand(),
+		commands.NewOpenCommand(),
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
 	)
 
