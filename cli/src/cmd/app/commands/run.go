@@ -38,6 +38,7 @@ var (
 	runWeb               bool
 	runRestartContainers bool
 	runForce             bool
+	runNoDeps            bool
 	runTrust             bool
 	runNoTiming          bool
 	runSkipSecretScan    bool
@@ -68,6 +69,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVarP(&runWeb, "web", "w", false, "Open dashboard in browser")
 	cmd.Flags().BoolVar(&runRestartContainers, "restart-containers", false, "Restart containers even if they are already running")
 	cmd.Flags().BoolVar(&runForce, "force", false, "Force clean dependency reinstall and auto-resolve port conflicts without prompting")
+	cmd.Flags().BoolVar(&runNoDeps, "no-deps", false, "Skip reqs and dependency installation before starting services")
 	cmd.Flags().BoolVarP(&runTrust, "trust", "y", false, "Trust this workspace for code execution and remember the decision")
 	cmd.Flags().BoolVar(&runDetach, "detach", false, "Run the app in the background and return to the shell")
 	cmd.Flags().BoolVar(&runNoTiming, "no-timing", false, "Hide the per-service startup timing summary shown after services are ready")
@@ -82,7 +84,7 @@ func NewRunCommand() *cobra.Command {
 // runWithServices runs services from azure.yaml.
 func runWithServices(ctx context.Context, commandOrchestrator *orchestrator.Orchestrator, _ *cobra.Command, _ []string) error {
 	cliout.CommandHeader("run", "Run the development environment")
-	if err := validateRuntimeMode(runRuntime); err != nil {
+	if err := validateRunOptions(); err != nil {
 		return err
 	}
 
@@ -115,13 +117,37 @@ func runWithServices(ctx context.Context, commandOrchestrator *orchestrator.Orch
 		setDepsOptions(opts)
 	}
 
-	// Execute dependencies first (reqs -> deps -> run)
-	// The orchestrator automatically sets orchestrated mode for dependencies
-	if err := commandOrchestrator.Run("run"); err != nil {
-		return fmt.Errorf("failed to execute command dependencies: %w", err)
+	if err := runRunDependencies(commandOrchestrator); err != nil {
+		return err
 	}
 
 	return runServicesFromAzureYaml(ctx, azureYamlPath, runRuntime)
+}
+
+func validateRunOptions() error {
+	if err := validateRuntimeMode(runRuntime); err != nil {
+		return err
+	}
+	if runNoDeps && runForce {
+		return fmt.Errorf("--no-deps cannot be combined with --force")
+	}
+	return nil
+}
+
+func runRunDependencies(commandOrchestrator *orchestrator.Orchestrator) error {
+	if runNoDeps {
+		if !cliout.IsJSON() {
+			cliout.Info("Skipping reqs and dependency installation (--no-deps)")
+		}
+		return nil
+	}
+
+	// Execute dependencies first (reqs -> deps -> run). The orchestrator
+	// automatically sets orchestrated mode for dependencies.
+	if err := commandOrchestrator.Run("run"); err != nil {
+		return fmt.Errorf("failed to execute command dependencies: %w", err)
+	}
+	return nil
 }
 
 // ensureWorkspaceTrusted enforces the workspace trust gate before any
