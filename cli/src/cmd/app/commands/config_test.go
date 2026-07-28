@@ -2,11 +2,31 @@ package commands
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-core/cliout"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+const (
+	configTestAPI = "api"
+	configTestWeb = "web"
+)
+
+func TestNewConfigCommand(t *testing.T) {
+	cmd := NewConfigCommand()
+	require.NotNil(t, cmd)
+	assert.Equal(t, "config [service]", cmd.Use)
+	assert.Equal(t, "Show the effective configuration for each service", cmd.Short)
+	require.NotNil(t, cmd.RunE)
+	assert.NotNil(t, cmd.ValidArgsFunction)
+	assert.Nil(t, cmd.Flags().Lookup("output"))
+}
 
 func TestBuildServiceConfigInferredType(t *testing.T) {
 	svc := service.Service{
@@ -85,8 +105,8 @@ func TestConfiguredBlocksEmpty(t *testing.T) {
 func TestSelectServiceConfigsAll(t *testing.T) {
 	azureYaml := &service.AzureYaml{
 		Services: map[string]service.Service{
-			"web": {Language: "js", Ports: []string{"3000"}},
-			"api": {Type: "process", Command: "worker"},
+			configTestWeb: {Language: "js", Ports: []string{"3000"}},
+			configTestAPI: {Type: "process", Command: "worker"},
 		},
 	}
 
@@ -97,10 +117,10 @@ func TestSelectServiceConfigsAll(t *testing.T) {
 	if len(configs) != 2 {
 		t.Fatalf("expected 2 configs, got %d", len(configs))
 	}
-	if len(order) != 2 || order[0] != "api" || order[1] != "web" {
+	if len(order) != 2 || order[0] != configTestAPI || order[1] != configTestWeb {
 		t.Errorf("expected sorted order [api web], got %v", order)
 	}
-	if configs["api"].Type != "process" || configs["web"].Type != "http" {
+	if configs[configTestAPI].Type != "process" || configs[configTestWeb].Type != "http" {
 		t.Errorf("unexpected resolved types: %+v", configs)
 	}
 }
@@ -108,19 +128,19 @@ func TestSelectServiceConfigsAll(t *testing.T) {
 func TestSelectServiceConfigsSingle(t *testing.T) {
 	azureYaml := &service.AzureYaml{
 		Services: map[string]service.Service{
-			"web": {Ports: []string{"3000"}},
-			"api": {Type: "process"},
+			configTestWeb: {Ports: []string{"3000"}},
+			configTestAPI: {Type: "process"},
 		},
 	}
 
-	configs, order, err := selectServiceConfigs(azureYaml, []string{"api"})
+	configs, order, err := selectServiceConfigs(azureYaml, []string{configTestAPI})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(configs) != 1 || len(order) != 1 || order[0] != "api" {
+	if len(configs) != 1 || len(order) != 1 || order[0] != configTestAPI {
 		t.Fatalf("expected only api selected, got order %v configs %v", order, configs)
 	}
-	if _, ok := configs["web"]; ok {
+	if _, ok := configs[configTestWeb]; ok {
 		t.Error("expected web to be excluded")
 	}
 }
@@ -128,8 +148,8 @@ func TestSelectServiceConfigsSingle(t *testing.T) {
 func TestSelectServiceConfigsUnknown(t *testing.T) {
 	azureYaml := &service.AzureYaml{
 		Services: map[string]service.Service{
-			"web": {Ports: []string{"3000"}},
-			"api": {Type: "process"},
+			configTestWeb: {Ports: []string{"3000"}},
+			configTestAPI: {Type: "process"},
 		},
 	}
 
@@ -164,7 +184,7 @@ func TestSelectServiceConfigsNoServices(t *testing.T) {
 
 func TestServiceConfigJSONShape(t *testing.T) {
 	configs := map[string]serviceConfig{
-		"api": buildServiceConfig(service.Service{
+		configTestAPI: buildServiceConfig(service.Service{
 			Type:        "http",
 			Language:    "python",
 			Ports:       []string{"8000"},
@@ -181,7 +201,7 @@ func TestServiceConfigJSONShape(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal failed: %v", err)
 	}
-	api, ok := decoded["api"]
+	api, ok := decoded[configTestAPI]
 	if !ok {
 		t.Fatal("expected object keyed by service name")
 	}
@@ -199,4 +219,226 @@ func TestServiceConfigJSONShape(t *testing.T) {
 	if _, ok := api["project"]; ok {
 		t.Error("expected project to be omitted when empty")
 	}
+}
+
+func TestPrintServiceConfig(t *testing.T) {
+	originalFormat := cliout.GetFormat()
+	t.Cleanup(func() { _ = cliout.SetFormat(string(originalFormat)) })
+	require.NoError(t, cliout.SetFormat("default"))
+
+	tests := []struct {
+		name string
+		cfg  serviceConfig
+		want []string
+	}{
+		{
+			name: configTestAPI,
+			cfg: serviceConfig{
+				Host:       "containerapp",
+				Type:       "http",
+				TypeSource: "explicit",
+				Language:   "python",
+				Project:    filepath.Join("project", configTestAPI),
+				Command:    "python -m uvicorn main:app",
+				Image:      "example.azurecr.io/api:latest",
+				Ports:      []string{"8080:80", "8443:443"},
+				Uses:       []string{"db", "cache"},
+				Blocks:     []string{"docker", "logs"},
+			},
+			want: []string{
+				configTestAPI,
+				"host",
+				"containerapp",
+				"type",
+				"http (explicit)",
+				"language",
+				"python",
+				"project",
+				filepath.Join("project", configTestAPI),
+				"command",
+				"python -m uvicorn main:app",
+				"image",
+				"example.azurecr.io/api:latest",
+				"ports",
+				"8080:80, 8443:443",
+				"uses",
+				"db, cache",
+				"configured",
+				"docker, logs",
+			},
+		},
+		{
+			name: "worker",
+			cfg: serviceConfig{
+				Type:       "process",
+				TypeSource: "inferred",
+			},
+			want: []string{
+				"worker",
+				"type",
+				"process (inferred)",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := captureStdout(t, func() error {
+				printServiceConfig(tt.name, tt.cfg)
+				return nil
+			})
+			require.NoError(t, err)
+			for _, want := range tt.want {
+				assert.Contains(t, out, want)
+			}
+		})
+	}
+}
+
+func TestRunConfigCommand(t *testing.T) {
+	originalFormat := cliout.GetFormat()
+	t.Cleanup(func() { _ = cliout.SetFormat(string(originalFormat)) })
+
+	tests := []struct {
+		name       string
+		azureYaml  string
+		args       []string
+		format     string
+		want       []string
+		wantAbsent []string
+		wantJSON   bool
+		wantErr    string
+	}{
+		{
+			name:      "all services as text",
+			azureYaml: configCommandAzureYaml(),
+			format:    "default",
+			want: []string{
+				"azd app config",
+				configTestAPI,
+				configTestWeb,
+				"containerapp",
+				"http (explicit)",
+				"js",
+				"npm run dev",
+				"nginx:alpine",
+				"3000:3000",
+				"api",
+				"docker, healthcheck, restart, resources, logs, local, azure",
+			},
+		},
+		{
+			name:      "single service as json",
+			azureYaml: configCommandAzureYaml(),
+			args:      []string{configTestAPI},
+			format:    "json",
+			wantJSON:  true,
+		},
+		{
+			name:       "no services as text",
+			azureYaml:  "name: empty\nservices: {}\n",
+			format:     "default",
+			want:       []string{"No services are defined in azure.yaml"},
+			wantAbsent: []string{"Effective service configuration"},
+		},
+		{
+			name:      "unknown service returns error",
+			azureYaml: configCommandAzureYaml(),
+			args:      []string{"missing"},
+			format:    "default",
+			wantErr:   `service "missing" not found`,
+		},
+		{
+			name:    "missing azure yaml returns error",
+			format:  "default",
+			wantErr: "failed to load azure.yaml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			if tt.azureYaml != "" {
+				require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(tt.azureYaml), 0o600))
+			}
+			t.Chdir(tmpDir)
+			require.NoError(t, cliout.SetFormat(tt.format))
+
+			out, runErr := captureStdout(t, func() error {
+				return runConfig(nil, tt.args)
+			})
+			if tt.wantErr != "" {
+				require.Error(t, runErr)
+				assert.Contains(t, runErr.Error(), tt.wantErr)
+				return
+			}
+
+			require.NoError(t, runErr)
+			for _, want := range tt.want {
+				assert.Contains(t, out, want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, out, absent)
+			}
+			if tt.wantJSON {
+				var parsed map[string]serviceConfig
+				require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+				assert.Equal(t, map[string]serviceConfig{
+					configTestAPI: {
+						Host:       "containerapp",
+						Type:       "http",
+						TypeSource: "explicit",
+						Language:   "go",
+						Project:    filepath.Join(tmpDir, configTestAPI),
+						Command:    "go run .",
+						Ports:      []string{"8080:8080"},
+						Uses:       []string{"db"},
+						Blocks:     []string{"healthcheck"},
+					},
+				}, parsed)
+			}
+		})
+	}
+}
+
+func configCommandAzureYaml() string {
+	return `name: config-test
+services:
+  web:
+    host: containerapp
+    language: js
+    project: ./web
+    command: npm run dev
+    image: nginx:alpine
+    ports:
+      - 3000:3000
+    uses:
+      - api
+    docker:
+      remoteBuild: true
+    healthcheck:
+      path: /healthz
+    restart:
+      policy: on-failure
+    resources:
+      cpuPercent: 80
+    logs:
+      enabled: true
+    local:
+      enabled: true
+    azure:
+      resourceName: web-app
+  api:
+    host: containerapp
+    type: http
+    language: go
+    project: ./api
+    command: go run .
+    ports:
+      - 8080:8080
+    uses:
+      - db
+    healthcheck:
+      path: /ready
+`
 }

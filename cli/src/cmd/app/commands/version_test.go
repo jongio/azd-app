@@ -60,6 +60,7 @@ func TestVersionCommand_DefaultOutput(t *testing.T) {
 
 	var stdout bytes.Buffer
 	cmd.SetOut(&stdout)
+	cmd.SetArgs([]string{})
 
 	err := cmd.Execute()
 	if err != nil {
