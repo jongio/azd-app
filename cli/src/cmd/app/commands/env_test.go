@@ -165,6 +165,31 @@ func TestFormatGitHubEnv(t *testing.T) {
 		assert.Contains(t, out, "DB_PASSWORD=su***et")
 	})
 
+	t.Run("invalid variable names are rejected", func(t *testing.T) {
+		tests := []string{"SAFE\nINJECTED", "SAFE=INJECTED", "SAFE<<INJECTED"}
+		for _, key := range tests {
+			t.Run(key, func(t *testing.T) {
+				_, err := formatGitHubEnv(map[string]string{key: "value"}, false)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "invalid GitHub Actions environment variable name")
+			})
+		}
+	})
+
+	t.Run("bare carriage return values use a heredoc block", func(t *testing.T) {
+		value := "line one\rline two"
+		out, err := formatGitHubEnv(map[string]string{"CERT": value}, false)
+		require.NoError(t, err)
+
+		lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+		require.Len(t, lines, 3)
+		header := lines[0]
+		require.True(t, strings.HasPrefix(header, "CERT<<"), "header was %q", header)
+		delim := strings.TrimPrefix(header, "CERT<<")
+		assert.Equal(t, value, lines[1])
+		assert.Equal(t, delim, lines[2])
+	})
+
 }
 
 func TestGithubEnvDelimiter(t *testing.T) {
@@ -396,6 +421,7 @@ func TestRunEnvCommand(t *testing.T) {
 			{"diff", []string{"--keys", "--diff", "api", "web"}, "cannot combine --keys with --diff"},
 			{"explain", []string{"api", "--keys", "--explain"}, "cannot combine --keys with --explain"},
 			{"write", []string{"api", "--keys", "--write"}, "cannot combine --keys with --write"},
+			{"github-actions", []string{"--keys", "--all", "--format", "github-actions"}, "cannot combine --keys with --format github-actions"},
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {

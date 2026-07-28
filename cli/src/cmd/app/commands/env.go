@@ -160,6 +160,13 @@ func runEnv(_ *cobra.Command, args []string) error {
 		if envWrite {
 			return fmt.Errorf("cannot combine --keys with --write")
 		}
+		format, err := currentEnvFormat()
+		if err != nil {
+			return err
+		}
+		if format == envFormatGitHubActions {
+			return fmt.Errorf("cannot combine --keys with --format github-actions")
+		}
 		if envAll {
 			return runEnvAllKeys(azureYaml, names)
 		}
@@ -547,6 +554,18 @@ func printServiceList(names []string) error {
 	return nil
 }
 
+// currentEnvFormat resolves the requested format and applies global output flags.
+func currentEnvFormat() (string, error) {
+	format, err := resolveEnvFormat(envFormat)
+	if err != nil {
+		return "", err
+	}
+	if cliout.IsJSON() {
+		return envFormatJSON, nil
+	}
+	return format, nil
+}
+
 // resolveEnvFormat normalizes and validates the requested output format.
 func resolveEnvFormat(format string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(format)) {
@@ -625,8 +644,8 @@ func shellQuoteDouble(v string) string {
 }
 
 // formatGitHubEnv renders the environment for appending to the GitHub Actions
-// $GITHUB_ENV file. Single-line values use KEY=value; values that contain a
-// newline use the KEY<<DELIM heredoc form with a random delimiter that does not
+// $GITHUB_ENV file. Single-line values use KEY=value; values that contain CR or
+// LF use the KEY<<DELIM heredoc form with a random delimiter that does not
 // appear in the value, matching how GitHub Actions expects multiline values.
 // Keys are emitted in sorted order and secret-shaped values are masked when mask
 // is true.
@@ -641,8 +660,12 @@ func formatGitHubEnv(env map[string]string, mask bool) (string, error) {
 
 	var b strings.Builder
 	for _, k := range keys {
+		if strings.ContainsAny(k, "\r\n=") || strings.Contains(k, "<<") {
+			return "", fmt.Errorf("invalid GitHub Actions environment variable name %q", k)
+		}
+
 		v := masked[k]
-		if strings.Contains(v, "\n") {
+		if strings.ContainsAny(v, "\r\n") {
 			delim, err := githubEnvDelimiter(v)
 			if err != nil {
 				return "", err
