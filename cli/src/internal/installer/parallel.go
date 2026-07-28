@@ -74,6 +74,15 @@ func (pi *ParallelInstaller) AddNodeProject(project types.NodeProject) {
 	pi.AddTask(newProjectTask(project.Dir, project.PackageManager, "node", project))
 }
 
+// AddNodeProjectLabeled adds a Node.js project installation task with a custom
+// description (e.g. the names of the services that share the project dir),
+// overriding the default directory-name label.
+func (pi *ParallelInstaller) AddNodeProjectLabeled(project types.NodeProject, label string) {
+	task := newProjectTask(project.Dir, project.PackageManager, "node", project)
+	task.Description = label
+	pi.AddTask(task)
+}
+
 // AddPythonProject adds a Python project installation task.
 func (pi *ParallelInstaller) AddPythonProject(project types.PythonProject) {
 	pi.AddTask(newProjectTask(project.Dir, project.PackageManager, "python", project))

@@ -161,6 +161,70 @@ services:
 	}
 }
 
+// TestDetectServiceRuntime_LocalProcessCopiesEnvironment verifies that a service
+// which runs as a local process — including a docker/appservice service routed to
+// a local `command` (RunsAsLocalProcess) — receives its azure.yaml `environment:`
+// block in runtime.Env. Regression test: the env copy previously existed only in
+// the container path, so local-process services silently dropped their env (e.g.
+// APP_BASE_URL), which surfaced as a masked 500 in the running application.
+func TestDetectServiceRuntime_LocalProcessCopiesEnvironment(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(
+		filepath.Join(tmpDir, "package.json"),
+		[]byte(`{"name":"web","scripts":{"dev":"vite dev"}}`),
+		0o600,
+	); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+
+	// A docker/appservice service with an explicit local `command` runs as a
+	// local process (RunsAsLocalProcess), not a container — so it takes the
+	// non-container path in DetectServiceRuntime.
+	azureYamlContent := `name: test-app
+services:
+  web:
+    project: .
+    language: js
+    host: appservice
+    command: npm run dev
+    ports:
+      - "3100"
+    docker:
+      image: app/web
+      path: ./Dockerfile
+    environment:
+      APP_BASE_URL: http://localhost:3000
+      NODE_ENV: development
+`
+	azureYamlPath := filepath.Join(tmpDir, "azure.yaml")
+	if err := os.WriteFile(azureYamlPath, []byte(azureYamlContent), 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+
+	azureYaml, err := service.ParseAzureYaml(azureYamlPath)
+	if err != nil {
+		t.Fatalf("parse azure.yaml: %v", err)
+	}
+	svc := azureYaml.Services["web"]
+	if !svc.RunsAsLocalProcess() {
+		t.Fatalf("precondition: web should run as a local process, got RunsAsLocalProcess=false")
+	}
+
+	runtime, err := service.DetectServiceRuntime("web", svc, map[int]bool{}, tmpDir, "azd")
+	if err != nil {
+		t.Fatalf("detect runtime: %v", err)
+	}
+
+	if got := runtime.Env["APP_BASE_URL"]; got != "http://localhost:3000" {
+		t.Errorf("runtime.Env[APP_BASE_URL] = %q, want %q", got, "http://localhost:3000")
+	}
+	if got := runtime.Env["NODE_ENV"]; got != "development" {
+		t.Errorf("runtime.Env[NODE_ENV] = %q, want %q", got, "development")
+	}
+}
+
 // TestAutoDetectWhenNoOverride tests that framework defaults are used when no entrypoint/command specified.
 func TestAutoDetectWhenNoOverride(t *testing.T) {
 	tests := []struct {

@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"archive/zip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -33,14 +35,16 @@ type supportBundleOptions struct {
 	tail    int
 	service string
 	dryRun  bool
+	zip     bool
 }
 
 type supportBundlePlan struct {
-	DryRun    bool     `json:"dryRun"`
-	OutputDir string   `json:"outputDir"`
-	Files     []string `json:"files"`
-	Tail      int      `json:"tail"`
-	Service   string   `json:"service,omitempty"`
+	DryRun      bool     `json:"dryRun"`
+	OutputDir   string   `json:"outputDir"`
+	ArchivePath string   `json:"archivePath,omitempty"`
+	Files       []string `json:"files"`
+	Tail        int      `json:"tail"`
+	Service     string   `json:"service,omitempty"`
 }
 
 type supportBundleManifest struct {
@@ -63,7 +67,8 @@ func NewSupportBundleCommand() *cobra.Command {
 		Short: "Collect local diagnostics for support",
 		Long: `Collect sanitized project, service, health, and log diagnostics into a local folder for issue reports.
 
-Use --dry-run to preview the output folder and file list without writing files.`,
+Use --dry-run to preview the output folder and file list without writing files.
+Pass --zip to also create a shareable zip archive.`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSupportBundle(cmd.Context(), opts)
@@ -73,6 +78,7 @@ Use --dry-run to preview the output folder and file list without writing files.`
 	cmd.Flags().IntVar(&opts.tail, "tail", defaultSupportBundleTail, "Recent log lines per service to include")
 	cmd.Flags().StringVarP(&opts.service, "service", "s", "", "Include logs and health for specific service(s), comma-separated")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "Show the bundle plan without writing files")
+	cmd.Flags().BoolVar(&opts.zip, "zip", false, "Create a zip archive after writing the support bundle")
 	return cmd
 }
 
@@ -92,17 +98,18 @@ func runSupportBundle(ctx context.Context, opts *supportBundleOptions) error {
 		return err
 	}
 	projectDir := filepath.Dir(azureYamlPath)
-	outputDir, err := resolveSupportBundleOutput(projectDir, opts.output)
+	outputDir, archivePath, err := resolveSupportBundlePaths(projectDir, opts.output, opts.zip)
 	if err != nil {
 		return err
 	}
 	if opts.dryRun {
 		return renderSupportBundlePlan(supportBundlePlan{
-			DryRun:    true,
-			OutputDir: outputDir,
-			Files:     plannedSupportBundleFiles(),
-			Tail:      opts.tail,
-			Service:   opts.service,
+			DryRun:      true,
+			OutputDir:   outputDir,
+			ArchivePath: archivePath,
+			Files:       plannedSupportBundleFiles(),
+			Tail:        opts.tail,
+			Service:     opts.service,
 		})
 	}
 	if err := os.MkdirAll(outputDir, 0o750); err != nil {
@@ -150,8 +157,16 @@ func runSupportBundle(ctx context.Context, opts *supportBundleOptions) error {
 	if err := writeJSON(filepath.Join(outputDir, "manifest.json"), manifest); err != nil {
 		return fmt.Errorf("failed to write manifest: %w", err)
 	}
+	if opts.zip {
+		if err := createSupportBundleArchive(outputDir, archivePath); err != nil {
+			return err
+		}
+	}
 
 	cliout.Success("Support bundle created: %s", outputDir)
+	if opts.zip {
+		cliout.Success("Support bundle archive created: %s", archivePath)
+	}
 	cliout.Info("Included %d file(s)", len(manifest.Files)+1)
 	if len(manifest.Warnings) > 0 {
 		cliout.Warning("Completed with %d warning(s). See manifest.json.", len(manifest.Warnings))
@@ -176,6 +191,9 @@ func renderSupportBundlePlan(plan supportBundlePlan) error {
 	}
 	cliout.Info("Support bundle dry run")
 	cliout.Item("Output: %s", plan.OutputDir)
+	if plan.ArchivePath != "" {
+		cliout.Item("Archive: %s", plan.ArchivePath)
+	}
 	cliout.Item("Tail: %d", plan.Tail)
 	if plan.Service != "" {
 		cliout.Item("Service: %s", plan.Service)
@@ -185,6 +203,23 @@ func renderSupportBundlePlan(plan supportBundlePlan) error {
 		cliout.Item("%s", name)
 	}
 	return nil
+}
+
+func resolveSupportBundlePaths(projectDir, output string, zipOutput bool) (outputDir string, archivePath string, err error) {
+	outputDir, err = resolveSupportBundleOutput(projectDir, output)
+	if err != nil {
+		return "", "", err
+	}
+	if !zipOutput {
+		return outputDir, "", nil
+	}
+	if strings.EqualFold(filepath.Ext(outputDir), ".zip") {
+		archivePath = outputDir
+		outputDir = strings.TrimSuffix(outputDir, filepath.Ext(outputDir))
+	} else {
+		archivePath = outputDir + ".zip"
+	}
+	return outputDir, archivePath, nil
 }
 
 func resolveSupportBundleOutput(projectDir, output string) (string, error) {
@@ -199,6 +234,67 @@ func resolveSupportBundleOutput(projectDir, output string) (string, error) {
 		return filepath.Clean(output), nil
 	}
 	return filepath.Join(projectDir, output), nil
+}
+
+func createSupportBundleArchive(outputDir, archivePath string) error {
+	if archivePath == "" {
+		return fmt.Errorf("archive path is required")
+	}
+	if err := os.MkdirAll(filepath.Dir(archivePath), 0o750); err != nil {
+		return fmt.Errorf("failed to create archive folder: %w", err)
+	}
+	file, err := os.Create(archivePath)
+	if err != nil {
+		return fmt.Errorf("failed to create archive %s: %w", archivePath, err)
+	}
+	defer func() { _ = file.Close() }()
+
+	zw := zip.NewWriter(file)
+
+	if err := filepath.WalkDir(outputDir, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(outputDir, path)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+		header.Name = filepath.ToSlash(rel)
+		header.Method = zip.Deflate
+		writer, err := zw.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+		source, err := os.Open(path) // #nosec G304 -- path is walked from the support bundle output folder.
+		if err != nil {
+			return err
+		}
+		_, copyErr := io.Copy(writer, source)
+		if closeErr := source.Close(); closeErr != nil && copyErr == nil {
+			copyErr = closeErr
+		}
+		if copyErr != nil {
+			return copyErr
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to create archive %s: %w", archivePath, err)
+	}
+	if err := zw.Close(); err != nil {
+		return fmt.Errorf("failed to finish archive %s: %w", archivePath, err)
+	}
+	return nil
 }
 
 func writeRedactedAzureYaml(sourcePath, targetPath string) error {

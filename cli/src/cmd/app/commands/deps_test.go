@@ -3077,6 +3077,80 @@ func TestDetectProjectsFromAzureYaml_NodeProject(t *testing.T) {
 	}
 }
 
+func TestGroupedNodeLabel(t *testing.T) {
+	cases := []struct {
+		name     string
+		services []string
+		want     string
+	}{
+		{"two sorted", []string{"web", "api"}, "api, web (npm)"},
+		{"three sorted", []string{"c", "a", "b"}, "a, b, c (npm)"},
+		{"many truncated", []string{"web", "ingest", "worker", "sim", "db"}, "db, ingest, sim, +2 more (npm)"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := groupedNodeLabel(tc.services, "npm"); got != tc.want {
+				t.Errorf("groupedNodeLabel(%v) = %q, want %q", tc.services, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestServiceDirsFromAzureYaml(t *testing.T) {
+	tmpDir := t.TempDir()
+	content := "name: test-app\nservices:\n" +
+		"  web:\n    project: .\n    host: localhost\n" +
+		"  ingest:\n    project: .\n    host: localhost\n" +
+		"  api:\n    project: ./api\n    host: localhost\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+
+	byDir := serviceDirsFromAzureYaml(tmpDir)
+
+	shared, solo := 0, 0
+	for _, names := range byDir {
+		switch len(names) {
+		case 2:
+			shared++
+			joined := strings.Join(names, ",")
+			if !strings.Contains(joined, "web") || !strings.Contains(joined, "ingest") {
+				t.Errorf("shared dir services = %v, want web+ingest", names)
+			}
+		case 1:
+			solo++
+		}
+	}
+	if shared != 1 || solo != 1 {
+		t.Errorf("expected 1 shared (2 svcs) + 1 solo dir, got shared=%d solo=%d (byDir=%v)", shared, solo, byDir)
+	}
+}
+
+func TestDetectProjectsFromAzureYaml_DedupesSharedProjectDir(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(`{"name":"website"}`), 0o600); err != nil {
+		t.Fatalf("Failed to create package.json: %v", err)
+	}
+
+	// A monorepo: several services all point at the same project directory.
+	content := "name: test-app\nservices:\n" +
+		"  web:\n    project: .\n    host: localhost\n" +
+		"  ingest:\n    project: .\n    host: localhost\n" +
+		"  worker:\n    project: .\n    host: localhost\n"
+	if err := os.WriteFile(filepath.Join(tmpDir, "azure.yaml"), []byte(content), 0o600); err != nil {
+		t.Fatalf("Failed to create azure.yaml: %v", err)
+	}
+
+	nodeProjects, _, _, err := detectProjectsFromAzureYaml(tmpDir)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(nodeProjects) != 1 {
+		t.Errorf("Expected 1 node project (shared dir deduped), got %d", len(nodeProjects))
+	}
+}
+
 func TestDetectProjectsFromAzureYaml_IgnoresNonServiceProjects(t *testing.T) {
 	tmpDir := t.TempDir()
 

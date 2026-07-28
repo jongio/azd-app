@@ -27,8 +27,11 @@ const (
 
 // DetectServiceRuntime determines how to run a service based on its configuration and project structure.
 func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int]bool, azureYamlDir string, runtimeMode string) (*ServiceRuntime, error) {
-	// Check for container services first (identified by image field)
-	if service.IsContainerService() {
+	// Container services (image/docker.image) run as containers — UNLESS the
+	// service opts into running as a local process via an explicit local
+	// `command` or `type: process`. In that case its `docker.*`/image is
+	// deploy-only and `azd app run` runs the command as a process.
+	if service.IsContainerService() && !service.RunsAsLocalProcess() {
 		return detectContainerRuntime(serviceName, service, usedPorts, azureYamlDir)
 	}
 
@@ -138,9 +141,20 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 	}
 
 	// Build command and args based on framework (AFTER port assignment)
-	// Docker Compose style: entrypoint is executable, command is args
-	if err := buildRunCommand(runtime, projectDir, service.Entrypoint, service.Command, runtimeMode); err != nil {
-		return nil, fmt.Errorf("failed to build run command: %w", err)
+	// Docker Compose style: entrypoint is executable, command is args.
+	// Array-form `command:` carries exact tokens; use them directly so arguments
+	// containing whitespace are preserved (the string path re-splits on spaces).
+	switch {
+	case len(service.CommandArgs) > 0 && service.Entrypoint != "":
+		runtime.Command = service.Entrypoint
+		runtime.Args = append([]string(nil), service.CommandArgs...)
+	case len(service.CommandArgs) > 0:
+		runtime.Command = service.CommandArgs[0]
+		runtime.Args = append([]string(nil), service.CommandArgs[1:]...)
+	default:
+		if err := buildRunCommand(runtime, projectDir, service.Entrypoint, service.Command, runtimeMode); err != nil {
+			return nil, fmt.Errorf("failed to build run command: %w", err)
+		}
 	}
 
 	// Set health check configuration based on framework (only if not explicitly disabled)
@@ -153,6 +167,17 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 	if runtime.Type == ServiceTypeProcess {
 		// Detect mode from explicit config, command, or project structure
 		runtime.Mode = detectServiceMode(service, runtime, projectDir)
+	}
+
+	// Copy environment variables from service config. A service run as a local
+	// process — including a docker/appservice/containerapp service routed to a
+	// local `command` or `type: process` (RunsAsLocalProcess) — must still
+	// receive its azure.yaml `environment:` block. Orchestration resolves each
+	// service's effective env from runtime.Env (see orchestrator.go), so without
+	// this the block (e.g. APP_BASE_URL, NODE_ENV, POSTGRES_URL) is silently
+	// dropped for every non-container service. Mirrors detectContainerRuntime.
+	for key, value := range service.GetEnvironment() {
+		runtime.Env[key] = value
 	}
 
 	return runtime, nil
@@ -198,6 +223,23 @@ func detectContainerRuntime(serviceName string, service Service, usedPorts map[i
 		runtime.Env[key] = value
 	}
 
+	// Container command override (string or array form) becomes the run args
+	// appended after the image.
+	runtime.Args = service.GetCommandArgs()
+
+	// Image pull policy ("", "missing", "always", "never").
+	runtime.PullPolicy = service.PullPolicy
+
+	// Resolve volume mounts: named volumes pass through; bind-mount host paths
+	// are resolved to absolute paths relative to the project directory.
+	for _, vol := range service.Volumes {
+		resolved, err := resolveVolumeSpec(vol, azureYamlDir)
+		if err != nil {
+			return nil, fmt.Errorf("invalid volume %q for service %s: %w", vol, serviceName, err)
+		}
+		runtime.Volumes = append(runtime.Volumes, resolved)
+	}
+
 	// Handle port assignment for container services
 	if service.NeedsPort() {
 		// Get port mappings from service config
@@ -216,13 +258,24 @@ func detectContainerRuntime(serviceName string, service Service, usedPorts map[i
 				}
 				runtime.Port = assignedPort
 				runtime.ShouldUpdateAzureYaml = shouldUpdate
+				// Reflect the assignment in the stored mapping so all published
+				// ports (below) use the resolved host port.
+				mappings[0].HostPort = assignedPort
 			} else {
 				runtime.Port = hostPort
 			}
 
-			// Update health check port
+			// Update health check port (targets the primary/first port)
 			runtime.HealthCheck.Port = runtime.Port
 			usedPorts[runtime.Port] = true
+
+			// Store ALL mappings so multi-port containers publish every port.
+			runtime.Ports = mappings
+			for _, m := range mappings {
+				if m.HostPort > 0 {
+					usedPorts[m.HostPort] = true
+				}
+			}
 		}
 	}
 

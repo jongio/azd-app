@@ -3,11 +3,18 @@ package portmanager
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
 )
+
+// errNoInput reports that a prompt's input stream was exhausted before the user
+// answered. Callers translate it into their documented non-interactive
+// behaviour rather than failing the run.
+var errNoInput = errors.New("no input available")
 
 // PortConflictAction represents the user's chosen action for handling a port conflict.
 type PortConflictAction int
@@ -25,8 +32,9 @@ const (
 
 // handlePortConflict prompts the user to resolve a port conflict and returns the chosen action.
 // It checks force mode and always-kill preference first, returning ActionKill without
-// prompting when either is enabled. In non-interactive environments (piped stdin),
-// it auto-kills with a warning instead of crashing with EOF.
+// prompting when either is enabled. In non-interactive environments it auto-kills with a
+// warning instead of crashing with EOF, whether stdin is detectably non-interactive
+// (piped or redirected) or merely looks interactive but is never written to.
 //
 // Parameters:
 //   - pm: The port manager instance (used for preferences and force mode)
@@ -75,23 +83,60 @@ func handlePortConflict(pm *PortManager, port int, serviceName string, processIn
 	fmt.Fprintf(os.Stderr, "Choose (1/2/3/4): ")
 
 	// Read user input
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
+	response, err := readPromptLine(bufio.NewReader(os.Stdin))
 	if err != nil {
+		// stdin looked interactive (a character device) but yielded nothing.
+		// This happens when a host process hands down a console handle it never
+		// writes to. Degrade to the documented non-interactive behaviour rather
+		// than aborting the run.
+		if errors.Is(err, errNoInput) {
+			slog.Warn("stdin closed at port conflict prompt, auto-killing process on port", "port", port, "service", serviceName)
+			printNonInteractiveKillMessage(serviceName, port, processInfo, isExplicit)
+			return ActionKill, nil
+		}
 		return ActionCancel, fmt.Errorf("failed to read user input: %w", err)
 	}
 
-	response = strings.TrimSpace(response)
+	return parsePortConflictChoice(response), nil
+}
+
+// parsePortConflictChoice maps a menu selection to its action. Anything
+// unrecognised cancels, which is the safe default for a destructive menu.
+func parsePortConflictChoice(response string) PortConflictAction {
 	switch response {
 	case "1":
-		return ActionAlwaysKill, nil
+		return ActionAlwaysKill
 	case "2":
-		return ActionKill, nil
+		return ActionKill
 	case "3":
-		return ActionReassign, nil
+		return ActionReassign
 	default:
-		return ActionCancel, nil
+		return ActionCancel
 	}
+}
+
+// readPromptLine reads a single trimmed answer from r.
+//
+// bufio.Reader.ReadString returns both the buffered data and io.EOF when the
+// stream ends without the delimiter, so a final answer typed without a trailing
+// newline is still honoured. Partial data is only trusted on io.EOF, which is an
+// orderly end of stream. Any other read failure is returned verbatim and its
+// partial data discarded, because a truncated read from a broken stream is not
+// evidence that the user chose a destructive menu entry. An exhausted stream
+// with nothing to return yields errNoInput so callers can apply their
+// non-interactive fallback.
+func readPromptLine(r *bufio.Reader) (string, error) {
+	line, err := r.ReadString('\n')
+	if err == nil {
+		return strings.TrimSpace(line), nil
+	}
+	if !errors.Is(err, io.EOF) {
+		return "", err
+	}
+	if answer := strings.TrimSpace(line); answer != "" {
+		return answer, nil
+	}
+	return "", errNoInput
 }
 
 // printAutoKillMessage prints the message shown when auto-kill preference is enabled.
@@ -129,13 +174,12 @@ func promptUpdateAzureYaml(pm *PortManager, port int) bool {
 	fmt.Fprintf(os.Stderr, "\n⚠️  IMPORTANT: Update your application code to use port %d\n", port)
 	fmt.Fprintf(os.Stderr, "Would you like to update azure.yaml to use port %d for future runs? (y/N): ", port)
 
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
+	response, err := readPromptLine(bufio.NewReader(os.Stdin))
 	if err != nil {
 		return false
 	}
 
-	response = strings.TrimSpace(strings.ToLower(response))
+	response = strings.ToLower(response)
 	return response == "y" || response == "yes"
 }
 

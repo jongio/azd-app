@@ -287,44 +287,64 @@ func TestExecuteCommand(t *testing.T) {
 
 func TestInferLogLevel(t *testing.T) {
 	tests := []struct {
-		message string
-		want    LogLevel
+		message  string
+		isStderr bool
+		want     LogLevel
 	}{
-		// Standard info detection
-		{"Normal log message", LogLevelInfo},
-		{"INFO: starting service", LogLevelInfo},
-		{"Starting application", LogLevelInfo},
+		// Standard info detection (stdout)
+		{"Normal log message", false, LogLevelInfo},
+		{"INFO: starting service", false, LogLevelInfo},
+		{"Starting application", false, LogLevelInfo},
 
 		// Standard error detection
-		{"ERROR: something went wrong", LogLevelError},
-		{"error occurred", LogLevelError},
-		{"Exception in thread", LogLevelError},
-		{"FATAL: critical failure", LogLevelError},
-		{"panic: runtime error", LogLevelError},
+		{"ERROR: something went wrong", false, LogLevelError},
+		{"error occurred", false, LogLevelError},
+		{"Exception in thread", false, LogLevelError},
+		{"FATAL: critical failure", false, LogLevelError},
+		{"panic: runtime error", false, LogLevelError},
+		{"5 errors found", false, LogLevelError}, // plural still matches
 
 		// Standard warning detection
-		{"WARNING: deprecation notice", LogLevelWarn},
-		{"warn: invalid config", LogLevelWarn},
+		{"WARNING: deprecation notice", false, LogLevelWarn},
+		{"warn: invalid config", false, LogLevelWarn},
 
 		// Debug detection
-		{"DEBUG: verbose output", LogLevelDebug},
-		{"trace information", LogLevelDebug},
+		{"DEBUG: verbose output", false, LogLevelDebug},
+		{"trace information", false, LogLevelDebug},
+
+		// Word-boundary: identifiers must NOT misfire a level
+		{"errorReporter started", false, LogLevelInfo}, // not \berror\b
+		{"trace_worker_started", false, LogLevelInfo},  // not \btrace\b
+		{"warmup complete", false, LogLevelInfo},       // not \bwarn\b
+
+		// Structured JSON logs are authoritative (emitter's own level wins)
+		{`{"level":"info","msg":"trace_worker_started","role":"trace-worker"}`, false, LogLevelInfo},
+		{`{"level":"error","msg":"consumer_error"}`, false, LogLevelError},
+		{`{"level":"warn","msg":"retrying"}`, false, LogLevelWarn},
+		{`{"level":"debug","msg":"tick"}`, false, LogLevelDebug},
+		{`{"severity":"ERROR","message":"boom"}`, false, LogLevelError},
+		{`{"level":"info","msg":"error handler ready"}`, false, LogLevelInfo}, // structured beats the word "error"
+
+		// Stream-aware default: unclassified stderr surfaces as WARN, stdout as INFO
+		{".env not found. Continuing without it.", true, LogLevelWarn},
+		{".env not found. Continuing without it.", false, LogLevelInfo},
+		{"plain diagnostic line", true, LogLevelWarn},
 
 		// INFO OVERRIDES - These contain "error" but should be INFO
-		{"Found 0 errors. Watching for file changes.", LogLevelInfo},
-		{"2:59:24 PM - Found 0 errors. Watching for file changes.", LogLevelInfo},
-		{"Build succeeded with 0 error(s)", LogLevelInfo},
-		{"Compilation succeeded", LogLevelInfo},
-		{"compiled successfully", LogLevelInfo},
-		{"0 failed, 10 passed", LogLevelInfo},
-		{"All tests passed", LogLevelInfo},
+		{"Found 0 errors. Watching for file changes.", false, LogLevelInfo},
+		{"2:59:24 PM - Found 0 errors. Watching for file changes.", false, LogLevelInfo},
+		{"Build succeeded with 0 error(s)", false, LogLevelInfo},
+		{"Compilation succeeded", false, LogLevelInfo},
+		{"compiled successfully", false, LogLevelInfo},
+		{"0 failed, 10 passed", false, LogLevelInfo},
+		{"All tests passed", false, LogLevelInfo},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.message, func(t *testing.T) {
-			got := inferLogLevel(tt.message)
+			got := inferLogLevel(tt.message, tt.isStderr)
 			if got != tt.want {
-				t.Errorf("inferLogLevel(%q) = %v, want %v", tt.message, got, tt.want)
+				t.Errorf("inferLogLevel(%q, isStderr=%v) = %v, want %v", tt.message, tt.isStderr, got, tt.want)
 			}
 		})
 	}
