@@ -9,6 +9,8 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/cliout"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCollectPortReportBasic(t *testing.T) {
@@ -142,6 +144,32 @@ func TestCollectPortReportConflictIdentityMatrix(t *testing.T) {
 			wantConflicts: 0,
 		},
 		{
+			name: "equivalent IPv6 literals conflict",
+			ports: map[string][]string{
+				"api": {"[2001:db8::1]:3000:8080/tcp"},
+				"web": {"[2001:0db8:0:0:0:0:0:1]:3000:9090/tcp"},
+			},
+			wantConflicts: 1,
+			wantMarked:    []string{"api", "web"},
+		},
+		{
+			name: "non-canonical IPv4 mapped literal conflicts with IPv4 literal",
+			ports: map[string][]string{
+				"api": {"192.168.1.1:3000:8080/tcp"},
+				"web": {"[::ffff:c0a8:0101]:3000:9090/tcp"},
+			},
+			wantConflicts: 1,
+			wantMarked:    []string{"api", "web"},
+		},
+		{
+			name: "different concrete IPv6 literals do not conflict",
+			ports: map[string][]string{
+				"api": {"[2001:db8::1]:3000:8080/tcp"},
+				"web": {"[2001:db8::2]:3000:9090/tcp"},
+			},
+			wantConflicts: 0,
+		},
+		{
 			name: "IPv4 wildcard conflicts with specific IPv4",
 			ports: map[string][]string{
 				"api": {"0.0.0.0:3000:8080/tcp"},
@@ -194,14 +222,11 @@ func TestCollectPortReportConflictIdentityMatrix(t *testing.T) {
 			}
 
 			r := collectPortReport(&service.AzureYaml{Services: services})
-			if len(r.conflicts) != tt.wantConflicts {
-				t.Fatalf("conflicts = %v, want %d", r.conflicts, tt.wantConflicts)
-			}
+			require.Len(t, r.conflicts, tt.wantConflicts)
 
 			for _, name := range tt.wantMarked {
-				if !r.services[name].Ports[0].Conflict {
-					t.Fatalf("expected %s binding to be marked as conflicting", name)
-				}
+				require.NotEmpty(t, r.services[name].Ports)
+				assert.True(t, r.services[name].Ports[0].Conflict, "expected %s binding to be marked as conflicting", name)
 			}
 		})
 	}

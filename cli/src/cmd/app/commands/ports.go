@@ -278,7 +278,13 @@ func bindIPsOverlap(a, b string) bool {
 	if isIPv6Wildcard(b) {
 		return bindIPFamily(a) == "ipv6"
 	}
-	return false
+
+	ipA := net.ParseIP(a)
+	ipB := net.ParseIP(b)
+	if ipA == nil || ipB == nil {
+		return false
+	}
+	return ipA.Equal(ipB)
 }
 
 func bindIPFamily(bindIP string) string {
