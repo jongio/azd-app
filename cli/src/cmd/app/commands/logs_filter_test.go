@@ -114,6 +114,32 @@ func TestFilterLogsByMinLevel(t *testing.T) {
 	})
 }
 
+func TestShouldDisplayEntryMinLevel(t *testing.T) {
+	executor := &logsExecutor{opts: &logsOptions{minLevel: "warn"}}
+	minLevel, minLevelSet := parseMinLevel(executor.opts.minLevel)
+	now := time.Now()
+	tests := []struct {
+		name  string
+		level service.LogLevel
+		want  bool
+	}{
+		{"drops debug", service.LogLevelDebug, false},
+		{"drops info", service.LogLevelInfo, false},
+		{"keeps warn", service.LogLevelWarn, true},
+		{"keeps error", service.LogLevelError, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entry := service.LogEntry{Service: "api", Level: tt.level, Message: tt.name, Timestamp: now}
+			got := executor.shouldDisplayEntry(entry, LogLevelAll, minLevel, minLevelSet, nil)
+			if got != tt.want {
+				t.Errorf("shouldDisplayEntry() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestFilterLogsByLevelEdgeCases(t *testing.T) {
 	now := time.Now()
 

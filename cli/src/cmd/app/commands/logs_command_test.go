@@ -189,7 +189,7 @@ func TestValidateLogsOptionsMinLevel(t *testing.T) {
 		{"min-level uppercase", "all", "WARN", 0, false, ""},
 		{"empty min-level is unset", "all", "", 0, false, ""},
 		{"invalid min-level", "all", "trace", 0, true, "--min-level must be one of"},
-		{"min-level with level rejected", "error", "warn", 0, true, "cannot be combined with --level"},
+		{"min-level with level rejected", "error", "warn", 0, true, "cannot be combined with an explicit --level"},
 		{"min-level with context rejected", "all", "warn", 3, true, "cannot be combined with --context"},
 	}
 

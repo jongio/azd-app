@@ -167,17 +167,15 @@ func (e *logsExecutor) buildLogFilterInternal(cwd string) (*service.LogFilter, e
 // getOrCreateSignalChan gets or creates a signal channel with proper cleanup.
 // This avoids duplication and race conditions in signal handling setup.
 
-func (e *logsExecutor) shouldDisplayEntry(entry service.LogEntry, levelFilter service.LogLevel, logFilter *service.LogFilter) bool {
+func (e *logsExecutor) shouldDisplayEntry(entry service.LogEntry, levelFilter, minLevel service.LogLevel, minLevelSet bool, logFilter *service.LogFilter) bool {
 	// Filter by level
 	if levelFilter != LogLevelAll && entry.Level != levelFilter {
 		return false
 	}
 
 	// Filter by minimum severity threshold when --min-level is set
-	if minLevel, ok := parseMinLevel(e.opts.minLevel); ok {
-		if !meetsMinLevel(entry.Level, minLevel) {
-			return false
-		}
+	if minLevelSet && !meetsMinLevel(entry.Level, minLevel) {
+		return false
 	}
 
 	// Filter by pattern
@@ -270,7 +268,11 @@ func meetsMinLevel(entryLevel, minLevel service.LogLevel) bool {
 
 // filterLogsByMinLevel keeps only entries at or above the given severity threshold.
 func filterLogsByMinLevel(logs []service.LogEntry, minLevel service.LogLevel) []service.LogEntry {
-	filtered := make([]service.LogEntry, 0, len(logs))
+	estimatedCap := len(logs) / filterCapacityEstimate
+	if estimatedCap < 10 {
+		estimatedCap = 10
+	}
+	filtered := make([]service.LogEntry, 0, estimatedCap)
 	for _, entry := range logs {
 		if meetsMinLevel(entry.Level, minLevel) {
 			filtered = append(filtered, entry)
@@ -354,7 +356,7 @@ func validateLogsOptions(opts *logsOptions) error {
 			return fmt.Errorf("--min-level must be one of: debug, info, warn, error; got '%s'", opts.minLevel)
 		}
 		if strings.ToLower(opts.level) != "all" {
-			return fmt.Errorf("--min-level cannot be combined with --level; use one or the other")
+			return fmt.Errorf("--min-level cannot be combined with an explicit --level (info/warn/error/debug); use one or the other")
 		}
 		if opts.contextLines > 0 {
 			return fmt.Errorf("--min-level cannot be combined with --context")
