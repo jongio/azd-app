@@ -326,6 +326,9 @@ azd app run
 # Run specific services only
 azd app run --service web,api
 
+# Run every service except one
+azd app run --except worker
+
 # Use native Aspire dashboard (for .NET Aspire projects)
 azd app run --runtime aspire
 
@@ -350,6 +353,7 @@ azd app run --force
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Run specific service(s) only (comma-separated) |
+| `--except` | | string | | Run every service except the named one(s) (comma-separated); cannot be combined with `--service` |
 | `--runtime` | | string | `azd` | Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run) |
 | `--env-file` | | string | | Load environment variables from .env file |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |

@@ -29,6 +29,7 @@ const (
 
 var (
 	runServiceFilter     string
+	runExcept            string
 	runScale             []string
 	runEnvFile           string
 	runVerbose           bool
@@ -61,6 +62,7 @@ func NewRunCommand() *cobra.Command {
 
 	// Add flags for service orchestration
 	cmd.Flags().StringVarP(&runServiceFilter, "service", "s", "", "Run specific service(s) only (comma-separated)")
+	cmd.Flags().StringVar(&runExcept, "except", "", "Run every service except the named one(s) (comma-separated)")
 	cmd.Flags().StringSliceVar(&runScale, "scale", nil, "Run multiple instances of a service, e.g. --scale worker=3 (repeatable, comma-separated)")
 	cmd.Flags().StringVar(&runEnvFile, "env-file", "", "Load environment variables from .env file")
 	cmd.Flags().BoolVarP(&runVerbose, "verbose", "v", false, "Enable verbose logging")
@@ -77,6 +79,7 @@ func NewRunCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&runSkipExposureCheck, "skip-exposure-check", false, "Skip the warning shown when a service binds to all network interfaces")
 
 	registerServiceFlagCompletion(cmd, "service")
+	registerServiceFlagCompletion(cmd, "except")
 
 	return cmd
 }
@@ -86,6 +89,12 @@ func runWithServices(ctx context.Context, commandOrchestrator *orchestrator.Orch
 	cliout.CommandHeader("run", "Run the development environment")
 	if err := validateRunOptions(); err != nil {
 		return err
+	}
+
+	// --service and --except are mutually exclusive: one names the services to
+	// run, the other names the services to skip.
+	if runServiceFilter != "" && runExcept != "" {
+		return errors.New("--service and --except cannot be used together")
 	}
 
 	// Locate azure.yaml before spawning any subprocesses so we can compute
@@ -307,8 +316,14 @@ func runAzdMode(ctx context.Context, azureYamlPath, azureYamlDir string) error {
 	}
 
 	// Filter and detect services
-	services := filterServices(azureYaml)
+	services, err := selectRunServices(azureYaml)
+	if err != nil {
+		return err
+	}
 	if len(services) == 0 {
+		if runExcept != "" {
+			return fmt.Errorf("no services remain after excluding: %s", runExcept)
+		}
 		return fmt.Errorf("no services match filter: %s", runServiceFilter)
 	}
 
@@ -376,6 +391,48 @@ func filterServices(azureYaml *service.AzureYaml) map[string]service.Service {
 	}
 	filterList := strings.Split(runServiceFilter, ",")
 	return service.FilterServices(azureYaml, filterList)
+}
+
+// selectRunServices resolves which services to run from the --service and
+// --except flags. The two are mutually exclusive (checked earlier in
+// runWithServices). --except removes the named services and returns the rest;
+// naming a service that does not exist is an error so typos do not silently run
+// more than intended.
+func selectRunServices(azureYaml *service.AzureYaml) (map[string]service.Service, error) {
+	if runExcept == "" {
+		return filterServices(azureYaml), nil
+	}
+	return excludeServices(azureYaml, strings.Split(runExcept, ","))
+}
+
+// excludeServices returns every service except the named ones. Unknown names
+// produce an error that lists the available services.
+func excludeServices(azureYaml *service.AzureYaml, exclude []string) (map[string]service.Service, error) {
+	excludeSet := make(map[string]bool, len(exclude))
+	var unknown []string
+	for _, name := range exclude {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if _, ok := azureYaml.Services[name]; !ok {
+			unknown = append(unknown, name)
+		}
+		excludeSet[name] = true
+	}
+
+	if len(unknown) > 0 {
+		return nil, fmt.Errorf("unknown service(s) in --except: %s. Available services: %s",
+			strings.Join(unknown, ", "), strings.Join(sortedServiceNames(azureYaml.Services), ", "))
+	}
+
+	remaining := make(map[string]service.Service, len(azureYaml.Services))
+	for name, svc := range azureYaml.Services {
+		if !excludeSet[name] {
+			remaining[name] = svc
+		}
+	}
+	return remaining, nil
 }
 
 // detectServiceRuntimes detects runtime information for all services.
