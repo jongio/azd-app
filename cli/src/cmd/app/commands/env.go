@@ -165,7 +165,7 @@ func runEnv(_ *cobra.Command, args []string) error {
 			return err
 		}
 		if format == envFormatGitHubActions {
-			return fmt.Errorf("cannot combine --keys with --format github-actions")
+			return fmt.Errorf("cannot combine --keys with --format github-actions because that format requires KEY=VALUE pairs")
 		}
 		if envAll {
 			return runEnvAllKeys(azureYaml, names)

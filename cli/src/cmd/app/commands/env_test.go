@@ -428,6 +428,83 @@ func TestRunEnvCommand(t *testing.T) {
 		assert.Contains(t, parsed, "SERVICE_ENV_MARKER")
 	})
 
+	t.Run("keys with supported formats still emits names", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			args   []string
+			all    bool
+			format string
+		}{
+			{"single dotenv", []string{"api", "--keys", "--format", "dotenv"}, false, envFormatDotenv},
+			{"single shell", []string{"api", "--keys", "--format", "shell"}, false, envFormatShell},
+			{"single powershell", []string{"api", "--keys", "--format", "powershell"}, false, envFormatPowerShell},
+			{"single json", []string{"api", "--keys", "--format", "json"}, false, envFormatJSON},
+			{"all dotenv", []string{"--all", "--keys", "--format", "dotenv"}, true, envFormatDotenv},
+			{"all shell", []string{"--all", "--keys", "--format", "shell"}, true, envFormatShell},
+			{"all powershell", []string{"--all", "--keys", "--format", "powershell"}, true, envFormatPowerShell},
+			{"all json", []string{"--all", "--keys", "--format", "json"}, true, envFormatJSON},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				resetEnvFlags()
+				t.Setenv("SERVICE_ENV_MARKER", "marker-value")
+				out, runErr := captureStdout(t, func() error {
+					cmd := NewEnvCommand()
+					cmd.SetArgs(tt.args)
+					return cmd.Execute()
+				})
+				require.NoError(t, runErr)
+
+				if tt.format == envFormatJSON {
+					if tt.all {
+						var parsed map[string][]string
+						require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+						assert.Contains(t, parsed["api"], "SERVICE_ENV_MARKER")
+					} else {
+						var parsed []string
+						require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+						assert.Contains(t, parsed, "SERVICE_ENV_MARKER")
+					}
+					return
+				}
+
+				assert.Contains(t, out, "SERVICE_ENV_MARKER")
+				assert.NotContains(t, out, "marker-value")
+				if tt.all {
+					assert.Contains(t, out, "# api")
+					assert.Contains(t, out, "# web")
+				} else {
+					assert.NotContains(t, out, "# api")
+				}
+			})
+		}
+	})
+
+	t.Run("keys rejects github actions format", func(t *testing.T) {
+		tests := []struct {
+			name string
+			args []string
+		}{
+			{"single service", []string{"api", "--keys", "--format", "github-actions"}},
+			{"all services", []string{"--all", "--keys", "--format", "github-actions"}},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				resetEnvFlags()
+				out, runErr := captureStdout(t, func() error {
+					cmd := NewEnvCommand()
+					cmd.SetArgs(tt.args)
+					return cmd.Execute()
+				})
+				require.Error(t, runErr)
+				assert.EqualError(t, runErr, "cannot combine --keys with --format github-actions because that format requires KEY=VALUE pairs")
+				assert.Empty(t, out)
+			})
+		}
+	})
+
 	t.Run("keys without service or all errors", func(t *testing.T) {
 		resetEnvFlags()
 		cmd := NewEnvCommand()
@@ -446,7 +523,6 @@ func TestRunEnvCommand(t *testing.T) {
 			{"diff", []string{"--keys", "--diff", "api", "web"}, "cannot combine --keys with --diff"},
 			{"explain", []string{"api", "--keys", "--explain"}, "cannot combine --keys with --explain"},
 			{"write", []string{"api", "--keys", "--write"}, "cannot combine --keys with --write"},
-			{"github-actions", []string{"--keys", "--all", "--format", "github-actions"}, "cannot combine --keys with --format github-actions"},
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
