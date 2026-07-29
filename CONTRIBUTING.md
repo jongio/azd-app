@@ -182,6 +182,7 @@ Then create a Pull Request on GitHub.
 ### Documentation
 - Update README.md for user-facing changes
 - Add/update docs/ files for new features
+- Document every command and flag in `cli/docs/cli-reference.md`; the docs gate enforces this
 - Document non-obvious code with comments
 - Update CHANGELOG.md for notable changes
 
@@ -191,6 +192,7 @@ Then create a Pull Request on GitHub.
 cli/
 ├── src/
 │   ├── cmd/app/commands/   # CLI command implementations
+│   ├── cmd/docsgate/       # Docs gate build tool
 │   └── internal/
 │       ├── azdconfig/      # Azure Developer CLI configuration
 │       ├── azure/          # Azure integration (credentials, logs)
@@ -201,6 +203,7 @@ cli/
 │       ├── dashboard/      # Web dashboard server
 │       ├── detector/       # Project detection logic
 │       ├── docker/         # Docker/container support
+│       ├── docsgate/       # CLI documentation coverage rules
 │       ├── executor/       # Process execution
 │       ├── healthcheck/    # Service health monitoring
 │       ├── installer/      # Dependency installation
@@ -240,7 +243,10 @@ web/                        # Astro documentation site
 
 4. Add tests in `src/cmd/app/commands/your_command_test.go`
 
-5. Update documentation
+5. Document it. The docs gate (below) will fail the build until you do:
+   - Add a row to the **Commands Overview** table in `cli/docs/cli-reference.md`
+   - Add a `## ` heading for `azd app your-command` with a **Flags** table covering every flag
+   - Add a detail spec at `cli/docs/commands/your-command.md`
 
 ## Adding Support for a New Package Manager
 
@@ -262,6 +268,63 @@ azd app run
 
 Create new test projects with minimal dependencies for faster testing.
 
+## Documentation Gate
+
+`cli/docs/cli-reference.md` is the single source of truth for the CLI: the
+website's `/reference/cli` pages are generated from it. When it drifts, users
+get told about a flag that doesn't exist or never hear about one that does.
+
+The docs gate makes that drift a build failure. It runs in `mage preflight` and
+on every pull request via `.github/workflows/docs-gate.yml`.
+
+Run it locally:
+
+```bash
+cd cli
+mage docsGate
+```
+
+### What it checks
+
+The gate asks the built binary what it ships, using the hidden `azd app
+metadata` command, and compares that against the docs. It never parses Go
+source, so it cannot disagree with what users actually install.
+
+**Structural findings** describe a real gap between the binary and the docs.
+They cannot be skipped:
+
+| Finding | Meaning |
+|---------|---------|
+| `command-undocumented` | A visible command has no section in `cli-reference.md` |
+| `command-missing-overview` | A top-level command is missing from the Commands Overview table |
+| `command-missing-detail-doc` | A top-level command has no `cli/docs/commands/<name>.md` |
+| `subcommand-undocumented` | A subcommand is neither listed in its parent's Subcommands table nor documented on its own |
+| `flag-undocumented` | A visible flag appears in no Flags table and is not a global flag |
+| `doc-orphaned` | A file in `cli/docs/commands/` names a command that no longer exists |
+
+Hidden commands, deprecated flags, and Cobra's own `help` and `completion` are
+excluded automatically.
+
+**Change findings** are heuristics. When a pull request touches command code,
+MCP tools, or the dashboard but no documentation, the gate asks you to confirm
+that was deliberate.
+
+### Skipping a change finding
+
+If a change genuinely has no user-visible effect, record why in the pull request
+body:
+
+```
+Docs-Not-Needed: renamed an unexported helper, no behaviour change
+```
+
+The reason is required. A bare `Docs-Not-Needed:` skips nothing, because a gate
+that accepts "because" teaches people to write "because". The reason is echoed
+into the build log, so it is reviewed alongside the code.
+
+This only clears change findings. Structural findings mean the docs are wrong,
+and no reason makes them right.
+
 ## Quality Gates
 
 Before submitting a PR, ensure:
@@ -269,7 +332,7 @@ Before submitting a PR, ensure:
 - [ ] Code coverage is maintained: `mage testcoverage`
 - [ ] Linter passes: `mage lint`
 - [ ] Code is formatted: `mage fmt`
-- [ ] Documentation is updated
+- [ ] Documentation is updated and the docs gate passes: `mage docsGate`
 - [ ] Commit messages follow Conventional Commits
 
 **Recommended:** Run `mage preflight` to execute all quality checks at once.

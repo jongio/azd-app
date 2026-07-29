@@ -1,4 +1,4 @@
-﻿# CLI Reference
+# CLI Reference
 
 Complete reference for all `azd app` commands and flags.
 
@@ -40,6 +40,8 @@ These flags are available for all commands:
 | `--structured-logs` | | bool | `false` | Enable structured JSON logging to stderr |
 | `--cwd` | `-C` | string | `""` | Sets the current working directory |
 | `--environment` | `-e` | string | `""` | The name of the environment to use |
+| `--no-prompt` | | bool | `false` | Run without prompts, failing when a required value cannot be resolved |
+| `--help` | `-h` | bool | `false` | Show help for the command |
 
 **Examples:**
 ```bash
@@ -65,21 +67,31 @@ azd app run --environment production
 |---------|-------------|---------------|
 | `init` | Initialize azure.yaml for local development by scanning your project | [→ Full Spec](commands/init.md) |
 | `validate` | Validate azure.yaml with read-only checks before running services | [→ Full Spec](commands/validate.md) |
+| `doctor` | Check whether the local machine can run the project | [→ Full Spec](commands/doctor.md) |
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
+| `outdated` | Report outdated dependencies across services | [→ Full Spec](commands/outdated.md) |
 | `add` | Add a well-known container service to azure.yaml | [→ Full Spec](commands/add.md) |
 | `config` | Show the effective resolved configuration for each service | [→ Full Spec](commands/config.md) |
-| `remove` | Remove a service from azure.yaml | |
 | `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
 | `test` | Run tests for all services with coverage aggregation | [→ Full Spec](commands/test.md) |
 | `start` | Start stopped services | [→ Full Spec](commands/start.md) |
 | `stop` | Stop running services | [→ Full Spec](commands/stop.md) |
 | `restart` | Restart services | [→ Full Spec](commands/restart.md) |
+| `status` | Show whether `azd app run` is active | [→ Full Spec](commands/status.md) |
 | `health` | Monitor health status of services (static or streaming mode) | [→ Full Spec](commands/health.md) |
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
+| `graph` | Show the service dependency graph | [→ Full Spec](commands/graph.md) |
+| `env` | Print the resolved environment for a service | [→ Full Spec](commands/env.md) |
+| `proxy` | Route local requests to running services | [→ Full Spec](commands/proxy.md) |
+| `cert` | Generate local HTTPS certificates | [→ Full Spec](commands/cert.md) |
+| `clean` | Reclaim disk space from build artifacts and caches | [→ Full Spec](commands/clean.md) |
+| `support-bundle` | Collect local diagnostics for support | [→ Full Spec](commands/support-bundle.md) |
+| `remove` | Remove a service from azure.yaml | [→ Full Spec](commands/remove.md) |
 | `hooks` | List the lifecycle hooks configured in azure.yaml | [→ Full Spec](commands/hooks.md) |
 | `ports` | List the host ports each service binds and flag duplicate bindings | [→ Full Spec](commands/ports.md) |
+| `open` | Open a running service URL in the browser | [→ Full Spec](commands/open.md) |
 | `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
@@ -207,6 +219,88 @@ JSON output emits the findings array (`[]` when there is nothing to report):
 
 ---
 
+## `azd app doctor`
+
+Checks whether the local machine can run the project. Where `validate` checks `azure.yaml` itself, `doctor` also checks the environment around it: service paths on disk, required tools on `PATH`, port declarations, and whether the dashboard is already running. Nothing is started and no files are written.
+
+### Usage
+
+```bash
+azd app doctor
+```
+
+### Flags
+
+Takes no positional arguments and adds no flags of its own. It accepts the [global flags](#global-flags), plus `--output` from `azd`.
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `default` | Output format: 'default' or 'json' (inherited from parent) |
+
+### Checks
+
+| Check ID | Severity | Description |
+|----------|----------|-------------|
+| `project.azure_yaml` | fail | `azure.yaml` was not found |
+| `project.root` | pass | Reports the resolved project root |
+| `config.exists` | pass | Reports the resolved `azure.yaml` path |
+| `config.parse` | pass / fail | Whether `azure.yaml` parsed |
+| `services.defined` | pass / warn | Whether any services are defined |
+| `service.project` | pass / warn / fail | Whether each service `project` path exists and is a directory |
+| `tool.available` | pass / fail | Whether each required executable resolves on `PATH` |
+| `port.valid` | pass / fail | Whether each declared port parses and is in range |
+| `port.unique` | fail | Two services declare the same host port and protocol |
+| `port.declared` | warn | No host ports are declared anywhere |
+| `dashboard.state` | pass / warn | Whether the dashboard is currently running |
+
+Required tools are derived from the services you declare, so a Go-only project is never asked to install Node. `azd` and `git` are always required. Docker is required only for services that actually start as containers, so declaring `ports:` on a process service does not pull in a Docker requirement.
+
+### Examples
+
+```bash
+# Check local setup before the first run
+azd app doctor
+
+# Check as JSON for scripts and CI
+azd app doctor --output json
+
+# List only the missing tools
+azd app doctor --output json | jq -r '.[] | select(.checkId == "tool.available" and .severity == "fail") | .tool'
+```
+
+### Output
+
+Checks are sorted by severity, then service, then check ID. The severity names sort so that `fail` comes first, putting failures at the top. Warnings alone do not fail the command; any failing check does.
+
+```
+azd app doctor
+──────────────────────────────
+
+   [FAIL] tool.available: docker was not found on PATH
+         fix: Install Docker or a compatible container runtime.
+   [PASS] config.parse: azure.yaml parsed successfully
+   [WARN] dashboard.state: dashboard is not running
+         fix: Run azd app run to start the dashboard.
+```
+
+JSON output emits the checks array:
+
+```json
+[
+  {
+    "checkId": "tool.available",
+    "severity": "fail",
+    "message": "docker was not found on PATH",
+    "hint": "Install Docker or a compatible container runtime.",
+    "tool": "docker"
+  }
+]
+```
+
+**→ [See full doctor command specification](commands/doctor.md)** for the tool detection rules and exit codes.
+
+---
+
 ## `azd app reqs`
 
 Verifies that all required tools are installed and optionally checks if they are running. Can also auto-generate requirements from your project.
@@ -244,6 +338,7 @@ azd app reqs --clear-cache
 | `--dry-run` | | bool | `false` | Preview changes without modifying azure.yaml |
 | `--no-cache` | | bool | `false` | Force fresh reqs check and bypass cached results |
 | `--clear-cache` | | bool | `false` | Clear cached reqs results |
+| `--only-missing` | | bool | `false` | Show only requirements that are missing, too old, or not running |
 | `--fix` | | bool | `false` | Attempt to fix PATH issues for missing tools |
 
 ### Features
@@ -322,6 +417,7 @@ azd app run --force
 | `--no-cache` | | bool | `false` | Force fresh dependency installation and bypass cached results |
 | `--force` | `-f` | bool | `false` | Force clean reinstall (combines --clean and --no-cache) |
 | `--dry-run` | | bool | `false` | Show what would be installed without actually installing |
+| `--check` | | bool | `false` | Verify dependencies are installed without installing; exits non-zero if any are missing |
 | `--service` | `-s` | strings | | Install dependencies only for specific services (can be specified multiple times) |
 
 ### Features
@@ -342,6 +438,56 @@ azd app run --force
 This command depends on `reqs` and will automatically run prerequisite checks before installing dependencies.
 
 **→ [See full deps command specification](commands/deps.md)** for package manager detection flows and detailed documentation.
+
+---
+
+## `azd app outdated`
+
+Check every service in `azure.yaml` for outdated dependencies and print one aggregated report.
+
+The package manager is detected per service: npm, pnpm, or yarn for Node (based on the lockfile), pip for Python, `dotnet` for .NET, and `go` for Go. A service whose package manager is not installed is skipped with a warning rather than failing the run.
+
+### Usage
+
+```bash
+azd app outdated [flags]
+```
+
+### Examples
+
+```bash
+# Report outdated dependencies for every service
+azd app outdated
+
+# Limit to one service
+azd app outdated --service api
+
+# Limit to selected package managers
+azd app outdated --manager npm,pip
+
+# Machine-readable output
+azd app outdated --format json
+
+# Fail with a non-zero exit code when anything is outdated, for CI gating
+azd app outdated --exit-code
+
+# Ignore packages you have pinned on purpose
+azd app outdated --exit-code --ignore react,typescript
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--service` | `-s` | stringArray | | Limit to specific services (repeatable or comma-separated) |
+| `--manager` | | stringArray | | Limit to package managers: npm, pnpm, yarn, pip, dotnet, or go |
+| `--ignore` | | stringArray | | Package names to exclude from the report (repeatable or comma-separated) |
+| `--format` | | string | `text` | Output format: `text` or `json` |
+| `--exit-code` | | bool | `false` | Return a non-zero exit code when any dependency is outdated |
+
+`--ignore` matches names case-insensitively, so a pinned package neither shows up in the report nor trips `--exit-code`.
+
+**→ [See full outdated command specification](commands/outdated.md)** for per-manager behavior and detailed documentation.
 
 ---
 
@@ -376,6 +522,7 @@ azd app add redis --output json
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--list` | | bool | `false` | List all available services |
+| `--dry-run` | | bool | `false` | Show the azure.yaml service block without modifying the file |
 | `--show-connection` | | bool | `false` | Show connection string after adding |
 
 ### Available Services
@@ -386,74 +533,6 @@ azd app add redis --output json
 - `postgres` - PostgreSQL database
 
 **→ [See full add command specification](commands/add.md)** for examples and configuration details.
-
----
-
-## `azd app config`
-
-Show the configuration azd app resolved from azure.yaml for each service.
-
-### Usage
-
-```bash
-azd app config [service] [flags]
-```
-
-### Examples
-
-```bash
-# Configuration for every service
-azd app config
-
-# Configuration for a single service
-azd app config api
-
-# JSON object keyed by service name
-azd app config --output json
-```
-
-### Flags
-
-| Flag | Short | Type | Default | Description |
-|------|-------|------|---------|-------------|
-| `--output` | `-o` | string | `default` | Output format (default, json) |
-
-### Behavior
-
-- Prints the host, effective service type (marked `explicit` or `inferred`), language, project path, run command, image, ports, and dependencies (uses) for each service.
-- Lists which optional blocks are configured on a service: `docker`, `healthcheck`, `restart`, `resources`, `logs`, `local`, `azure`.
-- Pass a service name to limit output to that service. An unknown name returns an error listing the available services.
-- `--output json` emits an object keyed by service name.
-
-**→ [See full config command specification](commands/config.md)** for details.
-
----
-
-## `azd app remove`
-
-Remove a service from the services section of azure.yaml. This is the inverse of `azd app add`. It deletes the named service entry while keeping the remaining services and settings semantically unchanged.
-
-### Usage
-
-```bash
-azd app remove <service>
-```
-
-### Examples
-
-```bash
-# Remove the redis service
-azd app remove redis
-
-# JSON output
-azd app remove redis --output json
-```
-
-### Behavior
-
-- Removing a service that is not present fails and lists the current service names.
-- Only the named service entry is deleted. The remaining services and settings are kept, though yaml formatting may be normalized.
-- Supports the global `--output json` flag for scripting.
 
 ---
 
@@ -476,9 +555,6 @@ azd app run
 # Run specific services only
 azd app run --service web,api
 
-# Run every service except one
-azd app run --except worker
-
 # Use native Aspire dashboard (for .NET Aspire projects)
 azd app run --runtime aspire
 
@@ -490,9 +566,6 @@ azd app run --verbose
 
 # Load environment variables from custom file
 azd app run --env-file .env.local
-
-# Override a single variable inline (repeatable, wins over --env-file)
-azd app run --env LOG_LEVEL=debug --env FEATURE_X=on
 
 # Combine multiple flags
 azd app run -s web -v --runtime aspire
@@ -507,14 +580,20 @@ azd app run --force
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Run specific service(s) only (comma-separated) |
 | `--except` | | string | | Run every service except the named one(s) (comma-separated); cannot be combined with `--service` |
+| `--scale` | | stringArray | | Run multiple instances of a service, for example `--scale worker=3` (repeatable, comma-separated) |
+| `--detach` | | bool | `false` | Run the app in the background and return to the shell |
 | `--runtime` | | string | `azd` | Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run) |
 | `--env-file` | | string | | Load environment variables from .env file |
 | `--env` | | stringArray | | Set an environment variable inline as KEY=VALUE (repeatable, overrides --env-file) |
+| `--no-deps` | | bool | `false` | Skip reqs and dependency installation before starting services |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show what would be run without starting services |
 | `--no-timing` | | bool | `false` | Hide the per-service startup timing summary shown after services are ready |
 | `--restart-containers` | | bool | `false` | Restart containers even if they are already running |
 | `--force` | `-f` | bool | `false` | Force clean dependency reinstall (passes --force to deps) |
+| `--trust` | | bool | `false` | Trust this workspace for code execution and remember the decision |
+| `--skip-secret-scan` | | bool | `false` | Skip the advisory scan for hardcoded secrets in tracked config |
+| `--skip-exposure-check` | | bool | `false` | Skip the warning shown when a service binds to all network interfaces |
 | `--web` | `-w` | bool | `false` | Open dashboard in browser |
 
 ### Runtime Modes
@@ -631,6 +710,8 @@ azd app test --dry-run
 | `--type` | `-t` | string | `all` | Test type to run: `unit`, `integration`, `e2e`, or `all` |
 | `--coverage` | `-c` | bool | `false` | Generate code coverage reports |
 | `--service` | `-s` | string | `""` | Run tests for specific service(s) (comma-separated) |
+| `--changed` | | bool | `false` | Only test services with files changed since `--changed-base` |
+| `--changed-base` | | string | | Git ref to compare against for `--changed` (for example `HEAD` or `origin/main`) |
 | `--watch` | `-w` | bool | `false` | Watch mode - re-run tests on file changes |
 | `--update-snapshots` | `-u` | bool | `false` | Update test snapshots |
 | `--fail-fast` | | bool | `false` | Stop on first test failure |
@@ -763,7 +844,7 @@ Stop running services, execute lifecycle hooks, and tear down the app.
 ### Usage
 
 ```bash
-azd app stop
+azd app stop [flags]
 ```
 
 ### Examples
@@ -771,11 +852,25 @@ azd app stop
 ```bash
 # Stop the running app (from any terminal in the project)
 azd app stop
+
+# Stop specific services
+azd app stop --service api,web
+
+# Stop every running service without a confirmation prompt
+azd app stop --all --yes
 ```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--service` | | string | | Service name(s) to stop (comma-separated) |
+| `--all` | | bool | `false` | Stop all running services |
+| `--yes` | | bool | `false` | Skip confirmation prompt for `--all` |
 
 ### Description
 
-Sends a shutdown signal to the running `azd app run` process. This triggers graceful shutdown including prestop/poststop hooks, port release, and process cleanup — identical to pressing Ctrl+C in the run terminal. No flags required — just run from any terminal in the project directory.
+Sends a shutdown signal to the running `azd app run` process. This triggers graceful shutdown including prestop/poststop hooks, port release, and process cleanup, identical to pressing Ctrl+C in the run terminal. With no flags it stops the whole app; use `--service` to stop individual services.
 
 **→ [See full stop command specification](commands/stop.md)** for complete documentation.
 
@@ -817,6 +912,51 @@ azd app restart --all
 Restart one or more services. This command stops and then starts services. It works on both running and stopped services. Services are stopped gracefully before being restarted.
 
 **→ [See full restart command specification](commands/restart.md)** for complete documentation.
+
+---
+
+## `azd app status`
+
+Report whether `azd app run` is currently active for this project, and print a one-line summary per service.
+
+The command reads the run state file that `azd app run` maintains, so it works from any terminal and does not attach to the running session. When nothing is running it prints a short "not running" message and exits 0, which makes it safe to call from scripts and shell prompts.
+
+### Usage
+
+```bash
+azd app status [flags]
+```
+
+### Examples
+
+```bash
+# One-shot status for every service
+azd app status
+
+# Status for a single service
+azd app status --service api
+
+# Live view that refreshes on an interval
+azd app status --watch
+
+# Refresh every five seconds instead of the default two
+azd app status --watch --interval 5s
+
+# Print only the dashboard URL, useful for scripting
+azd app status --dashboard-url
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--service` | `-s` | string | | Show status for a single service |
+| `--watch` | | bool | `false` | Continuously refresh the status view |
+| `--interval` | | string | `2s` | Refresh interval when `--watch` is set (Go duration, for example `500ms` or `5s`) |
+| `--dashboard-url` | | bool | `false` | Print only the dashboard URL and exit |
+| `--exit-code` | | bool | `false` | Return a non-zero exit code when the app is not running (ignored with `--watch`) |
+
+**→ [See full status command specification](commands/status.md)** for run-state details and detailed documentation.
 
 ---
 
@@ -890,6 +1030,8 @@ azd app health --save-profiles
 | `--endpoint` | | string | `/health` | Default health endpoint path to check |
 | `--timeout` | | duration | `5s` | Timeout for each health check |
 | `--all` | | bool | `false` | Show health for all projects on this machine |
+| `--fail-on-degraded` | | bool | `false` | Return a non-zero exit code when any service is degraded |
+| `--summary-only` | | bool | `false` | Print only the aggregate health summary for non-JSON output |
 | `--verbose` | `-v` | bool | `false` | Show detailed health check information |
 
 **Production Flags:**
@@ -1067,9 +1209,6 @@ azd app logs --since 5m
 # Filter by log level
 azd app logs --level error
 
-# Show every entry at warn severity or higher
-azd app logs --min-level warn
-
 # Show errors with 3 lines of context before and after
 azd app logs --level error --context 3
 
@@ -1096,13 +1235,18 @@ azd app logs --no-color
 | `--tail` | `-n` | int | `100` | Number of lines to show from the end |
 | `--since` | | string | | Show logs since duration (e.g., 5m, 1h) |
 | `--timestamps` | | bool | `true` | Show timestamps with each log entry |
+| `--no-timestamps` | | bool | `false` | Hide timestamps in text log output |
 | `--no-color` | | bool | `false` | Disable colored output |
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
-| `--min-level` | | string | | Show entries at this severity or higher (debug < info < warn < error); cannot be combined with an explicit --level (info/warn/error/debug) or --context |
+| `--min-level` | | string | | Show entries at this severity or higher (`debug` < `info` < `warn` < `error`); cannot be combined with an explicit `--level` or `--context` |
+| `--summary` | | bool | `false` | Show counts by service and level instead of raw log entries |
 | `--context` | | int | `0` | Number of context lines before/after matching entries (0-10, requires --level) |
 | `--format` | | string | `text` | Output format (text, json) |
 | `--file` | | string | | Write logs to file instead of stdout |
 | `--exclude` | | string | | Regex patterns to exclude (comma-separated) |
+| `--grep` | | string | | Only show log lines matching this regex (applied after `--exclude`) |
+| `--alerts` | | bool | `false` | Raise alerts for log lines matching built-in patterns (panic, unhandled exception, fatal) |
+| `--redact` | | bool | `false` | Redact secret-shaped values before printing logs |
 | `--no-builtins` | | bool | `false` | Disable built-in filter patterns |
 
 ### Log Sources
@@ -1180,6 +1324,10 @@ azd app info --cwd /path/to/project
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--all` | | bool | `false` | Show services from all projects on this machine |
+| `--service` | | string | | Show info for specific service(s) (comma-separated) |
+| `--names` | | bool | `false` | Print service names only, one per line |
+| `--watch` | | bool | `false` | Refresh service info on an interval until interrupted |
+| `--interval` | | string | | Refresh interval for `--watch` (minimum `1s`) |
 | `--cwd` | `-C` | string | | Sets the current working directory |
 
 ### Output
@@ -1214,14 +1362,384 @@ api
 
 ---
 
-## `azd app hooks`
+## `azd app graph`
 
-Reads `azure.yaml` and lists the project-level lifecycle hooks. For each configured hook it shows the command it runs, the shell it uses, and any per-platform override for Windows or POSIX. Use it to confirm what will run around a `run` or `stop` without opening the file.
+Show services, resources, dependency edges, and startup levels from `azure.yaml`.
+
+`text`, `json`, and `markdown` print to stdout. `mermaid`, `dot`, and `d2` emit a diagram you can drop into a README or an architecture doc. Combine any format with `--output-file` to write the result to a file instead of stdout.
+
+`--focus <service>` narrows the graph to one service, everything it depends on, and everything that depends on it. `--services-only` omits resource nodes and shows only service-to-service edges, which is useful for diagrams that need the app shape without managed resources.
 
 ### Usage
 
 ```bash
-azd app hooks [flags]
+azd app graph [flags]
+```
+
+### Examples
+
+```bash
+# Human-readable text (default)
+azd app graph
+
+# Mermaid flowchart written to a file
+azd app graph --output mermaid --output-file docs/services.mmd
+
+# Graphviz DOT to stdout
+azd app graph --output dot
+
+# D2 diagram written to a file
+azd app graph --output d2 --output-file docs/services.d2
+
+# Markdown tables for docs or issue comments
+azd app graph --output markdown
+
+# Just the api service and its connected nodes
+azd app graph --focus api
+
+# Service-only Mermaid diagram
+azd app graph --services-only --output mermaid
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `text` | Output format: `text`, `json`, `markdown`, `mermaid`, `dot`, or `d2` |
+| `--output-file` | | string | | Write output to this file instead of stdout |
+| `--focus` | | string | | Limit the graph to a service, its dependencies, and its dependents |
+| `--services-only` | | bool | `false` | Show only services and service-to-service edges |
+
+**→ [See full graph command specification](commands/graph.md)** for format details and detailed documentation.
+
+---
+
+## `azd app env`
+
+Print the effective environment a service receives when it runs.
+
+The output merges the process environment, the azd environment values, and the service-specific variables from `azure.yaml`, the same way `azd app run` resolves them. Pass a service name to print its environment, or run without a name to list the available services.
+
+Secret-shaped values are masked by default. Use `--no-mask` to print raw values, for example when piping the output into another command.
+
+`--all` prints the resolved environment for every service in one run. The `dotenv`, `shell`, and `powershell` formats group each service under a `# <service>` header; the `json` format emits an object keyed by service name.
+
+### Usage
+
+```bash
+azd app env [service] [flags]
+```
+
+### Examples
+
+```bash
+# Resolved environment for the api service (KEY=value lines)
+azd app env api
+
+# Shell export statements
+azd app env api --format shell
+
+# PowerShell $env: assignments
+azd app env api --format powershell | iex
+
+# JSON object (also selected by the global --json flag)
+azd app env api --format json
+
+# Raw values, no masking
+azd app env api --no-mask
+
+# Explain where each effective value came from
+azd app env api --explain
+
+# Compare the resolved environment of two services
+azd app env --diff api web
+
+# List variable names without values
+azd app env api --keys
+
+# Write the resolved environment to api/.env
+azd app env api --write
+
+# Write one .env file per service into the build/env folder
+azd app env --all --write --out build/env
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--all` | | bool | `false` | Print the resolved environment for every service |
+| `--format` | | string | `dotenv` | Output format: `dotenv`, `shell`, `powershell`, or `json` |
+| `--keys` | | bool | `false` | Print variable names only |
+| `--prefix` | | stringArray | | Only include variables whose names start with the given prefix (repeatable) |
+| `--no-mask` | | bool | `false` | Print raw values instead of masking secret-shaped values |
+| `--explain` | | bool | `false` | Show the source of each effective value and any sources it overrode |
+| `--diff` | | bool | `false` | Compare the resolved environment of two services (pass two service names) |
+| `--env-file` | | string | | Path to a `.env` file to merge, matching `azd app run` |
+| `--write` | | bool | `false` | Write the resolved environment to a `.env` file instead of printing it |
+| `--out` | | string | | Destination folder for `--write` files (writes `<service>.env`); defaults to each service directory |
+
+**→ [See full env command specification](commands/env.md)** for resolution order and detailed documentation.
+
+---
+
+## `azd app proxy`
+
+Start a local reverse proxy for running services.
+
+Each running service with a local port gets a path route:
+
+```text
+/<service>/... -> http://localhost:<port>/...
+```
+
+The proxy strips the `/<service>` prefix before forwarding, so `/api/users` forwards to `/users` on the `api` service.
+
+### Usage
+
+```bash
+azd app proxy [flags]
+```
+
+### Examples
+
+```bash
+# Start proxy on the default port
+azd app proxy
+
+# Start proxy on a custom port
+azd app proxy --port 9090
+```
+
+Example route table:
+
+```text
+Proxy listening on http://localhost:8080
+/api/ -> http://localhost:5001
+/web/ -> http://localhost:3000
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--port` | | int | `8080` | Port for the proxy listener |
+
+**→ [See full proxy command specification](commands/proxy.md)** for routing behavior and detailed documentation.
+
+---
+
+## `azd app cert`
+
+Generate local HTTPS certificates for development.
+
+This command creates a local certificate authority and a TLS server certificate under `~/.azd/app/certs`. By default it includes `localhost` and `127.0.0.1`.
+
+Run it again to reuse existing valid certificates. Use `--force` to regenerate the server certificate and key.
+
+### Usage
+
+```bash
+azd app cert [flags]
+```
+
+### Examples
+
+```bash
+# Generate certs for localhost and 127.0.0.1
+azd app cert
+
+# Add extra hosts (repeat --host as needed)
+azd app cert --host api.local.test --host auth.local.test
+
+# Regenerate the server certificate
+azd app cert --force
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--host` | | stringArray | | Additional host to include in certificate SANs (repeatable) |
+| `--force` | | bool | `false` | Regenerate server certificate and key |
+
+**→ [See full cert command specification](commands/cert.md)** for trust-store setup and detailed documentation.
+
+---
+
+## `azd app clean`
+
+Remove build output and cache directories for the services defined in `azure.yaml`.
+
+By default `clean` removes build artifacts and caches (`dist`, `build`, `bin`, `obj`, `__pycache__`, `.pytest_cache`, and similar). Dependency directories such as `node_modules` and `.venv` are left in place unless you pass `--deps`.
+
+Only directories inside a detected service directory are ever removed, and only when their name matches a known artifact. Paths outside the project are never touched.
+
+### Usage
+
+```bash
+azd app clean [flags]
+```
+
+### Examples
+
+```bash
+# Show what would be removed and how much space it frees
+azd app clean --dry-run
+
+# Remove build artifacts across all services
+azd app clean
+
+# Also remove dependency directories
+azd app clean --deps
+
+# Only remove artifacts untouched for at least 24 hours
+azd app clean --older-than 24h
+
+# Limit to one service
+azd app clean --service api
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--service` | `-s` | stringArray | | Limit to specific services (can be specified multiple times) |
+| `--deps` | | bool | `false` | Also remove dependency directories (`node_modules`, `.venv`) |
+| `--older-than` | | string | `0s` | Only remove artifacts older than this duration (for example, `24h`) |
+| `--dry-run` | | bool | `false` | List what would be removed and the reclaimable size without deleting |
+
+**→ [See full clean command specification](commands/clean.md)** for the artifact match list and detailed documentation.
+
+---
+
+## `azd app support-bundle`
+
+Collect sanitized project, service, health, and log diagnostics into a local folder for issue reports.
+
+Use `--dry-run` to preview the output folder and file list without writing files. Pass `--zip` to also create a shareable zip archive.
+
+### Usage
+
+```bash
+azd app support-bundle [flags]
+```
+
+### Examples
+
+```bash
+# Preview the bundle plan without writing files
+azd app support-bundle --dry-run
+
+# Write a bundle to the default folder
+azd app support-bundle
+
+# Write a bundle and zip it for sharing
+azd app support-bundle --zip
+
+# Limit logs and health to selected services
+azd app support-bundle --service api,web
+
+# Include more log history per service
+azd app support-bundle --tail 1000
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | | Output folder path |
+| `--service` | `-s` | string | | Include logs and health for specific service(s), comma-separated |
+| `--tail` | | int | `200` | Recent log lines per service to include |
+| `--zip` | | bool | `false` | Create a zip archive after writing the support bundle |
+| `--dry-run` | | bool | `false` | Show the bundle plan without writing files |
+
+**→ [See full support-bundle command specification](commands/support-bundle.md)** for the redaction rules and detailed documentation.
+
+---
+
+## `azd app config`
+
+Show the configuration azd app resolved from azure.yaml for each service.
+
+### Usage
+
+```bash
+azd app config [service] [flags]
+```
+
+### Examples
+
+```bash
+# Configuration for every service
+azd app config
+
+# Configuration for a single service
+azd app config api
+
+# JSON object keyed by service name
+azd app config --output json
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `default` | Output format (default, json) |
+
+### Behavior
+
+- Prints the host, effective service type (marked `explicit` or `inferred`), language, project path, run command, image, ports, and dependencies (uses) for each service.
+- Lists which optional blocks are configured on a service: `docker`, `healthcheck`, `restart`, `resources`, `logs`, `local`, `azure`.
+- Pass a service name to limit output to that service. An unknown name returns an error listing the available services.
+- `--output json` emits an object keyed by service name.
+
+**→ [See full config command specification](commands/config.md)** for details.
+
+---
+
+## `azd app remove`
+
+Remove a service from the `services` section of `azure.yaml`.
+
+This is the inverse of `azd app add`. It deletes only the named service entry. Other services and settings stay semantically unchanged, though yaml formatting may be normalized. Use it to undo an add or to drop a service you no longer run.
+
+### Usage
+
+```bash
+azd app remove <service>
+```
+
+### Examples
+
+```bash
+# Remove the redis service
+azd app remove redis
+
+# JSON output
+azd app remove redis --output json
+```
+
+### Behavior
+
+- Removing a service that is not present fails and lists the current service names.
+- Only the named service entry is deleted. Remaining services and settings are preserved.
+- Supports the global `--output json` flag for scripting.
+
+**→ [See full remove command specification](commands/remove.md)** for the yaml rewrite rules and detailed documentation.
+
+---
+
+## `azd app hooks`
+
+List the project-level lifecycle hooks configured in `azure.yaml`.
+
+Shows each configured hook with the command it runs, the shell it uses, and any per-platform override for Windows or POSIX. Use it to confirm what will run around a `run` or `stop` without opening the file.
+
+### Usage
+
+```bash
+azd app hooks
 ```
 
 ### Examples
@@ -1233,12 +1751,6 @@ azd app hooks
 # JSON array of hooks
 azd app hooks --output json
 ```
-
-### Flags
-
-| Flag | Short | Type | Default | Description |
-|------|-------|------|---------|-------------|
-| `--output` | `-o` | string | `text` | Output format: `text` or `json` |
 
 ### Lifecycle hooks
 
@@ -1254,6 +1766,44 @@ azd app hooks --output json
 - Hooks are listed in lifecycle order. Hooks that are not configured are omitted.
 - A hook with a Windows or POSIX override shows the override command and shell on its own line.
 - When no hooks are configured the command prints a short message and exits zero.
+
+**→ [See full hooks command specification](commands/hooks.md)** for the override resolution rules and detailed documentation.
+
+---
+
+## `azd app open`
+
+Resolve a service URL from `azure.yaml` or the running app state and open it in the default browser.
+
+Use `--path` to append a route such as `/health`. Use `--print` to write the URL to stdout without launching a browser, which is useful in scripts and over SSH.
+
+### Usage
+
+```bash
+azd app open <service> [flags]
+```
+
+### Examples
+
+```bash
+# Open the api service in the browser
+azd app open api
+
+# Open a specific route
+azd app open api --path /health
+
+# Print the URL instead of opening a browser
+azd app open api --print
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--path` | | string | | Path to append to the service URL |
+| `--print` | | bool | `false` | Print the URL without opening a browser |
+
+**→ [See full open command specification](commands/open.md)** for URL resolution order and detailed documentation.
 
 ---
 
@@ -1387,7 +1937,7 @@ Show version information for the azd app extension.
 ### Usage
 
 ```bash
-azd app version
+azd app version [flags]
 ```
 
 ### Examples
@@ -1395,7 +1945,16 @@ azd app version
 ```bash
 # Display version
 azd app version
+
+# Print only the version number, for scripting
+azd app version --quiet
 ```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--quiet` | | bool | `false` | Only print version number |
 
 ### Output
 
@@ -1470,6 +2029,18 @@ azd app notifications [command]
 | `stats` | Show notification statistics |
 | `test` | Send a test notification |
 | `enable` | Enable or disable OS notifications |
+
+### Flags
+
+| Subcommand | Flag | Type | Default | Description |
+|------------|------|------|---------|-------------|
+| `list` | `--unread` | bool | `false` | Show only unread notifications |
+| `list` | `--service` | string | | Filter by service name |
+| `list` | `--limit` | int | `50` | Maximum number of notifications to show |
+| `mark-read` | `--all` | bool | `false` | Mark all notifications as read |
+| `clear` | `--older-than` | string | | Clear notifications older than duration (for example, `24h` or `7d`) |
+| `clear` | `--yes` | bool | `false` | Clear all notification history without prompting |
+| `enable` | `--disable` | bool | `false` | Disable OS notifications instead of enabling |
 
 ### Examples
 

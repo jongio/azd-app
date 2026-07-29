@@ -1,0 +1,97 @@
+name: Docs Gate
+
+# Fails a pull request when it changes what users see without updating the docs.
+#
+# Two kinds of rule run here. Structural rules compare the live command tree
+# from `azd app metadata` against cli/docs and cannot be skipped: a shipped
+# command with no documentation is a bug no matter what the pull request says.
+# Change rules map source paths to the docs that describe them and are honest
+# heuristics, so an author can record why one does not apply by adding a line to
+# the pull request body:
+#
+#   Docs-Not-Needed: renamed an internal helper, no user visible change
+#
+# The reason is required. A bare marker records nothing and does not skip.
+
+on:
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: '1.26.5'
+
+jobs:
+  docs-gate:
+    name: Docs Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history so the merge base with the target branch resolves.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '${{ env.GO_VERSION }}'
+          cache: true
+          cache-dependency-path: cli/go.sum
+
+      - name: Collect changed files
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          git diff --name-only "origin/$BASE_REF...HEAD" > changed-files.txt
+          echo "Changed files:"
+          cat changed-files.txt
+
+      - name: Capture pull request body
+        env:
+          # Read through the environment rather than interpolated into the
+          # script. A pull request body is author controlled, and expanding it
+          # inline would let any contributor run commands on the runner.
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s' "$PR_BODY" > pr-body.txt
+
+      - name: Stub the embedded dashboard
+        # The CLI embeds the built dashboard with go:embed, and the build output
+        # is not committed. The gate only reads `azd app metadata`, which never
+        # serves a page, so a stub is enough to compile and saves a full pnpm and
+        # vite build on every pull request.
+        run: |
+          mkdir -p cli/src/internal/dashboard/dist
+          if [ ! -f cli/src/internal/dashboard/dist/index.html ]; then
+            echo '<!doctype html><title>stub</title>' > cli/src/internal/dashboard/dist/index.html
+          fi
+
+      - name: Run docs gate
+        working-directory: cli
+        run: |
+          set -o pipefail
+          go run ./src/cmd/app metadata \
+            | go run ./src/cmd/docsgate \
+                --repo-root .. \
+                --changed-files ../changed-files.txt \
+                --pr-body ../pr-body.txt \
+            | tee ../gate-report.txt
+
+      - name: Publish report
+        if: always() && hashFiles('gate-report.txt') != ''
+        run: |
+          {
+            echo '## Docs gate'
+            echo
+            echo '```'
+            cat gate-report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

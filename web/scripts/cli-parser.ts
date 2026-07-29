@@ -49,8 +49,10 @@ export function discoverCommands(cliReference: string, commandsDir: string): str
     }
   }
   
-  // Method 2: Find all ## `azd app <command>` section headers in cli-reference.md
-  const sectionRegex = /^## `azd app (\w+)`/gm;
+  // Method 2: Find all ## `azd app <command>` section headers in cli-reference.md.
+  // The character class allows hyphens so `support-bundle` is found, and excludes
+  // spaces so a subcommand section never becomes a top level page.
+  const sectionRegex = /^## `azd app ([a-z0-9][a-z0-9-]*)`\s*$/gm;
   let match;
   while ((match = sectionRegex.exec(cliReference)) !== null) {
     const cmdName = match[1];
@@ -69,6 +71,39 @@ export function discoverCommands(cliReference: string, commandsDir: string): str
   });
   
   return sortedCommands;
+}
+
+/**
+ * Parses the Commands Overview table of cli-reference.md.
+ *
+ * This table is the authoritative list of shipped commands: the Go docs gate
+ * fails the build when it disagrees with `azd app metadata`. Enumerating from
+ * here means the website is validated against what the CLI actually ships
+ * rather than against whichever files happen to sit in a docs folder.
+ */
+export function parseCommandsOverview(cliReference: string): string[] {
+  const overviewMatch = cliReference.match(/^## Commands Overview\s*$([\s\S]*?)(?=^## )/m);
+  if (!overviewMatch) return [];
+
+  const commands = new Set<string>();
+  const rowRegex = /^\|\s*`([a-z0-9][a-z0-9-]*)`\s*\|/gm;
+  let match;
+  while ((match = rowRegex.exec(overviewMatch[1])) !== null) {
+    commands.add(match[1]);
+  }
+
+  return Array.from(commands);
+}
+
+/**
+ * Extracts the body of a command's `## \`azd app <name>\`` section.
+ * Returns null when the command has no section.
+ */
+export function extractCommandSection(content: string, commandName: string): string | null {
+  const escaped = commandName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const sectionRegex = new RegExp(`## \`azd app ${escaped}\`([\\s\\S]*?)(?=## \`azd app |## Exit Codes|$)`);
+  const match = content.match(sectionRegex);
+  return match ? match[1] : null;
 }
 
 /**
@@ -176,19 +211,16 @@ export function parseCommandFromReference(
   commandsDir: string
 ): CommandInfo | null {
   // Find the command section
-  const sectionRegex = new RegExp(`## \`azd app ${commandName}\`([\\s\\S]*?)(?=## \`azd app |## Exit Codes|$)`);
-  const match = content.match(sectionRegex);
-  
-  if (!match) return null;
-  
-  const section = match[1];
+  const section = extractCommandSection(content, commandName);
+
+  if (section === null) return null;
   
   // Extract description (first paragraph after heading)
   const descMatch = section.match(/\n\n([^#\n][^\n]+)/);
   const description = descMatch ? descMatch[1].trim() : '';
   
   // Extract usage
-  const usageMatch = section.match(/```bash\nazd app (\w+)([^`]*)?```/);
+  const usageMatch = section.match(/```bash\nazd app ([\w-]+)([^`]*)?```/);
   const usage = usageMatch ? `azd app ${usageMatch[1]}${usageMatch[2] || ''}`.trim() : `azd app ${commandName} [flags]`;
   
   // Read full spec content if available

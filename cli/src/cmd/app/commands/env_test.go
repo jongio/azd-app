@@ -230,7 +230,6 @@ func TestFormatGitHubEnv(t *testing.T) {
 		assert.Equal(t, value, lines[1])
 		assert.Equal(t, delim, lines[2])
 	})
-
 }
 
 func TestGithubEnvDelimiter(t *testing.T) {

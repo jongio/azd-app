@@ -1,26 +1,16 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
-
-const usageCode = 'azd app status';
-const exampleText = 'azd app status';
-const exampleJSON = 'azd app status --output json';
-const jsonShape = `{
-  "running": true,
-  "pid": 12345,
-  "dashboardUrl": "http://localhost:4280",
-  "startTime": "2026-07-03T12:00:00Z",
-  "services": [
-    {
-      "name": "api",
-      "url": "http://localhost:8080",
-      "port": 8080
-    }
-  ]
-}`;
+const usageCode = "azd app status [flags]";
+const example0 = "azd app status [flags]";
+const example1 = "azd app status";
+const example2 = "azd app status --service api";
+const example3 = "azd app status --watch";
+const example4 = "azd app status --watch --interval 5s";
+const example5 = "azd app status --dashboard-url";
 ---
 
-<Layout title="status - CLI Reference" description="Show whether azd app run is active, including dashboard URL and services.">
+<Layout title="status - CLI Reference" description="Report whether `azd app run` is currently active for this project, and print a one-line summary per service.">
   <div class="max-w-4xl mx-auto px-4 py-12">
     <nav class="text-sm mb-8">
       <ol class="flex items-center gap-2 text-neutral-500">
@@ -34,46 +24,22 @@ const jsonShape = `{
 
     <div class="mb-8">
       <h1 class="text-4xl font-bold mb-4">azd app status</h1>
-      <p class="text-xl text-neutral-700 dark:text-neutral-300">Show whether azd app run is active, including dashboard URL and services.</p>
+      <p class="text-xl text-neutral-700 dark:text-neutral-300">Report whether `azd app run` is currently active for this project, and print a one-line summary per service.</p>
     </div>
 
     <h2 class="text-2xl font-bold mt-8 mb-4">Usage</h2>
     <Code code={usageCode} lang="bash" frame="terminal" />
 
-    <h2 class="text-2xl font-bold mt-12 mb-4">What it shows</h2>
-    <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
-      <li>Running state for this project</li>
-      <li>Dashboard URL</li>
-      <li>Running services and local endpoints</li>
-    </ul>
+    <h2 class="text-2xl font-bold mt-12 mb-4">Flags</h2><div class="overflow-x-auto my-8"><table class="min-w-full text-sm rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700"><thead><tr class="bg-neutral-200 dark:bg-neutral-700"><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Flag</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Short</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Type</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Default</th><th class="text-left py-3 px-4 font-semibold text-neutral-900 dark:text-neutral-100">Description</th></tr></thead><tbody class="bg-neutral-100 dark:bg-neutral-800"><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--service</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300"><code class="bg-transparent">-s</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Show status for a single service</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--watch</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Continuously refresh the status view</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--interval</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">string</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">2s</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Refresh interval when `--watch` is set (Go duration, for example `500ms` or `5s`)</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--dashboard-url</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Print only the dashboard URL and exit</td></tr><tr class="border-t border-neutral-200 dark:border-neutral-700"><td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400 bg-transparent">--exit-code</code></td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">-</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">bool</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">false</td><td class="py-3 px-4 text-neutral-700 dark:text-neutral-300">Return a non-zero exit code when the app is not running (ignored with `--watch`)</td></tr></tbody></table></div>
 
-    <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2>
-    <div class="space-y-4">
-      <Code code={exampleText} lang="bash" frame="terminal" />
-      <Code code={exampleJSON} lang="bash" frame="terminal" />
-    </div>
+    <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2><div class="space-y-4"><Code code={example0} lang="bash" frame="terminal" />
+  <Code code={example1} lang="bash" frame="terminal" />
+  <Code code={example2} lang="bash" frame="terminal" />
+  <Code code={example3} lang="bash" frame="terminal" />
+  <Code code={example4} lang="bash" frame="terminal" />
+  <Code code={example5} lang="bash" frame="terminal" /></div>
 
-    <h2 class="text-2xl font-bold mt-12 mb-4">JSON output</h2>
-    <p class="text-neutral-700 dark:text-neutral-300 mb-4">
-      Use the global <code>--output json</code> flag for machine-readable output.
-      If the recorded PID is stale, status returns <code>{`{"running": false}`}</code> and cleans up the stale run-state file.
-    </p>
-    <Code code={jsonShape} lang="json" />
-
-    <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
-      <h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">📚 Detailed Documentation</h3>
-      <p class="text-neutral-700 dark:text-neutral-300 mb-4">
-        For complete documentation and behavior details, see the full command specification.
-      </p>
-      <a
-        href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/status.md"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"
-      >
-        View full status specification →
-      </a>
-    </div>
+    <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700"><h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">📚 Detailed Documentation</h3><p class="text-neutral-700 dark:text-neutral-300 mb-4">For complete documentation including flows, diagrams, and advanced usage, see the full command specification.</p><a href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/status.md" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline">View full status specification →</a></div>
 
     <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between">
@@ -83,4 +49,17 @@ const jsonShape = `{
       </div>
     </div>
   </div>
+
+  <script>
+    document.querySelectorAll('.copy-button').forEach(button => {
+      button.addEventListener('click', async () => {
+        const code = button.getAttribute('data-code');
+        if (code) {
+          await navigator.clipboard.writeText(code);
+          button.textContent = 'Copied!';
+          setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+        }
+      });
+    });
+  </script>
 </Layout>

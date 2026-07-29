@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
-
-	"log/slog"
 )
 
 // ansiEscapeRegex matches ANSI/VT100 escape sequences used for terminal formatting
