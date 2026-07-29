@@ -85,6 +85,9 @@ azd app run --environment production
 | `cert` | Generate local HTTPS certificates | [→ Full Spec](commands/cert.md) |
 | `clean` | Reclaim disk space from build artifacts and caches | [→ Full Spec](commands/clean.md) |
 | `support-bundle` | Collect local diagnostics for support | [→ Full Spec](commands/support-bundle.md) |
+| `remove` | Remove a service from azure.yaml | [→ Full Spec](commands/remove.md) |
+| `hooks` | List the lifecycle hooks configured in azure.yaml | [→ Full Spec](commands/hooks.md) |
+| `open` | Open a running service URL in the browser | [→ Full Spec](commands/open.md) |
 | `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
@@ -413,10 +416,13 @@ azd app run --force
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--service` | `-s` | string | | Run specific service(s) only (comma-separated) |
+| `--except` | | string | | Run every service except the named one(s) (comma-separated); cannot be combined with `--service` |
 | `--scale` | | stringArray | | Run multiple instances of a service, for example `--scale worker=3` (repeatable, comma-separated) |
 | `--detach` | | bool | `false` | Run the app in the background and return to the shell |
 | `--runtime` | | string | `azd` | Runtime mode: 'azd' (azd dashboard) or 'aspire' (native Aspire with dotnet run) |
 | `--env-file` | | string | | Load environment variables from .env file |
+| `--env` | | stringArray | | Set an environment variable inline as KEY=VALUE (repeatable, overrides --env-file) |
+| `--no-deps` | | bool | `false` | Skip reqs and dependency installation before starting services |
 | `--verbose` | `-v` | bool | `false` | Enable verbose logging |
 | `--dry-run` | | bool | `false` | Show what would be run without starting services |
 | `--no-timing` | | bool | `false` | Hide the per-service startup timing summary shown after services are ready |
@@ -785,6 +791,7 @@ azd app status --dashboard-url
 | `--watch` | | bool | `false` | Continuously refresh the status view |
 | `--interval` | | string | `2s` | Refresh interval when `--watch` is set (Go duration, for example `500ms` or `5s`) |
 | `--dashboard-url` | | bool | `false` | Print only the dashboard URL and exit |
+| `--exit-code` | | bool | `false` | Return a non-zero exit code when the app is not running (ignored with `--watch`) |
 
 **→ [See full status command specification](commands/status.md)** for run-state details and detailed documentation.
 
@@ -1065,8 +1072,11 @@ azd app logs --no-color
 | `--tail` | `-n` | int | `100` | Number of lines to show from the end |
 | `--since` | | string | | Show logs since duration (e.g., 5m, 1h) |
 | `--timestamps` | | bool | `true` | Show timestamps with each log entry |
+| `--no-timestamps` | | bool | `false` | Hide timestamps in text log output |
 | `--no-color` | | bool | `false` | Disable colored output |
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
+| `--min-level` | | string | | Show entries at this severity or higher (`debug` < `info` < `warn` < `error`); cannot be combined with an explicit `--level` or `--context` |
+| `--summary` | | bool | `false` | Show counts by service and level instead of raw log entries |
 | `--context` | | int | `0` | Number of context lines before/after matching entries (0-10, requires --level) |
 | `--format` | | string | `text` | Output format (text, json) |
 | `--file` | | string | | Write logs to file instead of stdout |
@@ -1298,6 +1308,7 @@ azd app env --all --write --out build/env
 | `--all` | | bool | `false` | Print the resolved environment for every service |
 | `--format` | | string | `dotenv` | Output format: `dotenv`, `shell`, `powershell`, or `json` |
 | `--keys` | | bool | `false` | Print variable names only |
+| `--prefix` | | stringArray | | Only include variables whose names start with the given prefix (repeatable) |
 | `--no-mask` | | bool | `false` | Print raw values instead of masking secret-shaped values |
 | `--explain` | | bool | `false` | Show the source of each effective value and any sources it overrode |
 | `--diff` | | bool | `false` | Compare the resolved environment of two services (pass two service names) |
@@ -1481,6 +1492,115 @@ azd app support-bundle --tail 1000
 | `--dry-run` | | bool | `false` | Show the bundle plan without writing files |
 
 **→ [See full support-bundle command specification](commands/support-bundle.md)** for the redaction rules and detailed documentation.
+
+---
+
+## `azd app remove`
+
+Remove a service from the `services` section of `azure.yaml`.
+
+This is the inverse of `azd app add`. It deletes only the named service entry. Other services and settings stay semantically unchanged, though yaml formatting may be normalized. Use it to undo an add or to drop a service you no longer run.
+
+### Usage
+
+```bash
+azd app remove <service>
+```
+
+### Examples
+
+```bash
+# Remove the redis service
+azd app remove redis
+
+# JSON output
+azd app remove redis --output json
+```
+
+### Behavior
+
+- Removing a service that is not present fails and lists the current service names.
+- Only the named service entry is deleted. Remaining services and settings are preserved.
+- Supports the global `--output json` flag for scripting.
+
+**→ [See full remove command specification](commands/remove.md)** for the yaml rewrite rules and detailed documentation.
+
+---
+
+## `azd app hooks`
+
+List the project-level lifecycle hooks configured in `azure.yaml`.
+
+Shows each configured hook with the command it runs, the shell it uses, and any per-platform override for Windows or POSIX. Use it to confirm what will run around a `run` or `stop` without opening the file.
+
+### Usage
+
+```bash
+azd app hooks
+```
+
+### Examples
+
+```bash
+# List configured hooks
+azd app hooks
+
+# JSON array of hooks
+azd app hooks --output json
+```
+
+### Lifecycle hooks
+
+| Hook | When it runs |
+|------|--------------|
+| `prerun` | before services start |
+| `postrun` | after all services are ready |
+| `prestop` | before services are stopped |
+| `poststop` | after services are stopped |
+
+### Notes
+
+- Hooks are listed in lifecycle order. Hooks that are not configured are omitted.
+- A hook with a Windows or POSIX override shows the override command and shell on its own line.
+- When no hooks are configured the command prints a short message and exits zero.
+
+**→ [See full hooks command specification](commands/hooks.md)** for the override resolution rules and detailed documentation.
+
+---
+
+## `azd app open`
+
+Resolve a service URL from `azure.yaml` or the running app state and open it in the default browser.
+
+Use `--path` to append a route such as `/health`. Use `--print` to write the URL to stdout without launching a browser, which is useful in scripts and over SSH.
+
+### Usage
+
+```bash
+azd app open <service> [flags]
+```
+
+### Examples
+
+```bash
+# Open the api service in the browser
+azd app open api
+
+# Open a specific route
+azd app open api --path /health
+
+# Print the URL instead of opening a browser
+azd app open api --print
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--path` | | string | | Path to append to the service URL |
+| `--print` | | bool | `false` | Print the URL without opening a browser |
+
+**→ [See full open command specification](commands/open.md)** for URL resolution order and detailed documentation.
 
 ---
 

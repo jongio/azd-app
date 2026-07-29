@@ -271,3 +271,42 @@ services:
 		t.Fatalf("dry-run modified azure.yaml:\n%s", string(after))
 	}
 }
+
+func TestAddServiceToYamlUsesTwoSpaceIndentAndAtomicWrite(t *testing.T) {
+	tempDir := t.TempDir()
+	content := `name: test-app
+services:
+  api:
+    language: python
+    project: ./api
+`
+	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
+	if err := os.WriteFile(azureYamlPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to create azure.yaml: %v", err)
+	}
+
+	def := wellknown.Get("redis")
+	if def == nil {
+		t.Fatal("redis service not found in wellknown registry")
+	}
+	if err := addServiceToYaml(azureYamlPath, "redis", def); err != nil {
+		t.Fatalf("addServiceToYaml() error: %v", err)
+	}
+	if _, err := os.Stat(azureYamlPath + ".tmp"); !os.IsNotExist(err) {
+		t.Fatalf("temporary file cleanup error = %v, want not exist", err)
+	}
+
+	data, err := os.ReadFile(azureYamlPath)
+	if err != nil {
+		t.Fatalf("failed to read azure.yaml: %v", err)
+	}
+	got := string(data)
+	if strings.Contains(got, "    api:") || strings.Contains(got, "      language:") {
+		t.Fatalf("azure.yaml was written with four-space mapping indentation:\n%s", got)
+	}
+	for _, want := range []string{"  api:", "    language: python", "  redis:", "    image: redis:7-alpine"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("azure.yaml missing %q after add:\n%s", want, got)
+		}
+	}
+}

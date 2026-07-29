@@ -266,6 +266,7 @@ func TestRunInfoNoServices(t *testing.T) {
 	}
 
 	cmd := NewInfoCommand()
+	cmd.SetArgs([]string{})
 	err = cmd.Execute()
 	if err != nil {
 		t.Errorf("runInfo() failed with no services: %v", err)
@@ -335,6 +336,7 @@ func TestRunInfoWithServices(t *testing.T) {
 	t.Setenv("SERVICE_API_DATABASE_URL", "postgres://localhost:5432/db")
 
 	cmd := NewInfoCommand()
+	cmd.SetArgs([]string{})
 	err = cmd.Execute()
 	if err != nil {
 		t.Errorf("runInfo() failed with services: %v", err)
@@ -467,6 +469,7 @@ func TestRunInfoWithErrorService(t *testing.T) {
 	}
 
 	cmd := NewInfoCommand()
+	cmd.SetArgs([]string{})
 	err = cmd.Execute()
 	if err != nil {
 		t.Errorf("runInfo() with error service failed: %v", err)

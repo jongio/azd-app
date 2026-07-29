@@ -66,7 +66,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 
 		mockClient := &mockDashboardClient{pingErr: context.DeadlineExceeded}
 
-		err := executor.followLogsViaDashboard(context.Background(), mockClient, nil, LogLevelAll, nil, &buf)
+		err := executor.followLogsViaDashboard(context.Background(), mockClient, nil, LogLevelAll, LogLevelAll, false, nil, &buf)
 		if err == nil {
 			t.Error("Expected error when ping fails")
 		}
@@ -93,7 +93,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 
 		done := make(chan error)
 		go func() {
-			done <- executor.followLogsViaDashboard(ctx, mockClient, nil, LogLevelAll, nil, &buf)
+			done <- executor.followLogsViaDashboard(ctx, mockClient, nil, LogLevelAll, LogLevelAll, false, nil, &buf)
 		}()
 
 		// Poll for output instead of fixed sleep
@@ -134,7 +134,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 
 		done := make(chan error)
 		go func() {
-			done <- executor.followLogsViaDashboard(ctx, mockClient, nil, service.LogLevelError, nil, &buf)
+			done <- executor.followLogsViaDashboard(ctx, mockClient, nil, service.LogLevelError, LogLevelAll, false, nil, &buf)
 		}()
 
 		// Wait for the error log to appear (it passes the filter)
@@ -172,7 +172,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 
 		done := make(chan error)
 		go func() {
-			done <- executor.followLogsViaDashboard(ctx, mockClient, []string{"api", "worker"}, LogLevelAll, nil, &buf)
+			done <- executor.followLogsViaDashboard(ctx, mockClient, []string{"api", "worker"}, LogLevelAll, LogLevelAll, false, nil, &buf)
 		}()
 
 		// Wait for the API log to appear (it passes the service filter)
@@ -200,7 +200,7 @@ func TestLogsExecutor_FollowLogsViaDashboard(t *testing.T) {
 
 		done := make(chan error, 1)
 		go func() {
-			done <- executor.followLogsViaDashboard(ctx, mockClient, nil, LogLevelAll, nil, &buf)
+			done <- executor.followLogsViaDashboard(ctx, mockClient, nil, LogLevelAll, LogLevelAll, false, nil, &buf)
 		}()
 
 		// Buffered channel - signal will be picked up when goroutine reaches select
@@ -228,7 +228,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 
 		done := make(chan error, 1)
 		go func() {
-			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, nil, &buf)
+			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, LogLevelAll, false, nil, &buf)
 		}()
 
 		sigChan <- os.Interrupt
@@ -263,7 +263,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 
 		done := make(chan error)
 		go func() {
-			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, nil, &buf)
+			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, LogLevelAll, false, nil, &buf)
 		}()
 
 		now := time.Now()
@@ -301,7 +301,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 
 		done := make(chan error)
 		go func() {
-			done <- executor.followLogsInMemory(subscriptions, mockLM, service.LogLevelError, nil, &buf)
+			done <- executor.followLogsInMemory(subscriptions, mockLM, service.LogLevelError, LogLevelAll, false, nil, &buf)
 		}()
 
 		now := time.Now()
@@ -336,7 +336,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 
 		done := make(chan error, 1)
 		go func() {
-			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, nil, &buf)
+			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, LogLevelAll, false, nil, &buf)
 		}()
 
 		// Close channel - buffered done chan ensures we don't block
@@ -367,7 +367,7 @@ func TestLogsExecutor_FollowLogsInMemory(t *testing.T) {
 
 		done := make(chan error)
 		go func() {
-			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, nil, &buf)
+			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, LogLevelAll, false, nil, &buf)
 		}()
 
 		now := time.Now()
@@ -396,7 +396,7 @@ func TestLogsExecutor_FollowLogs(t *testing.T) {
 		mockClient := &mockDashboardClient{}
 		done := make(chan error, 1)
 		go func() {
-			done <- executor.followLogsViaDashboard(context.Background(), mockClient, nil, LogLevelAll, nil, &buf)
+			done <- executor.followLogsViaDashboard(context.Background(), mockClient, nil, LogLevelAll, LogLevelAll, false, nil, &buf)
 		}()
 
 		sigChan <- os.Interrupt
@@ -425,7 +425,7 @@ func TestLogsExecutor_FollowLogs(t *testing.T) {
 
 		done := make(chan error, 1)
 		go func() {
-			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, nil, &buf)
+			done <- executor.followLogsInMemory(subscriptions, mockLM, LogLevelAll, LogLevelAll, false, nil, &buf)
 		}()
 
 		sigChan <- os.Interrupt

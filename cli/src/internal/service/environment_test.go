@@ -409,6 +409,7 @@ func TestResolveEnvironment(t *testing.T) {
 		azureEnv    map[string]string
 		dotEnvPath  string
 		serviceURLs map[string]string
+		inlineEnv   map[string]string
 		want        map[string]string
 	}{
 		{
@@ -469,12 +470,24 @@ func TestResolveEnvironment(t *testing.T) {
 				"DATABASE_URL": "localhost:5432",
 			},
 		},
+		{
+			name: "inline overrides service environment",
+			service: Service{
+				Environment: Environment{
+					"FOO": "from-service",
+				},
+			},
+			inlineEnv: map[string]string{"FOO": "from-inline"},
+			want: map[string]string{
+				"FOO": "from-inline",
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			got, err := ResolveEnvironment(ctx, tt.service, tt.azureEnv, tt.dotEnvPath, tt.serviceURLs)
+			got, err := ResolveEnvironment(ctx, tt.service, tt.azureEnv, tt.dotEnvPath, tt.serviceURLs, tt.inlineEnv)
 			if err != nil {
 				t.Fatalf("ResolveEnvironment() error = %v", err)
 			}
@@ -1330,7 +1343,7 @@ func TestResolveEnvironmentWithKeyVaultReferences(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			env, err := ResolveEnvironment(ctx, tt.service, tt.azureEnv, "", tt.serviceURLs)
+			env, err := ResolveEnvironment(ctx, tt.service, tt.azureEnv, "", tt.serviceURLs, nil)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ResolveEnvironment() error = %v, wantErr %v", err, tt.wantErr)

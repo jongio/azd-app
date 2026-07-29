@@ -30,6 +30,9 @@ concurrency:
 
 permissions:
   contents: read
+  # copilot-requests lets the built-in GITHUB_TOKEN authenticate against the
+  # Copilot API. Without it every eval trial fails with an authorization error.
+  copilot-requests: write
 
 defaults:
   run:
@@ -42,6 +45,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      copilot-requests: write
 
     strategy:
       fail-fast: false
@@ -56,26 +60,23 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Install dependencies
         run: npm install
 
       - name: Run eval suite
-        continue-on-error: true
         id: eval
         run: |
-          npx @microsoft/vally-cli eval \
+          ./node_modules/.bin/vally eval \
             --suite ${{ matrix.suite }} \
             --output-dir ./results \
             --output jsonl
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_API_TOKEN || secrets.GITHUB_TOKEN }}
-
-      - name: Check eval auth
-        if: steps.eval.outcome == 'failure'
-        run: |
-          echo "::warning::Vally evals failed. If due to auth, add a COPILOT_API_TOKEN secret with Copilot API access."
+          # Copilot resolves COPILOT_GITHUB_TOKEN ahead of GITHUB_TOKEN, so set
+          # both. The copilot-requests permission above is what makes this work.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate eval summary
         if: always()
