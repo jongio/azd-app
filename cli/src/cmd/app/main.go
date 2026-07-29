@@ -114,6 +114,7 @@ func main() {
 		commands.NewRemoveCommand(),
 		commands.NewSupportBundleCommand(),
 		commands.NewGraphCommand(),
+		commands.NewValidateCommand(),
 		commands.NewHooksCommand(),
 		commands.NewOpenCommand(),
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
