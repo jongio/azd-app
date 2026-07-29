@@ -1,4 +1,4 @@
-# CLI Reference
+﻿# CLI Reference
 
 Complete reference for all `azd app` commands and flags.
 
@@ -79,6 +79,7 @@ azd app run --environment production
 | `logs` | View logs from running services | [→ Full Spec](commands/logs.md) |
 | `info` | Show information about running services | [→ Full Spec](commands/info.md) |
 | `hooks` | List the lifecycle hooks configured in azure.yaml | [→ Full Spec](commands/hooks.md) |
+| `ports` | List the host ports each service binds and flag duplicate bindings | [→ Full Spec](commands/ports.md) |
 | `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
 | `version` | Show version information | [→ Full Spec](commands/version.md) |
@@ -1253,6 +1254,40 @@ azd app hooks --output json
 - Hooks are listed in lifecycle order. Hooks that are not configured are omitted.
 - A hook with a Windows or POSIX override shows the override command and shell on its own line.
 - When no hooks are configured the command prints a short message and exits zero.
+
+---
+
+## `azd app ports`
+
+Reads `azure.yaml` and lists the host port each service binds. An explicit host port is shown as its number; a port left for the tool to assign is shown as `auto`. When two bindings claim the same explicit host port the command reports the conflict and exits non-zero, so it works as a preflight check before `azd app run`.
+
+### Usage
+
+```bash
+azd app ports [flags]
+```
+
+### Examples
+
+```bash
+# List host ports for every service
+azd app ports
+
+# JSON object keyed by service name
+azd app ports --output json
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `text` | Output format: `text` or `json` |
+
+### Notes
+
+- Each binding is printed as `host -> container/protocol`. Ports without an explicit host binding show `auto`.
+- A host port claimed by more than one binding (across services or within one service) is marked `(conflict)` and listed in a warning.
+- The command exits non-zero when any conflict is found, so it can gate a run in scripts and CI.
 
 ---
 

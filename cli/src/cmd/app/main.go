@@ -117,6 +117,7 @@ func main() {
 		commands.NewGraphCommand(),
 		commands.NewValidateCommand(),
 		commands.NewHooksCommand(),
+		commands.NewPortsCommand(),
 		commands.NewOpenCommand(),
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
 	)
