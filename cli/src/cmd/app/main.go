@@ -111,6 +111,7 @@ func main() {
 		commands.NewProxyCommand(),
 		commands.NewCertCommand(),
 		commands.NewAddCommand(),
+		commands.NewConfigCommand(),
 		commands.NewRemoveCommand(),
 		commands.NewSupportBundleCommand(),
 		commands.NewGraphCommand(),
