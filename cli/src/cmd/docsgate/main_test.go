@@ -115,6 +115,20 @@ func TestResolveSkipReason(t *testing.T) {
 		assert.Empty(t, reason)
 	})
 
+	t.Run("whitespace only flag falls back to the body", func(t *testing.T) {
+		reason, err := resolveSkipReason("   ", body)
+
+		require.NoError(t, err)
+		assert.Equal(t, "internal rename", reason)
+	})
+
+	t.Run("whitespace only flag records nothing", func(t *testing.T) {
+		reason, err := resolveSkipReason(" \t ", "")
+
+		require.NoError(t, err)
+		assert.Empty(t, reason)
+	})
+
 	t.Run("missing body file is an error", func(t *testing.T) {
 		_, err := resolveSkipReason("", filepath.Join(t.TempDir(), "absent.txt"))
 

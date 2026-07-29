@@ -129,8 +129,13 @@ function checkCommand(
 
 /**
  * Reports hand-authored website pages for commands the CLI no longer ships.
+ *
+ * `known` must include excluded commands. Exclusion means "do not validate the
+ * documentation for this command", not "this command was removed", so filtering
+ * excluded commands out here would report their pages as orphans and fail the
+ * build on exactly the configuration .exclude-commands exists to permit.
  */
-function checkOrphans(shipped: Set<string>): Problem[] {
+function checkOrphans(known: Set<string>): Problem[] {
   if (!fs.existsSync(CONTENT_COMMANDS_DIR)) {
     return [];
   }
@@ -140,7 +145,7 @@ function checkOrphans(shipped: Set<string>): Problem[] {
     if (!file.endsWith(".md") && !file.endsWith(".mdx")) continue;
 
     const command = path.basename(file, path.extname(file));
-    if (shipped.has(command)) continue;
+    if (known.has(command)) continue;
 
     problems.push({
       command,
@@ -165,7 +170,8 @@ function main(): void {
 
   const reference = fs.readFileSync(CLI_REFERENCE, "utf-8");
   const excluded = getExcludedCommands();
-  const shipped = parseCommandsOverview(reference).filter((c) => !excluded.has(c));
+  const overview = parseCommandsOverview(reference);
+  const shipped = overview.filter((c) => !excluded.has(c));
 
   if (shipped.length === 0) {
     console.error("❌ No commands found in the Commands Overview table of cli/docs/cli-reference.md");
@@ -179,7 +185,7 @@ function main(): void {
   for (const command of [...shipped].sort()) {
     problems.push(...checkCommand(command, reference, discovered));
   }
-  problems.push(...checkOrphans(new Set(shipped)));
+  problems.push(...checkOrphans(new Set([...overview, ...excluded])));
 
   const brokenCommands = new Set(problems.map((p) => p.command));
   const healthy = shipped.filter((c) => !brokenCommands.has(c));

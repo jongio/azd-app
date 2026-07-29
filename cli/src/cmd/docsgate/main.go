@@ -90,6 +90,12 @@ func run(args []string, stdin io.Reader, stdout io.Writer) (int, error) {
 // text into a shell command, and parsing stays in one tested place rather than
 // being reimplemented in workflow YAML.
 func resolveSkipReason(explicit, bodyPath string) (string, error) {
+	// Trim before the emptiness test so a whitespace-only flag counts as unset.
+	// Run waives every skippable finding whenever the reason is non-empty, so
+	// returning "   " would suppress the change rules while recording nothing,
+	// which is the opposite of what the marker promises. ParseSkipReason already
+	// holds this line for the body path.
+	explicit = strings.TrimSpace(explicit)
 	if explicit != "" || bodyPath == "" {
 		return explicit, nil
 	}
