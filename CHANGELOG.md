@@ -36,8 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Six structural rules cover missing commands, subcommands, flags, overview rows, detail docs, and orphaned docs
   - Three change rules map source paths to the docs describing them, and honor a `Docs-Not-Needed: <reason>` marker in the PR body
   - Runs in `mage preflight` and as a `docs-gate` check on every pull request
-- **Reference docs for `clean`, `env`, `graph`, `open`, `outdated`, and `support-bundle`**, which previously shipped with no documentation at all
-- **Website reference pages for `config`, `hooks`, `open`, `ports`, and `remove`**, plus reference docs for the previously undocumented `run --env`, `run --no-deps`, `logs --min-level`, `logs --no-timestamps`, `logs --summary`, `status --exit-code`, and `env --prefix` flags
+- **Reference docs for `clean`, `doctor`, `env`, `graph`, `open`, `outdated`, and `support-bundle`**, which previously shipped with no documentation at all
+- **Website reference pages for `config`, `doctor`, `hooks`, `open`, `ports`, and `remove`**, plus reference docs for the previously undocumented `run --env`, `run --no-deps`, `logs --min-level`, `logs --no-timestamps`, `logs --summary`, `status --exit-code`, and `env --prefix` flags
 
 ### Fixed
 - `azd app run --detach` dying immediately on Windows when the launching process owns a kill-on-close Job Object ([#555](https://github.com/jongio/azd-app/issues/555))

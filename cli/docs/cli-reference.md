@@ -67,6 +67,7 @@ azd app run --environment production
 |---------|-------------|---------------|
 | `init` | Initialize azure.yaml for local development by scanning your project | [→ Full Spec](commands/init.md) |
 | `validate` | Validate azure.yaml with read-only checks before running services | [→ Full Spec](commands/validate.md) |
+| `doctor` | Check whether the local machine can run the project | [→ Full Spec](commands/doctor.md) |
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
 | `outdated` | Report outdated dependencies across services | [→ Full Spec](commands/outdated.md) |
@@ -215,6 +216,88 @@ JSON output emits the findings array (`[]` when there is nothing to report):
 ```
 
 **→ [See full validate command specification](commands/validate.md)** for the complete check list and exit codes.
+
+---
+
+## `azd app doctor`
+
+Checks whether the local machine can run the project. Where `validate` checks `azure.yaml` itself, `doctor` also checks the environment around it: service paths on disk, required tools on `PATH`, port declarations, and whether the dashboard is already running. Nothing is started and no files are written.
+
+### Usage
+
+```bash
+azd app doctor
+```
+
+### Flags
+
+Takes no positional arguments and adds no flags of its own. It accepts the [global flags](#global-flags), plus `--output` from `azd`.
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `default` | Output format: 'default' or 'json' (inherited from parent) |
+
+### Checks
+
+| Check ID | Severity | Description |
+|----------|----------|-------------|
+| `project.azure_yaml` | fail | `azure.yaml` was not found |
+| `project.root` | pass | Reports the resolved project root |
+| `config.exists` | pass | Reports the resolved `azure.yaml` path |
+| `config.parse` | pass / fail | Whether `azure.yaml` parsed |
+| `services.defined` | pass / warn | Whether any services are defined |
+| `service.project` | pass / warn / fail | Whether each service `project` path exists and is a directory |
+| `tool.available` | pass / fail | Whether each required executable resolves on `PATH` |
+| `port.valid` | pass / fail | Whether each declared port parses and is in range |
+| `port.unique` | fail | Two services declare the same host port and protocol |
+| `port.declared` | warn | No host ports are declared anywhere |
+| `dashboard.state` | pass / warn | Whether the dashboard is currently running |
+
+Required tools are derived from the services you declare, so a Go-only project is never asked to install Node. `azd` and `git` are always required. Docker is required only for services that actually start as containers, so declaring `ports:` on a process service does not pull in a Docker requirement.
+
+### Examples
+
+```bash
+# Check local setup before the first run
+azd app doctor
+
+# Check as JSON for scripts and CI
+azd app doctor --output json
+
+# List only the missing tools
+azd app doctor --output json | jq -r '.[] | select(.checkId == "tool.available" and .severity == "fail") | .tool'
+```
+
+### Output
+
+Checks are sorted by severity, then service, then check ID. The severity names sort so that `fail` comes first, putting failures at the top. Warnings alone do not fail the command; any failing check does.
+
+```
+azd app doctor
+──────────────────────────────
+
+   [FAIL] tool.available: docker was not found on PATH
+         fix: Install Docker or a compatible container runtime.
+   [PASS] config.parse: azure.yaml parsed successfully
+   [WARN] dashboard.state: dashboard is not running
+         fix: Run azd app run to start the dashboard.
+```
+
+JSON output emits the checks array:
+
+```json
+[
+  {
+    "checkId": "tool.available",
+    "severity": "fail",
+    "message": "docker was not found on PATH",
+    "hint": "Install Docker or a compatible container runtime.",
+    "tool": "docker"
+  }
+]
+```
+
+**→ [See full doctor command specification](commands/doctor.md)** for the tool detection rules and exit codes.
 
 ---
 
