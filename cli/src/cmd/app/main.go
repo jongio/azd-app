@@ -111,10 +111,13 @@ func main() {
 		commands.NewProxyCommand(),
 		commands.NewCertCommand(),
 		commands.NewAddCommand(),
+		commands.NewConfigCommand(),
 		commands.NewRemoveCommand(),
 		commands.NewSupportBundleCommand(),
 		commands.NewGraphCommand(),
+		commands.NewValidateCommand(),
 		commands.NewHooksCommand(),
+		commands.NewPortsCommand(),
 		commands.NewOpenCommand(),
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
 	)

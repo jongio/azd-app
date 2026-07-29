@@ -66,10 +66,12 @@ azd app run --environment production
 | Command | Description | Detailed Spec |
 |---------|-------------|---------------|
 | `init` | Initialize azure.yaml for local development by scanning your project | [→ Full Spec](commands/init.md) |
+| `validate` | Validate azure.yaml with read-only checks before running services | [→ Full Spec](commands/validate.md) |
 | `reqs` | Check and verify required tools and optionally auto-generate requirements | [→ Full Spec](commands/reqs.md) |
 | `deps` | Install dependencies for detected projects | [→ Full Spec](commands/deps.md) |
 | `outdated` | Report outdated dependencies across services | [→ Full Spec](commands/outdated.md) |
 | `add` | Add a well-known container service to azure.yaml | [→ Full Spec](commands/add.md) |
+| `config` | Show the effective resolved configuration for each service | [→ Full Spec](commands/config.md) |
 | `run` | Run the development environment with service orchestration and lifecycle hooks | [→ Full Spec](commands/run.md) |
 | `test` | Run tests for all services with coverage aggregation | [→ Full Spec](commands/test.md) |
 | `start` | Start stopped services | [→ Full Spec](commands/start.md) |
@@ -87,6 +89,7 @@ azd app run --environment production
 | `support-bundle` | Collect local diagnostics for support | [→ Full Spec](commands/support-bundle.md) |
 | `remove` | Remove a service from azure.yaml | [→ Full Spec](commands/remove.md) |
 | `hooks` | List the lifecycle hooks configured in azure.yaml | [→ Full Spec](commands/hooks.md) |
+| `ports` | List the host ports each service binds and flag duplicate bindings | [→ Full Spec](commands/ports.md) |
 | `open` | Open a running service URL in the browser | [→ Full Spec](commands/open.md) |
 | `mcp` | Model Context Protocol server for AI assistant integration | [→ Full Spec](commands/mcp.md) |
 | `notifications` | Manage process notifications for service state changes | [→ Full Spec](commands/notifications.md) |
@@ -135,6 +138,83 @@ azd app init --force
 - ✅ Non-destructive enrichment of existing azure.yaml
 - ✅ Deduplicates services when multiple detectors match the same directory
 - ✅ JSON output for programmatic consumption
+
+---
+
+## `azd app validate`
+
+Validates `azure.yaml` with read-only checks for service references, project paths, ports, service types, modes, and command readiness. Nothing is started and no files are written.
+
+### Usage
+
+```bash
+azd app validate
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `default` | Output format: 'default' or 'json' (inherited from parent) |
+
+### Checks
+
+| Check ID | Severity | Description |
+|----------|----------|-------------|
+| `yaml.parse` | error | `azure.yaml` is not valid YAML |
+| `schema.parse` | error | The parser rejected the configuration (reported only when no other error is found) |
+| `services.empty` | warning | No services are defined |
+| `service.name` | error | Service name contains unsupported characters |
+| `project.missing` | error | `project` path does not exist |
+| `project.not-directory` | error | `project` path is not a directory |
+| `project.outside-root` | error | `project` path resolves outside the project root |
+| `uses.unknown` | error | `uses` entry is not a defined service or resource |
+| `port.invalid` | error | Host port is not between 1 and 65535 |
+| `port.duplicate` | error | Two services request the same host port |
+| `type.unsupported` | error | Service `type` is not http, tcp, process, or container |
+| `mode.unsupported` | error | Service `mode` is not watch, build, daemon, or task |
+| `command.missing` | warning | Process service has no command in `azure.yaml` |
+
+### Examples
+
+```bash
+# Validate azure.yaml in the current project
+azd app validate
+
+# Validate as JSON for scripts and CI
+azd app validate --output json
+```
+
+### Output
+
+Findings are sorted by service, then by check ID. Warnings alone do not fail the command; any error-severity finding does.
+
+```
+azd app validate
+──────────────────────────────
+
+   [FAIL] web port.duplicate: host port 8080 is also used by service "api"
+         fix: Assign a unique host port to one of the services.
+   [WARN] worker command.missing: process service has no command in azure.yaml
+         fix: Set command or make sure detection can infer how to run it.
+```
+
+JSON output emits the findings array (`[]` when there is nothing to report):
+
+```json
+[
+  {
+    "file": "/path/to/azure.yaml",
+    "service": "web",
+    "checkId": "port.duplicate",
+    "severity": "error",
+    "message": "host port 8080 is also used by service \"api\"",
+    "hint": "Assign a unique host port to one of the services."
+  }
+]
+```
+
+**→ [See full validate command specification](commands/validate.md)** for the complete check list and exit codes.
 
 ---
 
@@ -1495,6 +1575,46 @@ azd app support-bundle --tail 1000
 
 ---
 
+## `azd app config`
+
+Show the configuration azd app resolved from azure.yaml for each service.
+
+### Usage
+
+```bash
+azd app config [service] [flags]
+```
+
+### Examples
+
+```bash
+# Configuration for every service
+azd app config
+
+# Configuration for a single service
+azd app config api
+
+# JSON object keyed by service name
+azd app config --output json
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `default` | Output format (default, json) |
+
+### Behavior
+
+- Prints the host, effective service type (marked `explicit` or `inferred`), language, project path, run command, image, ports, and dependencies (uses) for each service.
+- Lists which optional blocks are configured on a service: `docker`, `healthcheck`, `restart`, `resources`, `logs`, `local`, `azure`.
+- Pass a service name to limit output to that service. An unknown name returns an error listing the available services.
+- `--output json` emits an object keyed by service name.
+
+**→ [See full config command specification](commands/config.md)** for details.
+
+---
+
 ## `azd app remove`
 
 Remove a service from the `services` section of `azure.yaml`.
@@ -1601,6 +1721,40 @@ azd app open api --print
 | `--print` | | bool | `false` | Print the URL without opening a browser |
 
 **→ [See full open command specification](commands/open.md)** for URL resolution order and detailed documentation.
+
+---
+
+## `azd app ports`
+
+Reads `azure.yaml` and lists the host port each service binds. An explicit host port is shown as its number; a port left for the tool to assign is shown as `auto`. When two bindings claim the same explicit host port the command reports the conflict and exits non-zero, so it works as a preflight check before `azd app run`.
+
+### Usage
+
+```bash
+azd app ports [flags]
+```
+
+### Examples
+
+```bash
+# List host ports for every service
+azd app ports
+
+# JSON object keyed by service name
+azd app ports --output json
+```
+
+### Flags
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--output` | `-o` | string | `text` | Output format: `text` or `json` |
+
+### Notes
+
+- Each binding is printed as `host -> container/protocol`. Ports without an explicit host binding show `auto`.
+- A host port claimed by more than one binding (across services or within one service) is marked `(conflict)` and listed in a warning.
+- The command exits non-zero when any conflict is found, so it can gate a run in scripts and CI.
 
 ---
 

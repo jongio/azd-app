@@ -193,6 +193,17 @@ azd app mcp serve`;
       </div>
     </a>
 
+    <a href="/azd-app/reference/cli/config/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+      <div class="flex items-start justify-between mb-2">
+        <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app config</code>
+        <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
+      </div>
+      <p class="text-neutral-700 dark:text-neutral-300">Show the configuration azd app resolved from azure.yaml for each service.</p>
+      <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+        1 flags • 4 examples
+      </div>
+    </a>
+
     <a href="/azd-app/reference/cli/env/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app env</code>
@@ -281,6 +292,17 @@ azd app mcp serve`;
       </div>
     </a>
 
+    <a href="/azd-app/reference/cli/ports/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+      <div class="flex items-start justify-between mb-2">
+        <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app ports</code>
+        <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
+      </div>
+      <p class="text-neutral-700 dark:text-neutral-300">Reads `azure.yaml` and lists the host port each service binds. An explicit host port is shown as its number; a port left for the tool to assign is shown as `auto`. When two bindings claim the same explicit host port the command reports the conflict and exits non-zero, so it works as a preflight check before `azd app run`.</p>
+      <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+        1 flags • 3 examples
+      </div>
+    </a>
+
     <a href="/azd-app/reference/cli/proxy/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
       <div class="flex items-start justify-between mb-2">
         <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app proxy</code>
@@ -322,6 +344,17 @@ azd app mcp serve`;
       <p class="text-neutral-700 dark:text-neutral-300">Collect sanitized project, service, health, and log diagnostics into a local folder for issue reports.</p>
       <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
         5 flags • 6 examples
+      </div>
+    </a>
+
+    <a href="/azd-app/reference/cli/validate/" class="block p-6 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+      <div class="flex items-start justify-between mb-2">
+        <code class="text-lg font-semibold text-blue-600 dark:text-blue-400">azd app validate</code>
+        <span class="text-xs px-2 py-1 bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-300 rounded">Full Docs</span>
+      </div>
+      <p class="text-neutral-700 dark:text-neutral-300">Validates `azure.yaml` with read-only checks for service references, project paths, ports, service types, modes, and command readiness. Nothing is started and no files are written.</p>
+      <div class="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+        1 flags • 3 examples
       </div>
     </a>
 
