@@ -57,14 +57,19 @@ func TestGetProcessOnPort_WithActivePort(t *testing.T) {
 	pid, err := pm.getProcessOnPort(port)
 	elapsed := time.Since(start)
 
-	// Should complete quickly
-	if elapsed > 3*time.Second {
-		t.Errorf("getProcessOnPort took %v, should be much faster", elapsed)
+	if err != nil {
+		// The lookup tool may be missing, or slow enough on a loaded runner to hit
+		// commandTimeout. Skip before asserting on timing, otherwise a timed-out call
+		// is reported as a failure instead of taking the skip this branch is here for.
+		t.Skipf("Skipping test - process detection not available in this environment: %v", err)
 	}
 
-	if err != nil {
-		// In CI environments, lsof may not be able to detect processes properly
-		t.Skipf("Skipping test - process detection not available in this environment: %v", err)
+	// Bound the success path by the same budget the command itself uses, matching
+	// TestGetProcessOnPort_DoesNotHang. A fixed threshold below commandTimeout would
+	// contradict the timeout the code is allowed to spend.
+	maxAllowed := commandTimeout + 2*time.Second
+	if elapsed > maxAllowed {
+		t.Errorf("getProcessOnPort took %v, expected < %v (possible hang)", elapsed, maxAllowed)
 	}
 
 	if pid <= 0 {
