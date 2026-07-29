@@ -116,6 +116,7 @@ func main() {
 		commands.NewSupportBundleCommand(),
 		commands.NewGraphCommand(),
 		commands.NewValidateCommand(),
+		commands.NewDoctorCommand(),
 		commands.NewHooksCommand(),
 		commands.NewPortsCommand(),
 		commands.NewOpenCommand(),
