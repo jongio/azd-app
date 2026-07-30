@@ -178,7 +178,6 @@ func TestWaitForPort_Success(t *testing.T) {
 	}
 
 	// Start server in background after a delay
-	port := 0
 	serverReady := make(chan int)
 
 	go func() {
@@ -192,7 +191,7 @@ func TestWaitForPort_Success(t *testing.T) {
 		server.Close()
 	}()
 
-	port = <-serverReady
+	port := <-serverReady
 
 	// Wait for port to become available
 	err := WaitForPort(port, 3*time.Second)

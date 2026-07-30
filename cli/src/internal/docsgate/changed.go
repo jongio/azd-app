@@ -179,9 +179,9 @@ func containsAny(s string, needles []string) bool {
 // summarize renders a short file list, naming at most three files so a large
 // pull request does not produce an unreadable message.
 func summarize(files []string) string {
-	const max = 3
-	if len(files) <= max {
+	const maxNamed = 3
+	if len(files) <= maxNamed {
 		return strings.Join(files, ", ")
 	}
-	return fmt.Sprintf("%s and %d more", strings.Join(files[:max], ", "), len(files)-max)
+	return fmt.Sprintf("%s and %d more", strings.Join(files[:maxNamed], ", "), len(files)-maxNamed)
 }

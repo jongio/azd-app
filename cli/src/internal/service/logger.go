@@ -214,26 +214,3 @@ func (l *ServiceLogger) LogReady() {
 	fmt.Println()
 	fmt.Println("Ready")
 }
-
-// StreamLogs streams logs from multiple services to the console.
-func StreamLogs(processes map[string]*ServiceProcess, logger *ServiceLogger) {
-	for name, process := range processes {
-		// Start goroutines to read stdout and stderr
-		go func(serviceName string, proc *ServiceProcess) {
-			outputChan := make(chan string, 100)
-
-			var wg sync.WaitGroup
-			wg.Add(2)
-			go func() { defer wg.Done(); ReadServiceOutput(proc.Stdout, outputChan) }()
-			go func() { defer wg.Done(); ReadServiceOutput(proc.Stderr, outputChan) }()
-			go func() { wg.Wait(); close(outputChan) }()
-
-			for line := range outputChan {
-				// Filter empty lines
-				if strings.TrimSpace(line) != "" {
-					logger.LogService(serviceName, line)
-				}
-			}
-		}(name, process)
-	}
-}

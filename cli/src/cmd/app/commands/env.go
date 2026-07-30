@@ -551,7 +551,7 @@ func envFileContent(resolved map[string]string, format string, mask bool) (strin
 // owner-only permissions, since the content can include secret values.
 func writeEnvFile(path, content string) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("failed to create directory %q: %w", dir, err)
 	}
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {

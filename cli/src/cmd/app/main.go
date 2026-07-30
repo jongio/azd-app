@@ -77,10 +77,10 @@ func main() {
 			}
 		}
 
-		// Install Copilot skill
-		if err := skills.InstallSkill(); err != nil {
+		// Install Copilot skills
+		if err := skills.InstallSkills(); err != nil {
 			if extCtx.Debug {
-				slog.Debug("Failed to install copilot skill", "error", err)
+				slog.Debug("Failed to install copilot skills", "error", err)
 			}
 		}
 

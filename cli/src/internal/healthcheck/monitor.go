@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -145,10 +146,10 @@ func (m *HealthMonitor) Check(ctx context.Context, serviceFilter []string) (*Hea
 	cacheKey := "health_report"
 	if len(serviceFilter) > 0 {
 		// Sort to ensure consistent cache keys regardless of filter order
-		sortedFilter := make([]string, len(serviceFilter))
-		copy(sortedFilter, serviceFilter)
+		sortedFilter := slices.Clone(serviceFilter)
+		slices.Sort(sortedFilter)
 		// Use pipe as delimiter and URL encode service names to avoid collisions
-		var encodedServices []string
+		encodedServices := make([]string, 0, len(sortedFilter))
 		for _, svc := range sortedFilter {
 			// Replace special characters to prevent cache key collisions
 			encoded := strings.ReplaceAll(svc, "|", "%7C")

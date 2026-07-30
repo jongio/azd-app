@@ -11,7 +11,6 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
 
@@ -335,33 +334,6 @@ type diagnosticMetric struct {
 	} `json:"retentionPolicy,omitempty"`
 }
 
-// CheckSingleService checks diagnostic settings for a specific service by name.
-func (c *DiagnosticSettingsChecker) CheckSingleService(ctx context.Context, serviceName string) (*DiagnosticSettingsCheckResult, error) {
-	// Get the resource for this service
-	resource, err := c.discovery.GetResource(ctx, serviceName)
-	if err != nil {
-		return &DiagnosticSettingsCheckResult{
-			Status: DiagnosticSettingsError,
-			Error:  fmt.Sprintf("Service not found: %v", err),
-		}, nil
-	}
-
-	if resource.ResourceID == "" {
-		return &DiagnosticSettingsCheckResult{
-			Status: DiagnosticSettingsNotConfigured,
-			Error:  "Resource not deployed",
-		}, nil
-	}
-
-	// Get workspace ID from discovery
-	discoveryResult, err := c.discovery.Discover(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover workspace: %w", err)
-	}
-
-	return c.checkDiagnosticSettings(ctx, serviceName, resource.ResourceID, discoveryResult.LogAnalyticsWorkspaceID), nil
-}
-
 // loadAzureYaml loads the azure.yaml file from the project directory.
 func (c *DiagnosticSettingsChecker) loadAzureYaml() (*service.AzureYaml, error) {
 	config, err := service.ParseAzureYaml(c.projectDir)
@@ -385,74 +357,4 @@ func hasServiceLogsAnalytics(config *service.AzureYaml, serviceName string) bool
 		}
 	}
 	return false
-}
-
-// CheckDiagnosticSettingsWithPipeline is an alternative implementation using Azure SDK's runtime.Pipeline.
-// This is more "SDK-native" but requires more boilerplate. Keeping both for reference.
-func (c *DiagnosticSettingsChecker) CheckDiagnosticSettingsWithPipeline(ctx context.Context, resourceID string) (*DiagnosticSettingsCheckResult, error) {
-	result := &DiagnosticSettingsCheckResult{
-		Status:     DiagnosticSettingsNotConfigured,
-		ResourceID: resourceID,
-	}
-
-	// Create a pipeline for making authenticated requests
-	pipeline := runtime.NewPipeline(
-		"azd-app", "1.0",
-		runtime.PipelineOptions{
-			PerRetry: []policy.Policy{
-				runtime.NewBearerTokenPolicy(c.credential, []string{"https://management.azure.com/.default"}, nil),
-			},
-		},
-		nil,
-	)
-
-	// Build the request
-	url := fmt.Sprintf("https://management.azure.com%s/providers/Microsoft.Insights/diagnosticSettings?api-version=2021-05-01-preview", resourceID)
-	req, err := runtime.NewRequest(ctx, http.MethodGet, url)
-	if err != nil {
-		result.Status = DiagnosticSettingsError
-		result.Error = fmt.Sprintf("Failed to create request: %v", err)
-		return result, nil
-	}
-
-	// Execute the request
-	resp, err := pipeline.Do(req)
-	if err != nil {
-		result.Status = DiagnosticSettingsError
-		result.Error = fmt.Sprintf("Failed to execute request: %v", err)
-		return result, nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	// Handle response (same as checkDiagnosticSettings)
-	if resp.StatusCode == http.StatusNotFound {
-		result.Status = DiagnosticSettingsNotConfigured
-		result.Error = "No diagnostic settings found"
-		return result, nil
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		result.Status = DiagnosticSettingsError
-		result.Error = fmt.Sprintf("API error %d: %s", resp.StatusCode, string(bodyBytes))
-		return result, nil
-	}
-
-	var diagnosticSettings diagnosticSettingsListResponse
-	if err := json.NewDecoder(resp.Body).Decode(&diagnosticSettings); err != nil {
-		result.Status = DiagnosticSettingsError
-		result.Error = fmt.Sprintf("Failed to parse response: %v", err)
-		return result, nil
-	}
-
-	if len(diagnosticSettings.Value) > 0 {
-		// Found at least one diagnostic setting
-		result.Status = DiagnosticSettingsConfigured
-		result.DiagnosticSettingName = diagnosticSettings.Value[0].Name
-		if diagnosticSettings.Value[0].Properties.WorkspaceID != "" {
-			result.WorkspaceID = diagnosticSettings.Value[0].Properties.WorkspaceID
-		}
-	}
-
-	return result, nil
 }

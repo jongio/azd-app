@@ -123,7 +123,9 @@ func gitRepoRoot() (string, error) {
 // runGit runs a git command in dir (or the current directory when dir is empty)
 // and returns its stdout. On failure it returns git's stderr as the error text.
 func runGit(dir string, args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
+	// Local git plumbing only, no network I/O, and no ambient context to honour
+	// at any caller in this path.
+	cmd := exec.Command("git", args...) //nolint:noctx // see above
 	if dir != "" {
 		cmd.Dir = dir
 	}

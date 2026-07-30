@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/cache"
 	"github.com/jongio/azd-app/cli/src/internal/detector"
+	"github.com/jongio/azd-app/cli/src/internal/secretscan"
 	internalsec "github.com/jongio/azd-app/cli/src/internal/security"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/cliout"
@@ -339,7 +339,7 @@ func cleanGroupedDependencies(projects DetectedProjects) error {
 
 	if len(errors) > 0 {
 		// Build detailed error message with all failures
-		var errorDetails []string
+		errorDetails := make([]string, 0, len(errors))
 		for _, err := range errors {
 			errorDetails = append(errorDetails, err.Error())
 		}
@@ -423,7 +423,7 @@ func parseAzureYaml(azureYamlPath string) (*service.AzureYaml, error) {
 func showGroupedDryRunSummary(projects DetectedProjects, searchRoot string) error {
 	if cliout.IsJSON() {
 		// Build dry-run results
-		var results []InstallResult
+		results := make([]InstallResult, 0, len(projects.Node)+len(projects.Python)+len(projects.Dotnet))
 		for _, p := range projects.Node {
 			results = append(results, InstallResult{
 				Type:    "node",
@@ -562,18 +562,9 @@ func handleNoProjectsCase(searchRoot string, serviceFilter []string) error {
 }
 
 // redactSecretValue masks the value of environment variables whose names
-// suggest they contain secrets (passwords, tokens, keys, connection strings).
-// Values with 4 or fewer characters are fully masked.
+// or values indicate a credential, so CLI and MCP output never prints one.
+// Values with 4 or fewer characters are fully masked. Delegates to
+// secretscan, the single source of truth for what counts as a secret.
 func redactSecretValue(key, value string) string {
-	upper := strings.ToUpper(key)
-	sensitivePatterns := []string{"PASSWORD", "SECRET", "TOKEN", "KEY", "CREDENTIAL", "CONNECTION_STRING", "CONNECTIONSTRING"}
-	for _, pattern := range sensitivePatterns {
-		if strings.Contains(upper, pattern) {
-			if len(value) <= 4 {
-				return "***"
-			}
-			return value[:2] + "***" + value[len(value)-2:]
-		}
-	}
-	return value
+	return secretscan.RedactValue(key, value)
 }

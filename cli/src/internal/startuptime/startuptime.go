@@ -51,7 +51,8 @@ type History struct {
 // treated as empty history with no error, so a first run or a corrupted file
 // never breaks `azd app run`.
 func Load(path string) History {
-	data, err := os.ReadFile(path) //nolint:gosec // path is derived from the azd config dir and a hashed project path
+	// path is derived from the azd config dir and a hashed project path.
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return History{}
 	}

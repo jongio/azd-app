@@ -90,7 +90,7 @@ func TestRecordStartupTimingsPersistsHistory(t *testing.T) {
 
 	recordStartupTimings(projectDir, result)
 
-	path := startuptime.HistoryPath(filepath.Join(tmp), projectDir)
+	path := startuptime.HistoryPath(tmp, projectDir)
 	history := startuptime.Load(path)
 	require.Len(t, history.Runs, 1)
 	assert.Equal(t, 3*time.Second, history.Runs[0].Services["api"])

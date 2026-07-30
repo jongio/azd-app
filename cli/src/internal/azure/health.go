@@ -92,11 +92,3 @@ func (p *PollingState) GetHealth() ConnectionHealth {
 		NextRetry:        nextRetry,
 	}
 }
-
-// ShouldRetry determines if we should retry now based on backoff delay.
-func (p *PollingState) ShouldRetry(lastAttempt time.Time) bool {
-	if p.failureCount == 0 {
-		return true // No failures, proceed normally
-	}
-	return time.Since(lastAttempt) >= p.NextDelay()
-}

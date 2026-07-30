@@ -621,11 +621,6 @@ func (m *StreamerManager) GetStreamer(serviceName string) (RealtimeLogStreamer, 
 	return s, ok
 }
 
-// Logs returns the channel for receiving log entries from all streamers.
-func (m *StreamerManager) Logs() <-chan LogEntry {
-	return m.logs
-}
-
 // Stop stops all streamers and cleans up resources.
 func (m *StreamerManager) Stop() error {
 	m.cancel()

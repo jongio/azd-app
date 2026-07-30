@@ -337,7 +337,7 @@ func TestExtractProjectDirArg(t *testing.T) {
 	require.NoError(t, err)
 	tempDir, err := os.MkdirTemp(cwd, "test_extract_project_dir")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir) //nolint:errcheck
+	defer os.RemoveAll(tempDir)
 
 	tests := []struct {
 		name      string
@@ -467,7 +467,7 @@ func TestValidateProjectDir(t *testing.T) {
 	require.NoError(t, err)
 	tempDir, err := os.MkdirTemp(cwd, "test_validate_project_dir")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir) //nolint:errcheck
+	defer os.RemoveAll(tempDir)
 	tempFile := filepath.Join(tempDir, "testfile.txt")
 	err = os.WriteFile(tempFile, []byte("test"), 0o644)
 	require.NoError(t, err)
@@ -804,7 +804,7 @@ func TestGetProjectDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir) //nolint:errcheck
+	defer os.RemoveAll(tempDir)
 
 	tests := []struct {
 		name        string
@@ -1449,7 +1449,7 @@ func TestInstallDependenciesAzureYamlGate(t *testing.T) {
 		// Temp dir under cwd so validateProjectDir accepts it (containment check).
 		tempDir, err := os.MkdirTemp(cwd, "test_install_deps_no_azure_yaml")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir) //nolint:errcheck
+		defer os.RemoveAll(tempDir)
 
 		args := testToolArgs(map[string]any{"projectDir": tempDir})
 		result, err := handleInstallDependencies(ctx, args)
@@ -1467,7 +1467,7 @@ func TestInstallDependenciesAzureYamlGate(t *testing.T) {
 		// Temp dir under cwd with azure.yaml present.
 		tempDir, err := os.MkdirTemp(cwd, "test_install_deps_with_azure_yaml")
 		require.NoError(t, err)
-		defer os.RemoveAll(tempDir) //nolint:errcheck
+		defer os.RemoveAll(tempDir)
 
 		err = os.WriteFile(filepath.Join(tempDir, "azure.yaml"), []byte("name: test-project\n"), 0o644)
 		require.NoError(t, err)
@@ -1518,7 +1518,7 @@ func TestAzureYamlResourceHandler(t *testing.T) {
 	require.NoError(t, err)
 	tempDir, err := os.MkdirTemp(cwd, "test_azure_yaml_resource")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir) //nolint:errcheck
+	defer os.RemoveAll(tempDir)
 	azureYamlPath := filepath.Join(tempDir, "azure.yaml")
 	content := `name: test-project
 services:
@@ -1570,7 +1570,7 @@ func TestAzureYamlResourceHandlerMissingFile(t *testing.T) {
 	require.NoError(t, err)
 	tempDir, err := os.MkdirTemp(cwd, "test_azure_yaml_missing")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir) //nolint:errcheck
+	defer os.RemoveAll(tempDir)
 	t.Setenv("AZD_APP_PROJECT_DIR", tempDir)
 
 	resource := newAzureYamlResource()
@@ -1602,13 +1602,13 @@ func TestGetProjectDirWithFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempAzdDir) //nolint:errcheck
+	defer os.RemoveAll(tempAzdDir)
 
 	tempFallbackDir, err := os.MkdirTemp(cwd, "test_fallback_dir")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempFallbackDir) //nolint:errcheck
+	defer os.RemoveAll(tempFallbackDir)
 
 	tests := []struct {
 		name             string
@@ -1717,7 +1717,7 @@ func TestGetProjectDirValidation(t *testing.T) {
 	require.NoError(t, err)
 	validTempDir, err := os.MkdirTemp(cwd, "test_validation_valid")
 	require.NoError(t, err)
-	defer os.RemoveAll(validTempDir) //nolint:errcheck
+	defer os.RemoveAll(validTempDir)
 
 	tests := []struct {
 		name        string

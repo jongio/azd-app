@@ -167,7 +167,7 @@ func runGraph(opts *graphOptions) error {
 	}
 
 	if buf != nil {
-		if err := os.WriteFile(opts.outputFile, buf.Bytes(), 0o644); err != nil {
+		if err := os.WriteFile(opts.outputFile, buf.Bytes(), 0o644); err != nil { //nolint:gosec // G306: a rendered graph the user asked to export and share
 			return fmt.Errorf("failed to write graph to %s: %w", opts.outputFile, err)
 		}
 		_, _ = fmt.Fprintf(opts.writer, "Wrote %s graph to %s\n", opts.output, opts.outputFile)

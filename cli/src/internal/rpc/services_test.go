@@ -508,7 +508,7 @@ func TestLifecycleErrorMapping(t *testing.T) {
 // fmt.Errorf("%w: %s", sentinel, name)) still maps to the right code.
 func TestLifecycleSentinelWrappingHonorsErrorsIs(t *testing.T) {
 	wrapped := errors.New("wrapped via Unwrap chain")
-	wrappedErr := errorChain{outer: wrapped, inner: ErrServiceNotFound}
+	wrappedErr := chainError{outer: wrapped, inner: ErrServiceNotFound}
 
 	lc := &stubServiceLifecycle{startErr: wrappedErr}
 	client, cleanup := newServicesTestServer(t, &stubServiceLister{}, lc, "/p")
@@ -523,12 +523,12 @@ func TestLifecycleSentinelWrappingHonorsErrorsIs(t *testing.T) {
 	}
 }
 
-// errorChain is a minimal Unwrap-supporting wrapper used by the test
+// chainError is a minimal Unwrap-supporting wrapper used by the test
 // above. Lives in the test file because no production code needs it.
-type errorChain struct {
+type chainError struct {
 	outer error
 	inner error
 }
 
-func (e errorChain) Error() string { return e.outer.Error() }
-func (e errorChain) Unwrap() error { return e.inner }
+func (e chainError) Error() string { return e.outer.Error() }
+func (e chainError) Unwrap() error { return e.inner }

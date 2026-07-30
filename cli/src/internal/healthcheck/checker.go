@@ -72,7 +72,8 @@ func (c *HealthChecker) getOrCreateCircuitBreaker(serviceName string) *gobreaker
 				return false
 			}
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
-			return counts.Requests >= uint32(c.breakerFailures) && failureRatio >= 0.6 //nolint:gosec // G115 - breakerFailures bounds checked above
+			// breakerFailures is bounds checked above, so this conversion cannot overflow.
+			return counts.Requests >= uint32(c.breakerFailures) && failureRatio >= 0.6
 		},
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
 			slog.Info("Circuit breaker state changed", "service", name, "from", from.String(), "to", to.String())

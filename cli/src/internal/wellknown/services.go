@@ -126,7 +126,7 @@ var Registry = map[string]ServiceDefinition{
 			Timeout:  "5s",
 			Retries:  3,
 		},
-		ConnectionStrings: map[string]string{
+		ConnectionStrings: map[string]string{ //nolint:gosec // G101: default credentials for a local dev container, not a real secret
 			"default": "postgresql://postgres:postgres@localhost:5432/app?sslmode=disable",
 		},
 		Category: "database",
@@ -189,59 +189,4 @@ func (d *ServiceDefinition) ToServiceConfig() service.Service {
 		Healthcheck: d.Healthcheck,
 		Type:        service.ServiceTypeContainer,
 	}
-}
-
-// ServiceRegistry provides dependency-injectable access to well-known service
-// definitions. Use NewServiceRegistry() to obtain an instance that can be passed
-// explicitly rather than relying on the package-level Registry global.
-type ServiceRegistry struct {
-	defs map[string]ServiceDefinition
-}
-
-// NewServiceRegistry returns a ServiceRegistry initialized with the default
-// well-known definitions. Callers can use this for DI instead of the global var.
-func NewServiceRegistry() *ServiceRegistry {
-	return &ServiceRegistry{defs: Registry}
-}
-
-// GetDI returns the definition for a named service, or nil if not found.
-func (r *ServiceRegistry) GetDI(name string) *ServiceDefinition {
-	def, ok := r.defs[name]
-	if !ok {
-		return nil
-	}
-	return &def
-}
-
-// NamesDI returns all registered service names.
-func (r *ServiceRegistry) NamesDI() []string {
-	names := make([]string, 0, len(r.defs))
-	for name := range r.defs {
-		names = append(names, name)
-	}
-	return names
-}
-
-// CategoriesDI returns deduplicated category strings.
-func (r *ServiceRegistry) CategoriesDI() []string {
-	seen := map[string]bool{}
-	var cats []string
-	for _, d := range r.defs {
-		if !seen[d.Category] {
-			seen[d.Category] = true
-			cats = append(cats, d.Category)
-		}
-	}
-	return cats
-}
-
-// ByCategoryDI returns all definitions matching the given category.
-func (r *ServiceRegistry) ByCategoryDI(category string) []ServiceDefinition {
-	var result []ServiceDefinition
-	for _, d := range r.defs {
-		if d.Category == category {
-			result = append(result, d)
-		}
-	}
-	return result
 }

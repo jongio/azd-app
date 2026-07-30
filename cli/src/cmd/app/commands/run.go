@@ -109,7 +109,7 @@ func runWithServices(ctx context.Context, commandOrchestrator *orchestrator.Orch
 	// Trust gate: user must explicitly consent before any command defined in
 	// azure.yaml is allowed to execute on the host.  This must happen before
 	// commandOrchestrator.Run (which installs deps) and before service startup.
-	if err := ensureWorkspaceTrusted(azureYamlPath); err != nil {
+	if err := ensureWorkspaceTrusted(azureYamlPath, "azd app run"); err != nil {
 		return err
 	}
 
@@ -167,7 +167,7 @@ func runRunDependencies(commandOrchestrator *orchestrator.Orchestrator) error {
 // In an interactive terminal the user is prompted for consent.  In a
 // non-interactive environment (pipes, MCP, CI without the flag) an error
 // is returned so callers can surface a clear message.
-func ensureWorkspaceTrusted(azureYamlPath string) error {
+func ensureWorkspaceTrusted(azureYamlPath, commandLabel string) error {
 	projectDir := filepath.Dir(azureYamlPath)
 
 	store, err := trust.NewTrustStore()
@@ -212,7 +212,7 @@ func ensureWorkspaceTrusted(azureYamlPath string) error {
 	// Interactive: present the security notice and prompt for consent.
 	fmt.Fprintf(os.Stderr, "\n")
 	fmt.Fprintf(os.Stderr, "  ⚠️  Security Notice\n")
-	fmt.Fprintf(os.Stderr, "  Running 'azd app run' will execute commands defined in:\n")
+	fmt.Fprintf(os.Stderr, "  Running '%s' will execute commands defined in:\n", commandLabel)
 	fmt.Fprintf(os.Stderr, "    %s\n", azureYamlPath)
 	fmt.Fprintf(os.Stderr, "  Only trust workspaces you own or have reviewed.\n\n")
 

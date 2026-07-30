@@ -5,6 +5,11 @@ import (
 	"testing"
 )
 
+// The subtests deliberately run sequentially: they share one PortManager, and
+// AssignPort mutates its assignment table, so parallel subtests would observe
+// each other's allocations for the same service name.
+//
+//nolint:tparallel // subtests share a mutable PortManager fixture
 func TestAssignPort_ValidationErrors(t *testing.T) {
 	t.Parallel()
 

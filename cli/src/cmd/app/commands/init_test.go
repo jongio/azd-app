@@ -16,8 +16,7 @@ func TestDetectServices_MultiServiceProject(t *testing.T) {
 	absRoot, err := filepath.Abs(rootDir)
 	require.NoError(t, err)
 
-	services, err := detectServices(absRoot)
-	require.NoError(t, err)
+	services := detectServices(absRoot)
 
 	// Build a map for easier assertion
 	svcMap := make(map[string]DetectedService)

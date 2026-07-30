@@ -26,7 +26,8 @@ func SafeCloseWithContext(closer io.Closer, description string, contextFields ..
 		return
 	}
 	if err := closer.Close(); err != nil {
-		fields := []any{"resource", description, "error", err}
+		fields := make([]any, 0, 4+len(contextFields))
+		fields = append(fields, "resource", description, "error", err)
 		fields = append(fields, contextFields...)
 		slog.Debug("failed to close resource", fields...)
 	}

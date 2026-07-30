@@ -21,9 +21,3 @@ func InstallSkills() error {
 		copilotskills.Install("azd-app-onboard", internalversion.Version, onboardSkillFS, "azd-app-onboard"),
 	)
 }
-
-// InstallSkill installs the azd-app skill to ~/.copilot/skills/azd-app.
-// Deprecated: Use InstallSkills instead to install all skills.
-func InstallSkill() error {
-	return InstallSkills()
-}

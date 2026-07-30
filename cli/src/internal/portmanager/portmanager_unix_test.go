@@ -51,7 +51,7 @@ func TestUnixKillProcessOnPort_MacOSCompatibility(t *testing.T) {
 	t.Logf("Process listening on port %d with PID %d", port, pid)
 
 	// Close the listener before testing kill (we can't kill ourselves)
-	listener.Close() //nolint:errcheck
+	listener.Close()
 
 	// Give OS time to release the port from TIME_WAIT state
 	// Use deadline-based approach instead of fixed sleep
@@ -195,7 +195,7 @@ func TestMacOSPortConflictResolution(t *testing.T) {
 	}
 
 	// 4. Close our listener so killProcessOnPort can succeed
-	listener.Close() //nolint:errcheck
+	listener.Close()
 	time.Sleep(100 * time.Millisecond)
 	if !pm.isPortAvailable(port) {
 		t.Logf("Port %d still showing as in use after closing listener", port)

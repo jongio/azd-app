@@ -239,6 +239,8 @@ services:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var azureYaml AzureYaml
 			err := yaml.Unmarshal([]byte(tt.yaml), &azureYaml)
 			if err != nil {
@@ -383,6 +385,8 @@ func TestGetEnvironment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := tt.service.GetEnvironment()
 
 			if len(got) != len(tt.want) {
@@ -486,6 +490,8 @@ func TestResolveEnvironment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := context.Background()
 			got, err := ResolveEnvironment(ctx, tt.service, tt.azureEnv, tt.dotEnvPath, tt.serviceURLs, tt.inlineEnv)
 			if err != nil {
@@ -592,6 +598,8 @@ func TestGenerateServiceURLs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := GenerateServiceURLs(tt.processes)
 
 			if len(got) != len(tt.want) {

@@ -4,7 +4,6 @@ package dashboard
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/healthcheck"
@@ -57,7 +56,6 @@ type HealthStreamManager struct {
 	projectDir     string
 	monitor        *healthcheck.HealthMonitor
 	previousStates map[string]healthcheck.HealthStatus
-	mu             sync.RWMutex
 }
 
 // NewHealthStreamManager creates a new health stream manager.
@@ -86,35 +84,4 @@ func NewHealthStreamManager(projectDir string) (*HealthStreamManager, error) {
 // PerformHealthCheck performs a single health check and returns the report.
 func (m *HealthStreamManager) PerformHealthCheck(ctx context.Context, serviceFilter []string) (*healthcheck.HealthReport, error) {
 	return m.monitor.Check(ctx, serviceFilter)
-}
-
-// DetectChanges compares current results with previous states and returns changes.
-func (m *HealthStreamManager) DetectChanges(results []healthcheck.HealthCheckResult) []HealthChangeEvent {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	var changes []HealthChangeEvent
-	now := time.Now()
-
-	for _, result := range results {
-		prevStatus, exists := m.previousStates[result.ServiceName]
-		if exists && prevStatus != result.Status {
-			change := HealthChangeEvent{
-				HealthEvent: HealthEvent{
-					Type:      HealthEventTypeChange,
-					Timestamp: now,
-				},
-				Service:   result.ServiceName,
-				OldStatus: string(prevStatus),
-				NewStatus: string(result.Status),
-			}
-			if result.Error != "" {
-				change.Reason = result.Error
-			}
-			changes = append(changes, change)
-		}
-		m.previousStates[result.ServiceName] = result.Status
-	}
-
-	return changes
 }

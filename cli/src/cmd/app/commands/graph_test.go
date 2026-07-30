@@ -649,7 +649,7 @@ resources:
 	if !strings.Contains(buf.String(), "Wrote mermaid graph to") {
 		t.Fatalf("stdout should confirm file write, got: %s", buf.String())
 	}
-	content, err := os.ReadFile(outFile) //nolint:gosec // path is a test temp file
+	content, err := os.ReadFile(outFile)
 	if err != nil {
 		t.Fatalf("read output file: %v", err)
 	}

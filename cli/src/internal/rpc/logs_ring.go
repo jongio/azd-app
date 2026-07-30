@@ -82,12 +82,3 @@ func (r *localLogRing) drain() ([]*v1.LogEntry, int64) {
 	r.head = 0
 	return out, r.dropped
 }
-
-// droppedCount exposes the cumulative drop counter for tests.
-//
-//nolint:unused // referenced from logs_test.go
-func (r *localLogRing) droppedCount() int64 {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.dropped
-}

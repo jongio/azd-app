@@ -489,31 +489,6 @@ func pluralEntries(n int64) string {
 	return "ies"
 }
 
-// IsDashboardRunning checks if a dashboard is running for the given project.
-func IsDashboardRunning(ctx context.Context, projectDir string) bool {
-	client, err := NewClient(ctx, projectDir)
-	if err != nil {
-		return false
-	}
-	return client.Ping(ctx) == nil
-}
-
-// GetDashboardPort returns the dashboard port for a project, or 0 if not running.
-func GetDashboardPort(ctx context.Context, projectDir string) int {
-	projectHash := azdconfig.ProjectHash(projectDir)
-
-	if configClient, err := azdconfig.NewClient(ctx); err == nil {
-		port, err := configClient.GetDashboardPort(projectHash)
-		configClient.Close()
-		if err == nil && port > 0 {
-			return port
-		}
-	}
-
-	port, _ := readDashboardPortFromAzdConfig(projectHash)
-	return port
-}
-
 // azdConfigPath returns the path to the azd config file. Declared as a
 // variable so tests can redirect it; see client_test.go.
 var azdConfigPath = func() (string, error) {

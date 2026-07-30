@@ -40,9 +40,10 @@ const (
 // filenames rather than from the overview links so a deleted file is caught even
 // when the link survives.
 func CheckCoverage(md *Metadata, ref *Reference, detailDocs map[string]bool) []Finding {
-	var findings []Finding
+	cmds := md.DocumentableCommands()
+	findings := make([]Finding, 0, len(cmds))
 
-	for _, cmd := range md.DocumentableCommands() {
+	for _, cmd := range cmds {
 		findings = append(findings, checkCommand(cmd, ref, detailDocs)...)
 		findings = append(findings, checkFlags(cmd, ref)...)
 	}

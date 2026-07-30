@@ -328,7 +328,7 @@ func TestReqsFixIntegration_CacheClearing(t *testing.T) {
 
 // Helper functions
 
-func buildTestTool(t *testing.T, targetDir string) string { //nolint:unparam // return value kept for future use in integration tests
+func buildTestTool(t *testing.T, targetDir string) string {
 	t.Helper()
 
 	if err := os.MkdirAll(targetDir, 0o755); err != nil {

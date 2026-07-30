@@ -74,6 +74,7 @@ func validateAzureYamlFile(azureYamlPath string) ([]validateFinding, error) {
 	}
 	var cfg service.AzureYaml
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		//nolint:nilerr // a parse failure is reported as a validation finding, not a command error
 		return []validateFinding{{File: azureYamlPath, CheckID: "yaml.parse", Severity: validateSeverityError, Message: err.Error(), Hint: "Fix the YAML syntax."}}, nil
 	}
 	projectDir := filepath.Dir(azureYamlPath)

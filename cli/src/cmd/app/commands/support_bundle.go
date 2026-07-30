@@ -340,6 +340,10 @@ func redactYAMLNode(node *yaml.Node, parentKey string) {
 			return
 		}
 		node.Value = redactSecretText(node.Value)
+	case yaml.AliasNode:
+		// An alias carries no value of its own. Its target is redacted where
+		// the anchor is defined, and an alias under a sensitive key is replaced
+		// outright by the MappingNode branch above, so there is nothing to do.
 	}
 }
 

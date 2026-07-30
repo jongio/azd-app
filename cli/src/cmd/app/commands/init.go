@@ -97,10 +97,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Detect all services in the project
-	services, err := detectServices(workingDir)
-	if err != nil {
-		return fmt.Errorf("failed to detect services: %w", err)
-	}
+	services := detectServices(workingDir)
 
 	if len(services) == 0 {
 		cliout.Warning("No services detected in current directory")
@@ -171,7 +168,9 @@ func runInit(cmd *cobra.Command, _ []string) error {
 }
 
 // detectServices scans the project directory and returns detected services.
-func detectServices(rootDir string) ([]DetectedService, error) {
+// Individual detectors are best effort: a detector that fails contributes no
+// services rather than failing the scan, so this cannot return an error.
+func detectServices(rootDir string) []DetectedService {
 	var services []DetectedService
 	// Track directories already claimed by more specific detectors
 	claimedDirs := make(map[string]bool)
@@ -249,7 +248,7 @@ func detectServices(rootDir string) ([]DetectedService, error) {
 		services[i].Uses = detectServiceDependencies(services[i], rootDir)
 	}
 
-	return services, nil
+	return services
 }
 
 // buildNodeService creates a DetectedService from a Node.js project.

@@ -16,12 +16,14 @@ func TestMain(m *testing.M) {
 	cleanup := portmanager.SetTestModeForTesting(func(port int) bool {
 		return true // All ports available in tests
 	})
-	defer cleanup()
 
 	// Clear any cached port managers
 	portmanager.ClearCacheForTesting()
 
-	os.Exit(m.Run())
+	// os.Exit skips deferred calls, so cleanup runs explicitly.
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
 }
 
 // TestFunctionsVariant_String tests the String() method for all variants

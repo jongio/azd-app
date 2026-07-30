@@ -74,7 +74,7 @@ func (c *ExecClient) NetworkExists(name string) (bool, error) {
 	cmd := exec.CommandContext(context.Background(), "docker", "network", "inspect", name)
 	if err := cmd.Run(); err != nil {
 		// A non-zero exit means the network does not exist; that is not an error.
-		return false, nil
+		return false, nil //nolint:nilerr // absence is a valid answer, not a failure
 	}
 	return true, nil
 }

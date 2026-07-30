@@ -122,7 +122,11 @@ func spawnDetached(exePath string, args, env []string, logFile *os.File) (*os.Pr
 		// A command that failed to start cannot be started again, so each
 		// attempt needs its own exec.Cmd. Reusing logFile is safe because
 		// os/exec passes an *os.File straight through and never closes it.
-		cmd := exec.Command(exePath, args...)
+		//
+		// exec.Command (not CommandContext) is deliberate: this process is
+		// detached on purpose and must outlive the CLI invocation. Binding it
+		// to a context would kill it the moment this command returns.
+		cmd := exec.Command(exePath, args...) //nolint:noctx // detached process must outlive this process
 		cmd.Env = env
 		cmd.SysProcAttr = attr
 		cmd.Stdout = logFile
