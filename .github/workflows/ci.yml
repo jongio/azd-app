@@ -121,6 +121,65 @@ jobs:
           path: cli/src/internal/dashboard/dist/
           retention-days: 1
 
+  generated-docs:
+    # The website commits the pages produced from cli/CHANGELOG.md and cli/docs.
+    # `pnpm build` regenerates them through its prebuild hook, so a deploy is
+    # never stale, but the committed copies drift whenever a change lands
+    # without someone running the generators. This job regenerates them and
+    # fails when the result differs from what is checked in.
+    name: Generated Docs Up To Date
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: 'web/pnpm-lock.yaml'
+          registry-url: 'https://npm.pkg.github.com'
+
+      - name: Install dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Regenerate docs pages
+        working-directory: web
+        run: |
+          pnpm run generate:cli
+          pnpm run generate:changelog
+
+      - name: Fail on drift
+        working-directory: .
+        run: |
+          if ! git diff --quiet -- web/src/pages/reference; then
+            echo "::error::Generated docs pages are out of date."
+            echo
+            echo "The pages under web/src/pages/reference are generated from"
+            echo "cli/CHANGELOG.md and cli/docs. Regenerate and commit them:"
+            echo
+            echo "  cd web && pnpm install && pnpm run generate:cli && pnpm run generate:changelog"
+            echo
+            echo "Drift:"
+            git --no-pager diff --stat -- web/src/pages/reference
+            git --no-pager diff -- web/src/pages/reference
+            exit 1
+          fi
+          echo "Generated docs pages are up to date."
+
   test:
     name: Test
     runs-on: ${{ matrix.os }}

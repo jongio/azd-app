@@ -11,6 +11,22 @@ go.sum text eol=lf
 *.md text eol=lf
 *.toml text eol=lf
 
+# Web/frontend source
+# The JS/TS toolchain (Astro, Vite, Prettier) and the website code generators
+# always emit LF. Without an explicit eol, `* text=auto` checks these out as
+# CRLF on Windows, so every generator or formatter run rewrites them and dirties
+# the working tree. Pin to LF so the worktree matches what the tools produce.
+*.astro text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.svg text eol=lf
+
 # Scripts
 *.sh text eol=lf
 *.ps1 text eol=crlf
