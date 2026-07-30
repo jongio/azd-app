@@ -17,7 +17,7 @@
     "test:e2e:update": "playwright test --update-snapshots"
   },
   "dependencies": {
-    "@astrojs/mdx": "^7.0.4",
+    "@astrojs/mdx": "^7.0.5",
     "@jongio/azd-web-core": "^2.4.1",
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.1.4",
