@@ -214,7 +214,7 @@ func TestParseResults_EmptyResponse(t *testing.T) {
 
 // mockRow represents Azure Log Analytics columns - field names intentionally match Azure schema
 //
-//nolint:revive,stylecheck // Field names match Azure Log Analytics column names
+// Field names match Azure Log Analytics column names.
 type mockRow struct {
 	TimeGenerated      string
 	Source             string

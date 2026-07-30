@@ -67,7 +67,7 @@ type AzureCatalog interface {
 	IsRecommendedTable(name, resourceType string) bool
 	TableCategories() map[string]azure.TableCategory
 	SubstituteQueryPlaceholders(query, serviceName, timespan string) string
-	TruncateMiddle(s string, max int) string
+	TruncateMiddle(s string, maxLen int) string
 	// ListLiveTables attempts an ARM call against the workspace; returns
 	// (nil, err) when credentials are unavailable, allowing the handler
 	// to fall back to AllKnownTables (matches legacy handleAzureTables).
@@ -143,7 +143,7 @@ type AzureStoreFuncs struct {
 	IsRecommendedTableFn          func(name, resourceType string) bool
 	TableCategoriesFn             func() map[string]azure.TableCategory
 	SubstituteQueryPlaceholdersFn func(query, serviceName, timespan string) string
-	TruncateMiddleFn              func(s string, max int) string
+	TruncateMiddleFn              func(s string, maxLen int) string
 	ListLiveTablesFn              func(ctx context.Context, workspaceID string) ([]azure.TableInfo, error)
 
 	// AzureLogsClient

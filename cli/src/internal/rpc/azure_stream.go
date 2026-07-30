@@ -30,6 +30,9 @@ const (
 	azureBackpressureDelayMul   = 2
 	azureRealtimeFlushInterval  = 100 * time.Millisecond
 	azureDefaultBackfillSeconds = int64(30 * 60)
+	// azureSendBudget is how long a single frame may block before the polling
+	// loop treats the subscriber as slow and backs off.
+	azureSendBudget = 100 * time.Millisecond
 )
 
 // StreamAzureLogs implements the streaming RPC. Polling is the lossless
@@ -92,6 +95,9 @@ func (h *AzureHandler) streamPolling(
 	since := backfill
 	bp := time.Duration(0)
 	lastSentTimestamp := time.Time{}
+	// One sender owns every write on this stream so status frames and log
+	// entries can never overlap.
+	sender := newAzureStreamSender(stream)
 
 	// First poll uses the requested backfill window. Subsequent polls
 	// shorten to PollingState's recommended interval to avoid overlap.
@@ -106,7 +112,13 @@ func (h *AzureHandler) streamPolling(
 		if err != nil && !isNoResults(err) {
 			state.RecordFailure(err)
 			hh := state.GetHealth()
-			_ = sendAzureStatus(stream, hh.Status, "polling", int32(hh.ConsecutiveFails), err.Error(), &hh.NextRetry)
+			// Status frames are advisory: drop this one if the subscriber is
+			// still busy rather than stalling the loop or racing the writer.
+			if serr := sender.send(ctx, azureStatusMessage(
+				hh.Status, "polling", int32(hh.ConsecutiveFails), err.Error(), &hh.NextRetry,
+			)); serr != nil && !errors.Is(serr, errStreamBlocked) {
+				return serr
+			}
 		} else {
 			state.RecordSuccess()
 		}
@@ -117,7 +129,7 @@ func (h *AzureHandler) streamPolling(
 			if !l.Timestamp.After(lastSentTimestamp) {
 				continue
 			}
-			err := sendWithBackpressure(ctx, stream, &v1.StreamAzureLogsResponse{
+			err := sender.send(ctx, &v1.StreamAzureLogsResponse{
 				Event: &v1.StreamAzureLogsResponse_Entry{Entry: toProtoAzureLogEntry(l)},
 			})
 			if err != nil {
@@ -134,7 +146,7 @@ func (h *AzureHandler) streamPolling(
 			if bp == 0 {
 				bp = azureBackpressureDelayInit
 			} else if bp < azureBackpressureDelayMax {
-				bp = bp * azureBackpressureDelayMul
+				bp *= azureBackpressureDelayMul
 				if bp > azureBackpressureDelayMax {
 					bp = azureBackpressureDelayMax
 				}
@@ -278,15 +290,15 @@ func (h *AzureHandler) streamRealtime(
 	}
 }
 
-// sendAzureStatus emits a StreamStatus event. Returns the underlying
-// stream.Send error so the caller can unwind the RPC.
-func sendAzureStatus(
-	stream *connect.ServerStream[v1.StreamAzureLogsResponse],
+// azureStatusMessage builds a StreamStatus frame. Callers route it through
+// either sendAzureStatus (sequential paths) or azureStreamSender (the polling
+// loop) so that a single stream never has two concurrent writers.
+func azureStatusMessage(
 	status, mode string,
 	consecutiveFails int32,
 	errMsg string,
 	nextRetry *time.Time,
-) error {
+) *v1.StreamAzureLogsResponse {
 	s := &v1.StreamStatus{
 		Status:           status,
 		Mode:             mode,
@@ -296,50 +308,101 @@ func sendAzureStatus(
 	if nextRetry != nil && !nextRetry.IsZero() {
 		s.NextRetry = timestamppb.New(*nextRetry)
 	}
-	return stream.Send(&v1.StreamAzureLogsResponse{
+	return &v1.StreamAzureLogsResponse{
 		Event: &v1.StreamAzureLogsResponse_Status{Status: s},
-	})
+	}
 }
 
-// errStreamBlocked is the sentinel returned by sendWithBackpressure when
-// the polling-mode send cannot complete within the per-attempt budget,
-// signalling that the caller should slow its production rate.
+// sendAzureStatus emits a StreamStatus event directly. Only safe on paths
+// that own the stream exclusively and send sequentially. Returns the
+// underlying stream.Send error so the caller can unwind the RPC.
+func sendAzureStatus(
+	stream *connect.ServerStream[v1.StreamAzureLogsResponse],
+	status, mode string,
+	consecutiveFails int32,
+	errMsg string,
+	nextRetry *time.Time,
+) error {
+	return stream.Send(azureStatusMessage(status, mode, consecutiveFails, errMsg, nextRetry))
+}
+
+// errStreamBlocked is the sentinel returned by azureStreamSender when
+// a frame could not be handed to the client within the send budget.
 var errStreamBlocked = errors.New("stream blocked")
 
-// sendWithBackpressure sends one frame with a short timeout. On timeout
-// the caller backs off; on transport error it propagates.
+// azureStreamSender serializes every write to one ServerStream.
 //
-// connect-go's ServerStream.Send is synchronous, so we approximate
-// "non-blocking" by running it in a goroutine and racing it against a
-// ticker. The 100ms budget is small enough not to dominate the polling
-// loop's cadence and large enough to amortise the goroutine cost.
+// connect-go's ServerStream.Send is synchronous and is NOT safe for concurrent
+// use, but the polling loop needs to bound how long a single frame may block.
+// Running Send in a goroutine and abandoning it on timeout satisfies the second
+// requirement while violating the first: the abandoned Send stays parked inside
+// the stream, so the next send (a log entry or a status frame) would overlap it
+// and corrupt the stream framing, while blocked goroutines accumulated for the
+// lifetime of a stuck subscriber.
 //
-// Goroutine safety: the buffered channel (cap=1) ensures the background
-// goroutine can always deliver its result and exit, even after timeout.
-// stream.Send unblocks when the RPC context is cancelled (client disconnect),
-// so no goroutine leaks occur in practice.
-func sendWithBackpressure(
-	ctx context.Context,
-	stream *connect.ServerStream[v1.StreamAzureLogsResponse],
-	msg *v1.StreamAzureLogsResponse,
-) error {
-	done := make(chan error, 1)
+// The sender keeps at most ONE send in flight. While a send is outstanding,
+// further attempts report errStreamBlocked instead of starting a second one.
+// That preserves the backpressure signal, guarantees Send is never called
+// concurrently, and bounds the goroutine count at one per stream.
+type azureStreamSender struct {
+	stream *connect.ServerStream[v1.StreamAzureLogsResponse]
+	// done is buffered (cap 1) so an abandoned send can always deliver its
+	// result and exit, even after the caller stopped waiting.
+	done     chan error
+	inFlight bool
+}
+
+func newAzureStreamSender(stream *connect.ServerStream[v1.StreamAzureLogsResponse]) *azureStreamSender {
+	return &azureStreamSender{stream: stream, done: make(chan error, 1)}
+}
+
+// reap collects the result of a previously abandoned send. It reports
+// errStreamBlocked while that send is still outstanding, which keeps the
+// stream single-writer.
+func (s *azureStreamSender) reap() error {
+	if !s.inFlight {
+		return nil
+	}
+	select {
+	case err := <-s.done:
+		s.inFlight = false
+		return err
+	default:
+		return errStreamBlocked
+	}
+}
+
+// send delivers msg, waiting up to azureSendBudget for completion. It returns
+// errStreamBlocked when the subscriber is not keeping up so the caller can back
+// off, and the underlying transport error otherwise.
+func (s *azureStreamSender) send(ctx context.Context, msg *v1.StreamAzureLogsResponse) error {
+	if err := s.reap(); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	s.inFlight = true
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				done <- fmt.Errorf("stream send panic: %v", r)
+				s.done <- fmt.Errorf("stream send panic: %v", r)
 			}
 		}()
-		done <- stream.Send(msg)
+		s.done <- s.stream.Send(msg)
 	}()
+
 	select {
-	case err := <-done:
+	case err := <-s.done:
+		s.inFlight = false
 		return err
 	case <-ctx.Done():
-		// Drain the goroutine result after context cancellation to avoid leak
-		go func() { <-done }()
+		// Leave inFlight set: the goroutine is still parked in Send and must
+		// not be raced by another send. It unblocks when the RPC context
+		// cancellation reaches the transport, then exits via the buffered chan.
 		return ctx.Err()
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(azureSendBudget):
 		return errStreamBlocked
 	}
 }
@@ -407,7 +470,6 @@ func (r *localAzureLogRing) drain() ([]*v1.LogEntry, int64) {
 	return out, r.dropped
 }
 
-//nolint:unused // referenced from azure_test.go
 func (r *localAzureLogRing) droppedCount() int64 {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -207,17 +207,6 @@ func azureLogConfigModeToString(m v1.AzureLogConfigMode) string {
 	}
 }
 
-func stringToAzureLogConfigMode(s string) v1.AzureLogConfigMode { //nolint:unused // kept symmetric with azureLogConfigModeToString for round-trip use in future RPCs (e.g. SetServiceQuery returning current mode)
-	switch s {
-	case "tables":
-		return v1.AzureLogConfigMode_AZURE_LOG_CONFIG_MODE_TABLES
-	case "custom":
-		return v1.AzureLogConfigMode_AZURE_LOG_CONFIG_MODE_CUSTOM
-	default:
-		return v1.AzureLogConfigMode_AZURE_LOG_CONFIG_MODE_UNSPECIFIED
-	}
-}
-
 // azureResourceTypeToString maps the proto enum to the azure package's
 // stringly-typed ResourceType values. UNSPECIFIED defaults to
 // "containerapp" matching legacy ListAzureTables behaviour.
@@ -538,6 +527,7 @@ func (h *AzureHandler) GetAzureLogConfig(
 	ay, err := h.store.LoadAzureYaml()
 	if err != nil || ay == nil {
 		resp.Tables = h.store.RecommendedTables("containerapp")
+		//nolint:nilerr // an unreadable azure.yaml falls back to the recommended tables
 		return connect.NewResponse(resp), nil
 	}
 

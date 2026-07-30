@@ -156,9 +156,7 @@ var errServiceNotFound = errors.New("workspace not found: service not declared i
 // missing.
 func newAzureCatalogFuncs(s *Server) rpc.AzureStoreFuncs {
 	return rpc.AzureStoreFuncs{
-		ServiceNamesFromEnvFn: func() []string {
-			return extractServiceNamesFromEnv()
-		},
+		ServiceNamesFromEnvFn: extractServiceNamesFromEnv,
 		WorkspaceIDFn: func(ctx context.Context) (string, error) {
 			id, err := getWorkspaceIDFromEnv(ctx)
 			if err == nil && id != "" {
@@ -182,21 +180,15 @@ func newAzureCatalogFuncs(s *Server) rpc.AzureStoreFuncs {
 		RecommendedTablesFn: func(rt string) []string {
 			return azure.GetRecommendedTables(azure.ResourceType(rt))
 		},
-		AllKnownTablesFn: func() []azure.TableInfo {
-			return azure.GetAllKnownTables()
-		},
+		AllKnownTablesFn: azure.GetAllKnownTables,
 		IsRecommendedTableFn: func(name, rt string) bool {
 			return azure.IsRecommendedTable(name, azure.ResourceType(rt))
 		},
 		TableCategoriesFn: func() map[string]azure.TableCategory {
 			return azure.TableCategories
 		},
-		SubstituteQueryPlaceholdersFn: func(query, serviceName, timespan string) string {
-			return substituteQueryPlaceholders(query, serviceName, timespan)
-		},
-		TruncateMiddleFn: func(str string, max int) string {
-			return truncateMiddle(str, max)
-		},
+		SubstituteQueryPlaceholdersFn: substituteQueryPlaceholders,
+		TruncateMiddleFn:              truncateMiddle,
 		ListLiveTablesFn: func(ctx context.Context, workspaceID string) ([]azure.TableInfo, error) {
 			cred, err := newLogAnalyticsCredential()
 			if err != nil {
@@ -230,9 +222,7 @@ func newAzureLogsClientFuncs(s *Server) rpc.AzureStoreFuncs {
 			disc := azure.NewResourceDiscovery(cred, s.projectDir)
 			return disc.GetResource(ctx, serviceName)
 		},
-		NewRealtimeStreamerFn: func(rt azure.ResourceType, cfg azure.StreamerConfig) (azure.RealtimeLogStreamer, error) {
-			return azure.NewRealtimeStreamer(rt, cfg)
-		},
+		NewRealtimeStreamerFn: azure.NewRealtimeStreamer,
 		NewLogAnalyticsCredentialFn: func() (azcore.TokenCredential, error) {
 			return newLogAnalyticsCredential()
 		},
@@ -266,6 +256,7 @@ func newAzureLogsClientFuncs(s *Server) rpc.AzureStoreFuncs {
 				}, nil
 			}
 			if _, err := newLogAnalyticsCredential(); err != nil {
+				//nolint:nilerr // verification reports failure in the result object, not as an RPC error
 				return &rpc.VerifyServiceLogsResult{
 					Success: false,
 					Message: "Azure credentials not available",
