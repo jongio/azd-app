@@ -4,6 +4,8 @@ run:
   timeout: 5m
   tests: true
   modules-download-mode: readonly
+  build-tags:
+    - integration
 
 formatters:
   enable:
@@ -24,7 +26,9 @@ linters:
     - revive        # Drop-in replacement for golint
     - unparam       # Report unused function parameters
     - unconvert     # Remove unnecessary type conversions
-    - goconst       # Find repeated strings that could be constants
+    # goconst is intentionally not enabled. This CLI's vocabulary (python,
+    # node, dotnet, java, aspire, pnpm, tcp) repeats across detectors by
+    # design, producing 477 findings over 209 domain identifiers and no defect.
     - dupl          # Code clone detection
     - nolintlint    # Ensure nolint directives are properly formatted
     - gosec         # Security checker for Go code
@@ -69,15 +73,13 @@ linters:
             - "checkPrivateReceivers"
             - "disableStutteringCheck"
 
-    misspell:
-      locale: US
+    # misspell runs without a locale. Every locale:US finding in this repo was
+    # a deliberate British spelling (cancelled, behaviour), not a typo, and
+    # rewriting them risks corrupting string literals that must match external
+    # Azure API values. Without a locale, misspell still catches real typos.
 
     dupl:
       threshold: 200
-
-    goconst:
-      min-len: 3
-      min-occurrences: 4
 
     exhaustive:
       default-signifies-exhaustive: true
@@ -89,29 +91,52 @@ linters:
         - elseif
 
   exclusions:
+    paths:
+      - dashboard/node_modules
     rules:
       - path: _test\.go
         linters:
           - dupl
-          - goconst
           - unparam
           - prealloc
           - noctx
           - exhaustive
+          # Matches the project's own preflight scan, which runs gosec with
+          # -tests=false (see cli/magefile.go quietSecurity).
+          - gosec
+          # Tests routinely ignore errors on fixture setup and cleanup.
+          - errcheck
+          # A failed assertion in a test panics, which fails the test. That is
+          # the outcome the test wants, so comma-ok adds noise without value.
+          - forcetypeassert
+      # revive's exported rule would demand doc comments on 45 exported
+      # methods. Mandating them yields filler that restates the method name
+      # rather than useful documentation, so it is excluded while revive's
+      # other rules continue to run.
+      - linters:
+          - revive
+        text: "exported"
       - path: magefile\.go
         linters:
           - unparam
           - errcheck
-      # CLI tool legitimately uses exec.Command with variable args
+      # This is a local developer CLI whose entire job is to read paths and run
+      # commands the user named in azure.yaml or on the command line. The taint
+      # analysis rules (G702/G703) and the walk-callback rule (G122) generalise
+      # G204/G304 and flag that same intended behaviour, so they are excluded on
+      # the same grounds. Execution is separately gated on workspace trust; see
+      # ensureWorkspaceTrusted in cmd/app/commands/run.go.
       - path: (cmd|internal)/
         linters:
           - gosec
-        text: "G204:"
-      # CLI tool needs to read files with variable paths
-      - path: internal/
+        text: "(G204:|G304:|G702:|G703:|G122:)"
+      # Conversions at the protobuf boundary narrow domain-bounded values (PID,
+      # TCP port, collection counts, RSS bytes) into the int32/int64 field types
+      # the wire format defines. None can reach the overflow threshold.
+      - path: internal/(rpc|dashboard|resourcesampler)/
         linters:
           - gosec
-        text: "G304:"
+        text: "G115:"
 
 issues:
   max-issues-per-linter: 0
