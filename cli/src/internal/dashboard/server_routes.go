@@ -24,7 +24,7 @@ var staticFiles embed.FS
 // sessionTokenPlaceholder is the verbatim string present in index.html.
 // The server replaces it (with injectSessionToken) before every HTML response,
 // injecting the real per-session token into the page it serves.
-const sessionTokenPlaceholder = `<meta name="azd-session-token" content="">`
+const sessionTokenPlaceholder = `<meta name="azd-session-token" content="">` //nolint:gosec // G101: an empty placeholder attribute, not a credential
 
 // injectSessionToken returns a copy of indexHTML with the placeholder
 // meta-tag content attribute set to token.

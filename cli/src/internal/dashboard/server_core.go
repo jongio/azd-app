@@ -172,21 +172,6 @@ func (s *Server) Start() (string, error) {
 		}
 	}()
 
-	// Monitor for server errors in background
-	go func() {
-		select {
-		case err := <-errChan:
-			if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
-				slog.Warn("dashboard server encountered port conflict after startup", "error", err)
-				slog.Warn("another instance may be running; check for other azd app run processes")
-			} else {
-				slog.Error("dashboard server encountered error after startup", "error", err)
-			}
-		case <-s.stopChan:
-			return
-		}
-	}()
-
 	// Give server time to start
 	time.Sleep(constants.ServerStartupDelay)
 
@@ -195,7 +180,11 @@ func (s *Server) Start() (string, error) {
 	s.started = true
 	s.startedMu.Unlock()
 
-	// Check if there was an immediate error (like port already in use)
+	// Check if there was an immediate error (like port already in use).
+	// This must be the only reader of errChan until it completes: the
+	// post-startup monitor below is started afterwards so it cannot consume
+	// a bind failure first and leave Start reporting success for a server
+	// that never came up.
 	select {
 	case err := <-errChan:
 		// Check if this is a port-in-use error
@@ -213,6 +202,22 @@ func (s *Server) Start() (string, error) {
 	default:
 		// Server started successfully
 	}
+
+	// Startup succeeded, so ownership of errChan passes to a long-lived
+	// monitor that reports failures occurring after this point.
+	go func() {
+		select {
+		case err := <-errChan:
+			if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
+				slog.Warn("dashboard server encountered port conflict after startup", "error", err)
+				slog.Warn("another instance may be running; check for other azd app run processes")
+			} else {
+				slog.Error("dashboard server encountered error after startup", "error", err)
+			}
+		case <-s.stopChan:
+			return
+		}
+	}()
 
 	url := fmt.Sprintf("http://localhost:%d", port)
 
