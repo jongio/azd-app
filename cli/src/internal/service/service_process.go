@@ -338,6 +338,12 @@ func StartLogCollection(process *ServiceProcess, projectDir string, parser *Func
 	buffer, err := logManager.CreateBuffer(process.Name, 1000, true)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: Failed to create log buffer for %s: %v\n", process.Name, err)
+		// The pipes must still be drained. Without a reader the child blocks
+		// once the OS pipe buffer (~64KB) fills, which hangs the service for
+		// a reason the developer cannot see. Losing logs is recoverable;
+		// wedging the process is not.
+		go discardStream(process.Stdout, process.Name, false)
+		go discardStream(process.Stderr, process.Name, true)
 		return
 	}
 
@@ -352,6 +358,20 @@ func StartLogCollection(process *ServiceProcess, projectDir string, parser *Func
 	} else {
 		go collectStreamLogs(process.Stdout, process.Name, buffer, false)
 		go collectStreamLogs(process.Stderr, process.Name, buffer, true)
+	}
+}
+
+// discardStream drains a pipe and throws the contents away. Used only when no
+// log buffer could be created, to keep the child process from blocking on a
+// full pipe. A nil reader is tolerated so callers need no guard.
+func discardStream(reader io.ReadCloser, serviceName string, isStderr bool) {
+	if reader == nil {
+		return
+	}
+	defer func() { _ = reader.Close() }()
+	if _, err := io.Copy(io.Discard, reader); err != nil {
+		slog.Debug("error draining stream without log buffer",
+			slog.String("service", serviceName), slog.Bool("stderr", isStderr), slog.Any("error", err))
 	}
 }
 

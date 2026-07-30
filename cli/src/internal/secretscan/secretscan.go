@@ -99,6 +99,51 @@ func ScanEnv(source string, env map[string]string) []Finding {
 	return findings
 }
 
+// redactionKey matches variable names whose value must never be displayed.
+// It is deliberately broader than strongSecretKey: bare "key" is included
+// because for display redaction, over-masking is harmless while under-masking
+// leaks a credential. strongSecretKey stays narrow because a false positive
+// there produces a spurious warning about a file the developer must then edit.
+var redactionKey = regexp.MustCompile(`(?i)(password|passwd|\bpwd\b|secret|token|key|credential|conn(ection)?[_-]?str(ing)?|sas)`)
+
+// redactionMask is the placeholder substituted for a secret value.
+const redactionMask = "***"
+
+// RedactValue masks value when key or value indicates a credential, returning
+// a short prefix and suffix so a developer can still correlate the value
+// without learning it. Non-secret values are returned unchanged.
+//
+// Value-shape detection is limited to JWTs and connection strings with an
+// embedded credential. Those two patterns have a negligible false-positive
+// rate. The looser high-entropy heuristics used by Inspect are deliberately
+// NOT applied here: a resource name like "rg-myapp-prod-eastus-001" trips the
+// base64 shape test, and masking it would hide data the developer needs.
+func RedactValue(key, value string) string {
+	if value == "" {
+		return value
+	}
+	if !redactionKey.MatchString(key) &&
+		!jwtPattern.MatchString(value) &&
+		!connStringSecret.MatchString(value) {
+		return value
+	}
+	if len(value) <= 4 {
+		return redactionMask
+	}
+	return value[:2] + redactionMask + value[len(value)-2:]
+}
+
+// RedactMap returns a copy of env with every secret-looking value masked by
+// RedactValue. It always returns a non-nil map so callers can assign the
+// result without a nil check. The input is never mutated.
+func RedactMap(env map[string]string) map[string]string {
+	out := make(map[string]string, len(env))
+	for k, v := range env {
+		out[k] = RedactValue(k, v)
+	}
+	return out
+}
+
 // isReference reports whether v is a Key Vault reference or a variable
 // indirection rather than a literal value. These are the recommended way to
 // carry a secret and must never be flagged.
@@ -151,8 +196,8 @@ func looksLikeLiteralSecret(v string) bool {
 	return true
 }
 
-func wrapped(v string, open, close byte) bool {
-	return len(v) >= 2 && v[0] == open && v[len(v)-1] == close
+func wrapped(v string, open, closing byte) bool {
+	return len(v) >= 2 && v[0] == open && v[len(v)-1] == closing
 }
 
 func isPathLike(v string) bool {

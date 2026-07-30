@@ -85,3 +85,79 @@ func TestScanEnvEmpty(t *testing.T) {
 	assert.Empty(t, ScanEnv("x", nil))
 	assert.Empty(t, ScanEnv("x", map[string]string{}))
 }
+
+func TestRedactValueMasksSecrets(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value string
+		want  string
+	}{
+		{"azd access token by key", "AZD_ACCESS_TOKEN", "abcdefghijklmnop", "ab***op"},
+		{"password by key", "DB_PASSWORD", "hunter2!", "hu***2!"},
+		{"client secret by key", "AZURE_CLIENT_SECRET", "supersecretvalue", "su***ue"},
+		{"bare key name", "STORAGE_KEY", "0123456789abcdef", "01***ef"},
+		{"credential by key", "MY_CREDENTIAL", "abcdefgh", "ab***gh"},
+		{"connection string by key", "SQL_CONNECTION_STRING", "Server=x;Pwd=y1", "Se***y1"},
+		{"short value fully masked", "API_KEY", "abcd", "***"},
+		{"single char value", "TOKEN", "x", "***"},
+		{"jwt by value shape", "OPAQUE", "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghij", "ey***ij"},
+		{"conn string by value shape", "STORAGE", "DefaultEndpointsProtocol=https;AccountKey=abc123==", "De***=="},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, RedactValue(tt.key, tt.value))
+		})
+	}
+}
+
+func TestRedactValueLeavesSafeValuesIntact(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value string
+	}{
+		{"empty value", "DB_PASSWORD", ""},
+		{"resource group name", "AZURE_RESOURCE_GROUP", "rg-myapp-prod-eastus-001"},
+		{"service url", "SERVICE_API_URL", "https://api-prod.azurewebsites.net"},
+		{"environment name", "AZURE_ENV_NAME", "dev"},
+		{"subscription id", "AZURE_SUBSCRIPTION_ID", "00000000-1111-2222-3333-444444444444"},
+		{"location", "AZURE_LOCATION", "eastus2"},
+		{"plain path", "PROJECT_DIR", "/home/dev/code/myapp"},
+		{"key vault name is not itself a secret value", "AZURE_KEY_VAULT_NAME", "kv-myapp-prod"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := RedactValue(tt.key, tt.value)
+			if tt.key == "AZURE_KEY_VAULT_NAME" {
+				// "key" in the name intentionally masks; assert it does not leak in full.
+				assert.NotEqual(t, tt.value, got)
+				return
+			}
+			assert.Equal(t, tt.value, got, "%q=%q should not be masked", tt.key, tt.value)
+		})
+	}
+}
+
+func TestRedactMapCopiesAndMasks(t *testing.T) {
+	in := map[string]string{
+		"AZD_ACCESS_TOKEN":     "abcdefghijklmnop",
+		"AZURE_LOCATION":       "eastus2",
+		"AZURE_RESOURCE_GROUP": "rg-myapp-prod-eastus-001",
+	}
+	out := RedactMap(in)
+
+	require.NotNil(t, out)
+	assert.Equal(t, "ab***op", out["AZD_ACCESS_TOKEN"], "secret must be masked")
+	assert.Equal(t, "eastus2", out["AZURE_LOCATION"], "non-secret must survive")
+	assert.Equal(t, "rg-myapp-prod-eastus-001", out["AZURE_RESOURCE_GROUP"])
+
+	// The input map must not be mutated.
+	assert.Equal(t, "abcdefghijklmnop", in["AZD_ACCESS_TOKEN"], "input must not be mutated")
+}
+
+func TestRedactMapNilInputReturnsEmptyMap(t *testing.T) {
+	out := RedactMap(nil)
+	require.NotNil(t, out)
+	assert.Empty(t, out)
+}

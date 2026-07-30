@@ -12,6 +12,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/resourcealert"
 	"github.com/jongio/azd-app/cli/src/internal/resourcesampler"
+	"github.com/jongio/azd-app/cli/src/internal/secretscan"
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/registry"
 )
@@ -149,11 +150,14 @@ func GetServiceInfo(projectDir string) ([]*ServiceInfo, error) {
 	// Get Azure environment values (all values from process + event cache)
 	azureEnv := getAzureEnvironmentValues()
 
-	// Extract Azure service information from environment
+	// Extract Azure service information from environment. This runs against the
+	// raw values because it reads resource names and URLs, never credentials.
 	azureServiceInfo := extractAzureServiceInfo(azureEnv)
 
-	// Merge azure.yaml services with running services to get complete picture
-	allServices := mergeServiceInfo(azureYaml, runningServices, azureServiceInfo, azureEnv)
+	// Merge azure.yaml services with running services to get complete picture.
+	// EnvironmentVars is serialized to the dashboard and to MCP clients, so the
+	// values handed to it are masked here rather than at each consumer.
+	allServices := mergeServiceInfo(azureYaml, runningServices, azureServiceInfo, secretscan.RedactMap(azureEnv))
 
 	return allServices, nil
 }

@@ -34,6 +34,11 @@ type depsExecutor struct {
 	detectDotnet    func(root string) ([]types.DotnetProject, error)
 	detectFunctions func(root string) ([]types.FunctionAppProject, error)
 
+	// ensureTrusted gates dependency installation behind the workspace trust
+	// store. Injectable so tests can exercise execute() without touching the
+	// real trust store in the user's home directory.
+	ensureTrusted func(azureYamlPath string) error
+
 	// Options from flags
 	opts *DepsOptions
 }
@@ -46,7 +51,10 @@ func newDepsExecutor(opts *DepsOptions) *depsExecutor {
 		detectPython:    detector.FindPythonProjects,
 		detectDotnet:    detector.FindDotnetProjects,
 		detectFunctions: detector.FindFunctionApps,
-		opts:            opts,
+		ensureTrusted: func(azureYamlPath string) error {
+			return ensureWorkspaceTrusted(azureYamlPath, "azd app deps")
+		},
+		opts: opts,
 	}
 }
 
@@ -88,6 +96,21 @@ func (e *depsExecutor) execute() error {
 	// Dry-run mode: show what would be installed and exit
 	if e.opts.DryRun {
 		return showGroupedDryRunSummary(projects, searchRoot)
+	}
+
+	// Trust gate (CWE-78/94/829): installing dependencies executes arbitrary
+	// code through package-manager lifecycle scripts (npm/pnpm postinstall,
+	// uv/poetry build backends, MSBuild targets on dotnet restore), so the
+	// user must have consented to this workspace first. This mirrors the gate
+	// in run.go and also covers the MCP install_dependencies tool, which
+	// shells out to 'azd app deps'. Dry-run returns above because it never
+	// spawns a package manager, and --check is handled before this executor.
+	azureYamlPath, err := detector.FindAzureYaml(searchRoot)
+	if err != nil {
+		return handleDepsError(err, "failed to locate azure.yaml for the trust check")
+	}
+	if err := e.ensureTrusted(azureYamlPath); err != nil {
+		return err
 	}
 
 	// Clean dependencies if requested

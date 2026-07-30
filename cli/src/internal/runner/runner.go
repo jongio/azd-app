@@ -182,56 +182,50 @@ func RunPython(ctx context.Context, project types.PythonProject) error {
 		cliout.Newline()
 	}
 
-	// Different package managers have different run commands
-	var cmd string
-	var args []string
-
-	switch project.PackageManager {
-	case "uv":
-		// uv run python <script>
-		args = []string{"run", "python", entryPoint}
-		cmd = "uv"
-
-	case "poetry":
-		// poetry run python <script>
-		args = []string{"run", "python", entryPoint}
-		cmd = "poetry"
-
-	case "pip":
-		// Activate venv and run python
-		// For now, just run python directly from venv if it exists
-		args = []string{entryPoint}
-		// Check for venv - use platform-specific paths
-		var venvPython string
-		if runtime.GOOS == "windows" {
-			venvPython = filepath.Join(project.Dir, ".venv", "Scripts", "python.exe")
-		} else {
-			venvPython = filepath.Join(project.Dir, ".venv", "bin", "python")
-		}
-
-		if _, err := os.Stat(venvPython); err == nil {
-			cmd = venvPython
-		} else {
-			// Try alternative venv directory
-			if runtime.GOOS == "windows" {
-				venvPython = filepath.Join(project.Dir, "venv", "Scripts", "python.exe")
-			} else {
-				venvPython = filepath.Join(project.Dir, "venv", "bin", "python")
-			}
-
-			if _, err := os.Stat(venvPython); err == nil {
-				cmd = venvPython
-			} else {
-				// Fall back to system python
-				cmd = "python"
-			}
-		}
-
-	default:
-		return fmt.Errorf("unsupported package manager: %s", project.PackageManager)
+	cmd, args, err := pythonRunCommand(project.PackageManager, project.Dir, entryPoint)
+	if err != nil {
+		return err
 	}
 
 	return executor.StartCommand(ctx, cmd, args, project.Dir)
+}
+
+// pythonRunCommand resolves the interpreter command and arguments for a Python
+// project. uv and poetry manage their own environments, so the entry point is
+// handed to their `run python` subcommand; pip projects are executed with a
+// resolved interpreter path instead.
+func pythonRunCommand(packageManager, projectDir, entryPoint string) (cmd string, args []string, err error) {
+	switch packageManager {
+	case "uv", "poetry":
+		return packageManager, []string{"run", "python", entryPoint}, nil
+	case "pip":
+		return pipInterpreter(projectDir), []string{entryPoint}, nil
+	default:
+		return "", nil, fmt.Errorf("unsupported package manager: %s", packageManager)
+	}
+}
+
+// pipInterpreter returns the interpreter to use for a pip project, preferring a
+// project-local virtualenv (".venv", then "venv") before falling back to the
+// system interpreter on PATH.
+func pipInterpreter(projectDir string) string {
+	for _, venvDir := range []string{".venv", "venv"} {
+		candidate := venvPythonPath(projectDir, venvDir)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return "python"
+}
+
+// venvPythonPath returns the platform-specific interpreter path inside a
+// virtualenv directory. Windows venvs use Scripts/python.exe; everything else
+// uses bin/python.
+func venvPythonPath(projectDir, venvDir string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(projectDir, venvDir, "Scripts", "python.exe")
+	}
+	return filepath.Join(projectDir, venvDir, "bin", "python")
 }
 
 // RunDotnet runs a .NET project with 'dotnet run'.
@@ -245,23 +239,28 @@ func RunDotnet(ctx context.Context, project types.DotnetProject) error {
 	cliout.Item("Project: %s", project.Path)
 	cliout.Newline()
 
-	// For .sln files, we need to run from the directory
-	// For .csproj files, we can pass the path directly
-	args := []string{"run"}
-	var dir string
-
-	if filepath.Ext(project.Path) == ".sln" {
-		dir = filepath.Dir(project.Path)
-	} else {
-		args = append(args, "--project", project.Path)
-		cwd, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("failed to get current working directory: %w", err)
-		}
-		dir = cwd
+	args, dir, err := dotnetRunArgs(project.Path)
+	if err != nil {
+		return err
 	}
 
 	return executor.StartCommand(ctx, "dotnet", args, dir)
+}
+
+// dotnetRunArgs builds the `dotnet run` argument list and working directory for
+// a project path. A .sln cannot be passed via --project, so solutions are run
+// from their own directory; project files are passed explicitly and therefore
+// run from the caller's working directory.
+func dotnetRunArgs(projectPath string) (args []string, dir string, err error) {
+	if filepath.Ext(projectPath) == ".sln" {
+		return []string{"run"}, filepath.Dir(projectPath), nil
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get current working directory: %w", err)
+	}
+	return []string{"run", "--project", projectPath}, cwd, nil
 }
 
 // RunFunctionApp runs an Azure Functions project (any variant) with Azure Functions Core Tools.

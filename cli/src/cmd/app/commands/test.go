@@ -101,6 +101,14 @@ func NewTestCommand() *cobra.Command {
 }
 
 // runTests executes tests for all services.
+// ensureTestTrusted gates `azd app test` behind the workspace trust store.
+// Test commands are defined in azure.yaml, so running them executes
+// project-defined code on the host (CWE-78/94). Declared as a variable so
+// tests can substitute a stub, matching the seam used by getCertsDir.
+var ensureTestTrusted = func(azureYamlPath string) error {
+	return ensureWorkspaceTrusted(azureYamlPath, "azd app test")
+}
+
 func runTests(commandOrchestrator *orchestrator.Orchestrator, opts *TestOptions) error {
 	// Validate test type
 	validTypes := map[string]bool{
@@ -137,12 +145,8 @@ func runTests(commandOrchestrator *orchestrator.Orchestrator, opts *TestOptions)
 		return errors.New("--save and --no-save are mutually exclusive")
 	}
 
-	// Execute dependencies first (reqs)
-	if err := commandOrchestrator.Run("test"); err != nil {
-		return fmt.Errorf("failed to execute command dependencies: %w", err)
-	}
-
-	// Find azure.yaml
+	// Locate azure.yaml before spawning any subprocesses so we can compute
+	// the project root for the trust check (CWE-78/94).
 	azureYamlPath, err := testing.FindAzureYaml()
 	if err != nil {
 		return fmt.Errorf("azure.yaml not found: %w", err)
@@ -150,6 +154,18 @@ func runTests(commandOrchestrator *orchestrator.Orchestrator, opts *TestOptions)
 
 	if azureYamlPath == "" {
 		return errors.New("azure.yaml not found - create one to define services for testing")
+	}
+
+	// Trust gate: test commands come from azure.yaml, so executing them runs
+	// project-defined code on the host. This must happen before
+	// commandOrchestrator.Run, which installs dependencies.
+	if err := ensureTestTrusted(azureYamlPath); err != nil {
+		return err
+	}
+
+	// Execute dependencies first (reqs)
+	if err := commandOrchestrator.Run("test"); err != nil {
+		return fmt.Errorf("failed to execute command dependencies: %w", err)
 	}
 
 	// Load azd environment variables if --environment is specified

@@ -90,10 +90,18 @@ func NewLogBufferWithFilter(serviceName string, maxSize int, enableFileLogging b
 // Add appends a log entry to the buffer.
 // If a log filter is configured, noisy messages are filtered out.
 func (lb *LogBuffer) Add(entry LogEntry) {
-	// Apply log filter if configured
+	// Apply log filter if configured. This runs against the raw message
+	// because a filter pattern may target text that masking would rewrite.
 	if lb.logFilter != nil && lb.logFilter.ShouldFilter(entry.Message) {
 		return // Skip noisy log entry
 	}
+
+	// Mask once at ingress so every consumer inherits the redaction. Masking
+	// only on the file-write path used to leave the ring buffer holding raw
+	// text, which the dashboard, Connect-RPC log stream, and MCP log tools
+	// then served verbatim - a service printing a token leaked it to the
+	// browser and to any connected LLM even though the log file was clean.
+	entry.Message = MaskSecretsInLogLine(entry.Message)
 
 	// Hold the main lock only for the ring buffer update (fast, O(1))
 	lb.mu.Lock()
@@ -157,7 +165,9 @@ func (lb *LogBuffer) writeToFile(entry LogEntry) {
 		stream = "ERR"
 	}
 
-	line := fmt.Sprintf("[%s] [%s] [%s] %s\n", timestamp, level, stream, MaskSecretsInLogLine(entry.Message))
+	// entry.Message is masked by Add before it reaches the ring buffer, so
+	// no second pass is needed here.
+	line := fmt.Sprintf("[%s] [%s] [%s] %s\n", timestamp, level, stream, entry.Message)
 	n, err := lb.fileWriter.WriteString(line)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to write log entry: %v\n", err)
@@ -277,7 +287,9 @@ func (lb *LogBuffer) ContainsPatternRegex(pattern string) (bool, error) {
 		return false, fmt.Errorf("invalid regex pattern: %w", err)
 	}
 	actual, _ := regexCache.LoadOrStore(pattern, re)
-	re = actual.(*regexp.Regexp)
+	if cached, ok := actual.(*regexp.Regexp); ok {
+		re = cached
+	}
 
 	for i := 0; i < lb.count; i++ {
 		entry := lb.entries[(lb.head+i)%lb.maxSize]

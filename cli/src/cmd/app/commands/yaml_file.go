@@ -32,10 +32,37 @@ func writeFileAtomic(path string, data []byte) error {
 		return fmt.Errorf("failed to stat %s: %w", cleanPath, err)
 	}
 
-	tmpPath := cleanPath + ".tmp"
-	// #nosec G306 -- azure.yaml needs to remain readable when written.
-	if err := os.WriteFile(tmpPath, data, mode); err != nil {
+	// os.CreateTemp opens with O_CREATE|O_EXCL and a random suffix, so it can
+	// never follow a pre-existing symlink. A fixed "<path>.tmp" name could:
+	// a malicious repo shipping an azure.yaml.tmp symlink would redirect this
+	// write to whatever the symlink targeted. The file is created in the
+	// destination directory so the final rename stays on one filesystem.
+	dir := filepath.Dir(cleanPath)
+	tmp, err := os.CreateTemp(dir, filepath.Base(cleanPath)+".*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file in %s: %w", dir, err)
+	}
+	tmpPath := tmp.Name()
+
+	cleanup := func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+	}
+
+	if _, err := tmp.Write(data); err != nil {
+		cleanup()
 		return fmt.Errorf("failed to write temporary file %s: %w", tmpPath, err)
+	}
+	// CreateTemp always uses 0600; restore the destination's permissions so
+	// azure.yaml stays readable by the tools that expect it to be.
+	// #nosec G302 -- azure.yaml needs to remain readable when written.
+	if err := tmp.Chmod(mode); err != nil {
+		cleanup()
+		return fmt.Errorf("failed to set permissions on %s: %w", tmpPath, err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to close temporary file %s: %w", tmpPath, err)
 	}
 	if err := os.Rename(tmpPath, cleanPath); err != nil {
 		_ = os.Remove(tmpPath)

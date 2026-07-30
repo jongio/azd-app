@@ -216,11 +216,36 @@ func (ts *TrustStore) save(data *trustStoreData) error {
 		return fmt.Errorf("failed to serialize trust store: %w", err)
 	}
 
-	// Write to a temp file first so the final rename is as atomic as the
-	// OS permits (avoids a truncated file if the process is killed mid-write).
-	tmpPath := ts.storePath + ".tmp"
-	if err := os.WriteFile(tmpPath, raw, storeFileMode); err != nil {
+	// os.CreateTemp opens with O_CREATE|O_EXCL and a random suffix, so it can
+	// never follow a pre-existing symlink. A fixed "<path>.tmp" name could: an
+	// attacker who can create files in the store directory could plant a
+	// symlink there and redirect this write to whatever it targeted. The temp
+	// file is created in the destination directory so the rename stays on one
+	// filesystem and remains atomic.
+	tmp, err := os.CreateTemp(dir, filepath.Base(ts.storePath)+".*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary trust store file in %s: %w", dir, err)
+	}
+	tmpPath := tmp.Name()
+
+	cleanup := func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
+	}
+
+	if _, err := tmp.Write(raw); err != nil {
+		cleanup()
 		return fmt.Errorf("failed to write trust store: %w", err)
+	}
+	// CreateTemp always uses 0600; set the mode explicitly so the stored
+	// permissions stay correct even if storeFileMode changes.
+	if err := tmp.Chmod(storeFileMode); err != nil {
+		cleanup()
+		return fmt.Errorf("failed to set trust store permissions: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to close temporary trust store file: %w", err)
 	}
 	if err := os.Rename(tmpPath, ts.storePath); err != nil {
 		_ = os.Remove(tmpPath)

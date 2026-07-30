@@ -95,7 +95,9 @@ func gitTracksFile(dir, path string) bool {
 	if err != nil {
 		rel = path
 	}
-	cmd := exec.Command("git", "-C", dir, "ls-files", "--error-unmatch", "--", rel)
+	// Local git plumbing only, no network I/O, and no ambient context to honour
+	// at any caller in this path.
+	cmd := exec.Command("git", "-C", dir, "ls-files", "--error-unmatch", "--", rel) //nolint:noctx // see above
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
 	return cmd.Run() == nil
