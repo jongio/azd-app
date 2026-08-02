@@ -481,6 +481,34 @@ func TestFindOrCreateAzureYaml(t *testing.T) {
 			t.Errorf("Unresolved %q segment leaked to disk under %s", "sub", testDir)
 		}
 	})
+
+	t.Run("returns error when azure.yaml cannot be written", func(t *testing.T) {
+		testDir, err := os.MkdirTemp(tmpDir, "test-*")
+		if err != nil {
+			t.Fatalf("Failed to create test dir: %v", err)
+		}
+
+		// A regular file used as startDir makes os.WriteFile fail deterministically
+		// on every platform: the parent of startDir/azure.yaml is not a directory.
+		notADir := filepath.Join(testDir, "not-a-dir")
+		if err := os.WriteFile(notADir, []byte("regular file"), 0o600); err != nil {
+			t.Fatalf("Failed to create file: %v", err)
+		}
+
+		path, created, err := findOrCreateAzureYaml(notADir, false)
+		if err == nil {
+			t.Fatal("Expected error when azure.yaml cannot be written, got nil")
+		}
+		if !strings.Contains(err.Error(), "failed to create azure.yaml") {
+			t.Errorf("Expected wrapped write error, got %v", err)
+		}
+		if path != "" {
+			t.Errorf("Expected empty path on write failure, got %q", path)
+		}
+		if created {
+			t.Error("Expected created=false on write failure, got true")
+		}
+	})
 }
 
 func TestMergeReqs(t *testing.T) {
