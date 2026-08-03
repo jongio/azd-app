@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"github.com/jongio/azd-app/cli/src/internal/service"
-	"github.com/jongio/azd-core/procutil"
 	"github.com/jongio/azd-core/registry"
 )
 
@@ -450,8 +450,8 @@ func (m *StateMonitor) notifyListeners(transition StateTransition) {
 	}
 }
 
-// isProcessRunning delegates to procutil.IsProcessRunning for cross-platform process detection.
+// isProcessRunning delegates to azdext.IsProcessRunning for cross-platform process detection.
 // This wrapper maintains backward compatibility while eliminating code duplication.
 func isProcessRunning(pid int) bool {
-	return procutil.IsProcessRunning(pid)
+	return azdext.IsProcessRunning(pid)
 }
