@@ -48,5 +48,6 @@
   "exclude": [
     "**/src/gen/**"
   ],
+  "mode": "atomic",
   "note": "recorded by mage coverageRecord"
 }

@@ -457,7 +457,7 @@ func TestCoverage() error {
 	if _, err := os.Stat("../go.work"); err == nil {
 		pkgPath = "github.com/jongio/azd-app/cli/src/..."
 	}
-	cmd := exec.Command("go", "test", "-short", "-coverprofile="+coverageOut, pkgPath)
+	cmd := exec.Command("go", "test", "-short", "-covermode=atomic", "-coverprofile="+coverageOut, pkgPath)
 	output, testErr := cmd.CombinedOutput()
 	fmt.Print(string(output))
 
@@ -1518,7 +1518,7 @@ func quietTestCoverage() error {
 	if _, err := os.Stat("../go.work"); err == nil {
 		pkgPath = "github.com/jongio/azd-app/cli/src/..."
 	}
-	cmd := exec.Command("go", "test", "-short", "-coverprofile="+coverageOut, pkgPath)
+	cmd := exec.Command("go", "test", "-short", "-covermode=atomic", "-coverprofile="+coverageOut, pkgPath)
 	output, testErr := cmd.CombinedOutput()
 	if testErr != nil {
 		outputStr := string(output)
