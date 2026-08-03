@@ -488,14 +488,16 @@ func TestFindOrCreateAzureYaml(t *testing.T) {
 			t.Fatalf("Failed to create test dir: %v", err)
 		}
 
-		// A regular file used as startDir makes os.WriteFile fail deterministically
-		// on every platform: the parent of startDir/azure.yaml is not a directory.
-		notADir := filepath.Join(testDir, "not-a-dir")
-		if err := os.WriteFile(notADir, []byte("regular file"), 0o600); err != nil {
-			t.Fatalf("Failed to create file: %v", err)
-		}
+		// A startDir that does not exist is the only setup that reaches the
+		// os.WriteFile branch on every platform. security.ValidatePath resolves
+		// symlinks and only tolerates a "does not exist" failure, so the missing
+		// directory yields ENOENT everywhere and validation passes, then
+		// os.WriteFile fails on the absent parent. Using a regular file as
+		// startDir instead would short-circuit in ValidatePath on Linux and macOS,
+		// where EvalSymlinks reports ENOTDIR rather than a missing path.
+		missingDir := filepath.Join(testDir, "does-not-exist")
 
-		path, created, err := findOrCreateAzureYaml(notADir, false)
+		path, created, err := findOrCreateAzureYaml(missingDir, false)
 		if err == nil {
 			t.Fatal("Expected error when azure.yaml cannot be written, got nil")
 		}
