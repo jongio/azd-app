@@ -1,8 +1,11 @@
 package commands
 
 import (
+	"errors"
+
 	"bytes"
 	"encoding/json"
+	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,8 +22,8 @@ func TestNewGraphCommand(t *testing.T) {
 	if cmd.Use != "graph" {
 		t.Fatalf("Use = %q, want graph", cmd.Use)
 	}
-	if cmd.Flags().Lookup("output") == nil {
-		t.Fatal("output flag not found")
+	if cmd.Flags().Lookup("format") == nil {
+		t.Fatal("format flag not found")
 	}
 	if cmd.Flags().Lookup("focus") == nil {
 		t.Fatal("focus flag not found")
@@ -109,11 +112,15 @@ func TestFocusGraphResult(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for unknown focus")
 		}
-		if !strings.Contains(err.Error(), "not found in the graph") {
-			t.Fatalf("unexpected error: %v", err)
+		var local *azdext.LocalError
+		if !errors.As(err, &local) {
+			t.Fatalf("expected *azdext.LocalError, got %T: %v", err, err)
 		}
-		if !strings.Contains(err.Error(), "api") {
-			t.Fatalf("error should list available nodes: %v", err)
+		if local.Code != ErrCodeServiceNotFound {
+			t.Fatalf("Code = %q, want %q", local.Code, ErrCodeServiceNotFound)
+		}
+		if !strings.Contains(local.Suggestion, "api") {
+			t.Fatalf("suggestion should list available nodes: %v", local.Suggestion)
 		}
 	})
 }
@@ -271,7 +278,7 @@ services:
 	if err == nil {
 		t.Fatal("expected error for unknown focus service")
 	}
-	if !strings.Contains(err.Error(), "not found in the graph") {
+	if !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -612,7 +619,7 @@ func TestRunGraphInvalidFormat(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for invalid format")
 	}
-	if !strings.Contains(err.Error(), "invalid output format") {
+	if !strings.Contains(err.Error(), "invalid --format value") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

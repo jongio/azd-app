@@ -19,7 +19,7 @@ func TestNewSupportBundleCommand(t *testing.T) {
 	if cmd.Use != "support-bundle" {
 		t.Fatalf("Use = %q, want support-bundle", cmd.Use)
 	}
-	for _, name := range []string{"output", "tail", "service", "dry-run", "zip"} {
+	for _, name := range []string{"output-dir", "tail", "service", "dry-run", "zip"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("%s flag not found", name)
 		}

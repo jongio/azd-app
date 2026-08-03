@@ -69,6 +69,14 @@ func NewTestCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// --environment/-e is an azd reserved global flag. Defining a local
+			// copy here shadowed it, so `azd app test -e prod` set this value
+			// but left the host's own environment unset. Read the inherited
+			// persistent flag instead, which keeps the behavior and lets azd
+			// see the same value.
+			if flag := cmd.Flags().Lookup("environment"); flag != nil {
+				opts.Environment = flag.Value.String()
+			}
 			return runTests(commandOrchestrator, opts)
 		},
 	}
@@ -91,7 +99,6 @@ func NewTestCommand() *cobra.Command {
 	cmd.Flags().DurationVar(&opts.Timeout, "timeout", 10*time.Minute, "Per-service test timeout (e.g., 5m, 30s, 1h)")
 	cmd.Flags().BoolVar(&opts.Save, "save", false, "Save auto-detected test config to azure.yaml without prompting")
 	cmd.Flags().BoolVar(&opts.NoSave, "no-save", false, "Don't prompt to save auto-detected test config")
-	cmd.Flags().StringVarP(&opts.Environment, "environment", "e", "", "Target azd environment name (loads vars from .azure/<env>/.env)")
 	cmd.Flags().BoolVar(&opts.Changed, "changed", false, "Only test services with files changed since --changed-base")
 	cmd.Flags().StringVar(&opts.ChangedBase, "changed-base", "HEAD", "Git ref to compare against for --changed (e.g. HEAD, origin/main)")
 

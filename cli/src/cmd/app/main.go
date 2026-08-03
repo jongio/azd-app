@@ -18,6 +18,16 @@ import (
 var structuredLogs bool
 
 func main() {
+	// azdext.Run owns the lifecycle: FORCE_COLOR handling, cobra SilenceErrors,
+	// context creation with tracing propagation, gRPC access token injection,
+	// reserved-flag validation, structured error reporting back to the azd host,
+	// error and suggestion display, and the exit status.
+	azdext.Run(newRootCmd())
+}
+
+// newRootCmd builds the full command tree. It is a function rather than inline
+// setup in main so tests can construct the same tree the binary runs.
+func newRootCmd() *cobra.Command {
 	// Use the standard extension root command which provides:
 	// - Standard azd flags (--debug, --no-prompt, --cwd, -e, --output)
 	// - AZD_* environment variable fallback for all flags
@@ -123,8 +133,5 @@ func main() {
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
 	)
 
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	return rootCmd
 }

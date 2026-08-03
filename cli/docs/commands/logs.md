@@ -34,7 +34,7 @@ azd app logs [service-name] [flags]
 | `--level` | | string | `all` | Filter by log level (info, warn, error, debug, all) |
 | `--min-level` | | string | | Show entries at this severity or higher (debug < info < warn < error); cannot be combined with an explicit --level (info/warn/error/debug) or --context |
 | `--context` | | int | `0` | Number of context lines before/after matching entries (0-10, requires --level) |
-| `--output` | `-o` | string | `text` | Output format (text, json) |
+| `--format` | | string | `text` | Output format (text, json) |
 | `--file` | | string | | Write logs to file instead of stdout |
 | `--exclude` | | string | | Regex patterns to exclude (comma-separated) |
 | `--no-builtins` | | bool | `false` | Disable built-in filter patterns |
@@ -491,7 +491,7 @@ azd app logs --file debug.log
 azd app logs -f --file live.log
 
 # JSON to file
-azd app logs --output json --file data.jsonl
+azd app logs --format json --file data.jsonl
 ```
 
 **Security**: Output path is validated to prevent path traversal attacks
@@ -531,7 +531,7 @@ azd app logs --level error --context 3
 azd app logs -f --level error
 
 # Export errors with context as JSON for analysis
-azd app logs --level error --context 5 --output json --file errors.jsonl
+azd app logs --level error --context 5 --format json --file errors.jsonl
 ```
 
 ### 4. Time-Based Investigation
@@ -548,7 +548,7 @@ azd app logs --since 1h --level error
 
 ```bash
 # Export as JSON
-azd app logs --output json --file logs.jsonl
+azd app logs --format json --file logs.jsonl
 
 # Can then analyze with jq:
 cat logs.jsonl | jq 'select(.level == 2)'
@@ -591,7 +591,7 @@ azd app logs --level error --since 1h --file errors.log
     ↓
 4. Pattern Filter   (--exclude, azure.yaml logFilters, built-ins)
     ↓
-5. Format/Display   (--output, --timestamps, --no-color)
+5. Format/Display   (--format, --timestamps, --no-color)
 ```
 
 ## Pattern-Based Filtering
@@ -789,7 +789,7 @@ For 10 services: ~2 MB total
 2. **Filter by Service**: Reduce noise when debugging specific services
 3. **Export Errors**: Save error logs for later analysis
 4. **Combine with grep**: `azd app logs | grep "pattern"` for ad-hoc searching
-5. **JSON for Automation**: Use `--output json` in scripts
+5. **JSON for Automation**: Use `--format json` in scripts
 6. **Tail for Performance**: Use `--tail` to limit output for large log volumes
 
 ## Related Commands
@@ -837,7 +837,7 @@ azd app logs --source azure --level error
 azd app logs --source azure --since 24h --file azure-logs.txt
 
 # Combined local + Azure logs with JSON format
-azd app logs --source all --output json
+azd app logs --source all --format json
 ```
 
 ### Configuration
@@ -917,7 +917,7 @@ $ azd app logs --level error --since 1h
 ### Example 4: JSON Export
 
 ```bash
-$ azd app logs --output json --file logs.jsonl
+$ azd app logs --format json --file logs.jsonl
 
 $ cat logs.jsonl | jq -r 'select(.level == 2) | .message'
 ERROR: Connection timeout to database

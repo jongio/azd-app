@@ -1,7 +1,7 @@
 {
-  "total": 65,
+  "total": 65.1,
   "packages": {
-    "github.com/jongio/azd-app/cli/src/cmd/app": 0,
+    "github.com/jongio/azd-app/cli/src/cmd/app": 24,
     "github.com/jongio/azd-app/cli/src/cmd/app/commands": 64.6,
     "github.com/jongio/azd-app/cli/src/cmd/docsgate": 90.4,
     "github.com/jongio/azd-app/cli/src/internal/azdconfig": 47.1,

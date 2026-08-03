@@ -340,7 +340,7 @@ func validateLogsOptions(opts *logsOptions) error {
 	case "text", jsonOutputVal:
 		// Valid formats
 	default:
-		return fmt.Errorf("--output must be 'text' or 'json', got '%s'", opts.output)
+		return fmt.Errorf("--format must be 'text' or 'json', got '%s'", opts.output)
 	}
 
 	// Validate level

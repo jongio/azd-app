@@ -994,7 +994,7 @@ azd app health --service web,api
 azd app health --stream --interval 10s
 
 # Output as JSON for automation
-azd app health --output json
+azd app health --format json
 ```
 
 **Production Features:**
@@ -1026,7 +1026,7 @@ azd app health --save-profiles
 | `--service` | `-s` | string | | Monitor specific service(s) only (comma-separated) |
 | `--stream` | | bool | `false` | Enable streaming mode for real-time updates |
 | `--interval` | `-i` | duration | `5s` | Interval between health checks in streaming mode |
-| `--output` | `-o` | string | `text` | Output format: 'text', 'json', 'table' |
+| `--format` | `-f` | string | `text` | Output format: 'text', 'json', 'table' |
 | `--endpoint` | | string | `/health` | Default health endpoint path to check |
 | `--timeout` | | duration | `5s` | Timeout for each health check |
 | `--all` | | bool | `false` | Show health for all projects on this machine |
@@ -1383,29 +1383,29 @@ azd app graph [flags]
 azd app graph
 
 # Mermaid flowchart written to a file
-azd app graph --output mermaid --output-file docs/services.mmd
+azd app graph --format mermaid --output-file docs/services.mmd
 
 # Graphviz DOT to stdout
-azd app graph --output dot
+azd app graph --format dot
 
 # D2 diagram written to a file
-azd app graph --output d2 --output-file docs/services.d2
+azd app graph --format d2 --output-file docs/services.d2
 
 # Markdown tables for docs or issue comments
-azd app graph --output markdown
+azd app graph --format markdown
 
 # Just the api service and its connected nodes
 azd app graph --focus api
 
 # Service-only Mermaid diagram
-azd app graph --services-only --output mermaid
+azd app graph --services-only --format mermaid
 ```
 
 ### Flags
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--output` | `-o` | string | `text` | Output format: `text`, `json`, `markdown`, `mermaid`, `dot`, or `d2` |
+| `--format` | `-f` | string | `text` | Output format: `text`, `json`, `markdown`, `mermaid`, `dot`, or `d2` |
 | `--output-file` | | string | | Write output to this file instead of stdout |
 | `--focus` | | string | | Limit the graph to a service, its dependencies, and its dependents |
 | `--services-only` | | bool | `false` | Show only services and service-to-service edges |
@@ -1648,7 +1648,7 @@ azd app support-bundle --tail 1000
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--output` | `-o` | string | | Output folder path |
+| `--output-dir` | | string | | Output folder path |
 | `--service` | `-s` | string | | Include logs and health for specific service(s), comma-separated |
 | `--tail` | | int | `200` | Recent log lines per service to include |
 | `--zip` | | bool | `false` | Create a zip archive after writing the support bundle |

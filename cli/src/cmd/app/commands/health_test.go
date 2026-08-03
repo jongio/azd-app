@@ -33,7 +33,7 @@ func TestHealthCommandFlags(t *testing.T) {
 		{"service flag", "service", "string"},
 		{"stream flag", "stream", "bool"},
 		{"interval flag", "interval", "duration"},
-		{"output flag", "output", "string"},
+		{"format flag", "format", "string"},
 		{"endpoint flag", "endpoint", "string"},
 		{"timeout flag", "timeout", "duration"},
 		{"all flag", "all", "bool"},

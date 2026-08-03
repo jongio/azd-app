@@ -61,7 +61,7 @@ func NewGraphCommand() *cobra.Command {
 		Short: "Show the service dependency graph",
 		Long: `Show services, resources, dependency edges, and startup levels from azure.yaml.
 
-Use --output to change the output. text, json, and markdown print to stdout.
+Use --format to change the output. text, json, and markdown print to stdout.
 mermaid, dot, d2, and plantuml emit a diagram you can drop into a README or an
 architecture doc. Combine with --output-file to write the result to a file
 instead of stdout.
@@ -78,31 +78,31 @@ Examples:
   azd app graph
 
   # Mermaid flowchart written to a file
-  azd app graph --output mermaid --output-file docs/services.mmd
+  azd app graph --format mermaid --output-file docs/services.mmd
 
   # Graphviz DOT to stdout
-  azd app graph --output dot
+  azd app graph --format dot
 
   # D2 diagram written to a file
-  azd app graph --output d2 --output-file docs/services.d2
+  azd app graph --format d2 --output-file docs/services.d2
 
   # PlantUML component diagram written to a file
-  azd app graph --output plantuml --output-file docs/services.puml
+  azd app graph --format plantuml --output-file docs/services.puml
 
   # Markdown tables for docs or issue comments
-  azd app graph --output markdown
+  azd app graph --format markdown
 
   # Just the api service and its connected nodes
   azd app graph --focus api
 
   # Service-only Mermaid diagram
-  azd app graph --services-only --output mermaid`,
+  azd app graph --services-only --format mermaid`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runGraph(opts)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.output, "output", "o", graphOutputText, "Output format: text, json, markdown, mermaid, dot, d2, or plantuml")
+	cmd.Flags().StringVarP(&opts.output, "format", "f", graphOutputText, "Output format: text, json, markdown, mermaid, dot, d2, or plantuml")
 	cmd.Flags().StringVar(&opts.outputFile, "output-file", "", "Write output to this file instead of stdout")
 	cmd.Flags().StringVar(&opts.focus, "focus", "", "Limit the graph to a service, its dependencies, and its dependents")
 	cmd.Flags().BoolVar(&opts.servicesOnly, "services-only", false, "Show only services and service-to-service edges")
@@ -122,7 +122,7 @@ func runGraph(opts *graphOptions) error {
 	switch opts.output {
 	case graphOutputText, graphOutputJSON, graphOutputMarkdown, graphOutputMermaid, graphOutputDOT, graphOutputD2, graphOutputPlantUML:
 	default:
-		return fmt.Errorf("invalid output format: %s (must be text, json, markdown, mermaid, dot, d2, or plantuml)", opts.output)
+		return newInvalidFlagValueError("format", opts.output, []string{graphOutputText, "json", "markdown", "mermaid", "dot", "d2", "plantuml"})
 	}
 
 	azureYamlPath, err := findAzureYaml()
@@ -253,8 +253,7 @@ func focusGraphResult(result graphResult, focus string) (graphResult, error) {
 			names = append(names, n.Name)
 		}
 		sort.Strings(names)
-		return graphResult{}, fmt.Errorf("service %q not found in the graph. Available: %s",
-			focus, strings.Join(names, ", "))
+		return graphResult{}, newServiceNotFoundError(focus, names)
 	}
 
 	// deps maps a node to the nodes it depends on; dependents is the reverse.

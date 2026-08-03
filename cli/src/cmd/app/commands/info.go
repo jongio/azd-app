@@ -101,7 +101,7 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	}
 
 	if infoNames && infoWatch {
-		return fmt.Errorf("--names cannot be used with --watch")
+		return newInvalidFlagUsageError("--names cannot be used with --watch", "Use --names for a one-shot list, or --watch to follow changes, but not both.")
 	}
 
 	// --watch is an interactive text view. The global --json flag always wins and

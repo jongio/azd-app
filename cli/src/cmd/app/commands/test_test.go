@@ -8,6 +8,7 @@ import (
 
 	testrunner "github.com/jongio/azd-app/cli/src/internal/testing"
 	"github.com/jongio/azd-core/cliout"
+	"github.com/spf13/cobra"
 )
 
 // TestNewTestCommand verifies that the test command is created correctly.
@@ -381,22 +382,33 @@ func TestDisplayTestResults_EmptyServices(t *testing.T) {
 	displayTestResults(result)
 }
 
-// TestEnvFlagRegistered tests that --environment flag is registered with -e shortcut.
-func TestEnvFlagRegistered(t *testing.T) {
+// TestEnvFlagNotShadowed verifies the test command does not define its own
+// --environment flag. azd reserves --environment/-e globally, and a local copy
+// shadowed it so azd never saw the value the user passed. The command now reads
+// the inherited persistent flag instead.
+func TestEnvFlagNotShadowed(t *testing.T) {
 	cmd := NewTestCommand()
 
-	envFlag := cmd.Flags().Lookup("environment")
-	if envFlag == nil {
-		t.Fatal("Expected --environment flag to be registered")
+	if flag := cmd.Flags().Lookup("environment"); flag != nil {
+		t.Fatal("test command must not define a local --environment flag; it shadows the azd global flag")
+	}
+	if flag := cmd.Flags().ShorthandLookup("e"); flag != nil {
+		t.Fatalf("test command must not define a local -e shorthand, found %q", flag.Name)
 	}
 
-	if envFlag.DefValue != "" {
-		t.Errorf("Expected environment default to be empty, got %q", envFlag.DefValue)
-	}
+	root := &cobra.Command{Use: "app"}
+	root.PersistentFlags().StringP("environment", "e", "", "azd environment name")
+	root.AddCommand(cmd)
 
-	shortFlag := cmd.Flags().ShorthandLookup("e")
-	if shortFlag == nil || shortFlag.Name != "environment" {
-		t.Error("Expected -e shortcut for --environment flag")
+	if err := cmd.ParseFlags([]string{"-e", "staging"}); err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+	inherited := cmd.Flags().Lookup("environment")
+	if inherited == nil {
+		t.Fatal("expected --environment to resolve from the inherited persistent flag")
+	}
+	if got := inherited.Value.String(); got != "staging" {
+		t.Errorf("inherited environment = %q, want %q", got, "staging")
 	}
 }
 

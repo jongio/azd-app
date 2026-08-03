@@ -1,3 +1,9 @@
+## [Unreleased]
+
+- fix(flags)!: rename subcommand flags that shadowed azd global flags. azd reserves `--output`/`-o` and `--environment`/`-e` for itself, and the extension SDK now refuses to start when a subcommand defines a conflicting local flag. Four commands change: `azd app graph` and `azd app health` take `--format`/`-f` instead of `--output`/`-o`; `azd app logs` takes `--format`, which already existed as a hidden alias and has no shorthand because `-f` is `--follow`; `azd app support-bundle` takes `--output-dir` instead of `--output`/`-o`. This reverses the earlier logs rename from `--format` to `--output`.
+- fix(test): read `--environment`/`-e` from azd's global flag instead of defining a local copy. The local flag shadowed azd's own, so `azd app test -e prod` set the subcommand value but left azd's environment unset. The command line doesn't change.
+- fix(flags): stop shadowing `--output` so `azd app graph`, `health`, `logs`, and `support-bundle` see the output format azd resolved. Previously the local flag won and azd's `--output json` never reached these commands.
+
 ## [0.20.0] - 2026-07-24
 
 - feat: add local container orchestration for azd app run (#549) (dd47eb39)

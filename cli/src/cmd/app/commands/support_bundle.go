@@ -74,7 +74,7 @@ Pass --zip to also create a shareable zip archive.`,
 			return runSupportBundle(cmd.Context(), opts)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.output, "output", "o", "", "Output folder path")
+	cmd.Flags().StringVar(&opts.output, "output-dir", "", "Output folder path")
 	cmd.Flags().IntVar(&opts.tail, "tail", defaultSupportBundleTail, "Recent log lines per service to include")
 	cmd.Flags().StringVarP(&opts.service, "service", "s", "", "Include logs and health for specific service(s), comma-separated")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "Show the bundle plan without writing files")

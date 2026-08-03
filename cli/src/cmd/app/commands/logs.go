@@ -276,10 +276,10 @@ Examples:
   azd app logs --file logs.txt
 
   # Output as JSON for processing
-  azd app logs --output json
+  azd app logs --format json
 
   # Output errors as JSON with context
-  azd app logs --level error --context 3 --output json
+  azd app logs --level error --context 3 --format json
 
   # Show counts by service and level
   azd app logs --summary
@@ -308,11 +308,11 @@ Examples:
 	cmd.Flags().BoolVar(&opts.noColor, "no-color", false, "Disable colored output")
 	cmd.Flags().StringVar(&opts.level, "level", "all", "Filter by log level (info, warn, error, debug, all)")
 	cmd.Flags().StringVar(&opts.minLevel, "min-level", "", "Show entries at this severity or higher (debug < info < warn < error); cannot be combined with an explicit --level (info/warn/error/debug) or --context")
-	cmd.Flags().StringVarP(&opts.output, "output", "o", "text", "Output format (text, json)")
-
-	// Keep --format as hidden alias for backward compatibility
+	// --output/-o used to live here, but azd reserves both the long and short
+	// form for its own global output flag, and a local definition silently
+	// shadowed it. --format carries the same values and is now the documented
+	// flag. There is no shorthand because -f is taken by --follow.
 	cmd.Flags().StringVar(&opts.output, "format", "text", "Output format (text, json)")
-	_ = cmd.Flags().MarkHidden("format")
 	cmd.Flags().StringVar(&opts.file, "file", "", "Write logs to file instead of stdout")
 	cmd.Flags().StringVar(&opts.exclude, "exclude", "", "Regex patterns to exclude (comma-separated)")
 	cmd.Flags().StringVar(&opts.grep, "grep", "", "Only show log lines matching this regex (applied after --exclude)")

@@ -43,7 +43,7 @@ func TestRunHealthValidation(t *testing.T) {
 			interval:      5 * time.Second,
 			timeout:       5 * time.Second,
 			output:        "xml",
-			expectedError: "invalid output format: must be 'text', 'json', or 'table'",
+			expectedError: `invalid --format value "xml"`,
 		},
 	}
 
@@ -54,7 +54,7 @@ func TestRunHealthValidation(t *testing.T) {
 			// Set flags through command instead of global vars
 			_ = cmd.Flags().Set("interval", tt.interval.String())
 			_ = cmd.Flags().Set("timeout", tt.timeout.String())
-			_ = cmd.Flags().Set("output", tt.output)
+			_ = cmd.Flags().Set("format", tt.output)
 
 			err := cmd.RunE(cmd, []string{})
 

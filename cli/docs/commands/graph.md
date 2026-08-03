@@ -20,7 +20,7 @@ A startup level groups the services that can start in parallel. Level 0 has no d
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--output` | `-o` | string | `text` | Output format: `text`, `json`, `markdown`, `mermaid`, `dot`, or `d2` |
+| `--format` | `-f` | string | `text` | Output format: `text`, `json`, `markdown`, `mermaid`, `dot`, or `d2` |
 | `--output-file` | | string | | Write output to this file instead of stdout |
 | `--focus` | | string | | Limit the graph to a service, its dependencies, and its dependents |
 | `--services-only` | | bool | `false` | Show only services and service-to-service edges |
@@ -55,31 +55,31 @@ azd app graph
 ### Mermaid flowchart written to a file
 
 ```bash
-azd app graph --output mermaid --output-file docs/services.mmd
+azd app graph --format mermaid --output-file docs/services.mmd
 ```
 
 ### Graphviz DOT to stdout
 
 ```bash
-azd app graph --output dot
+azd app graph --format dot
 ```
 
 Render it:
 
 ```bash
-azd app graph --output dot | dot -Tpng -o services.png
+azd app graph --format dot | dot -Tpng -o services.png
 ```
 
 ### D2 diagram written to a file
 
 ```bash
-azd app graph --output d2 --output-file docs/services.d2
+azd app graph --format d2 --output-file docs/services.d2
 ```
 
 ### Markdown tables for docs or issue comments
 
 ```bash
-azd app graph --output markdown
+azd app graph --format markdown
 ```
 
 ### Just one service and its connected nodes
@@ -91,7 +91,7 @@ azd app graph --focus api
 ### Service-only Mermaid diagram
 
 ```bash
-azd app graph --services-only --output mermaid
+azd app graph --services-only --format mermaid
 ```
 
 ## Exit Codes

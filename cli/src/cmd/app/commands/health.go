@@ -102,7 +102,7 @@ Examples:
 	cmd.Flags().StringVarP(&healthService, "service", "s", "", "Monitor specific service(s) only (comma-separated)")
 	cmd.Flags().BoolVar(&healthStream, "stream", false, "Enable streaming mode for real-time updates")
 	cmd.Flags().DurationVarP(&healthInterval, "interval", "i", defaultHealthInterval, "Interval between health checks in streaming mode")
-	cmd.Flags().StringVarP(&healthOutput, "output", "o", "text", "Output format: 'text', 'json', 'table'")
+	cmd.Flags().StringVarP(&healthOutput, "format", "f", "text", "Output format: 'text', 'json', 'table'")
 	cmd.Flags().StringVar(&healthEndpoint, "endpoint", defaultHealthEndpoint, "Default health endpoint path to check")
 	cmd.Flags().DurationVar(&healthTimeout, "timeout", defaultHealthTimeout, "Timeout for each health check")
 	cmd.Flags().BoolVar(&healthAll, "all", false, "Show health for all projects on this machine")
@@ -295,7 +295,7 @@ func validateHealthFlags() error {
 		return fmt.Errorf("interval (%v) must be greater than timeout (%v) in streaming mode", healthInterval, healthTimeout)
 	}
 	if healthOutput != "text" && healthOutput != jsonOutputVal && healthOutput != "table" {
-		return fmt.Errorf("invalid output format: must be 'text', 'json', or 'table'")
+		return newInvalidFlagValueError("format", healthOutput, []string{"text", "json", "table"})
 	}
 	// Validate metrics port is in valid range
 	if healthEnableMetrics && (healthMetricsPort < 1 || healthMetricsPort > 65535) {
@@ -364,10 +364,10 @@ func runStaticMode(ctx context.Context, monitor *healthcheck.HealthMonitor, serv
 
 func healthReportExitError(report *healthcheck.HealthReport) error {
 	if report.Summary.Unhealthy > 0 {
-		return fmt.Errorf("%d service(s) unhealthy", report.Summary.Unhealthy)
+		return newCheckFailedError(fmt.Sprintf("%d service(s) unhealthy", report.Summary.Unhealthy), "Run `azd app logs` to see why, or `azd app restart` to bring the services back up.")
 	}
 	if healthFailOnDegraded && report.Summary.Degraded > 0 {
-		return fmt.Errorf("%d service(s) degraded", report.Summary.Degraded)
+		return newCheckFailedError(fmt.Sprintf("%d service(s) degraded", report.Summary.Degraded), "Run `azd app logs` to see why. Drop --fail-on-degraded to treat degraded services as passing.")
 	}
 	return nil
 }
