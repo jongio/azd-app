@@ -11,7 +11,7 @@
   "dependencies": {
     "@azure/storage-blob": "^12.33.0",
     "@azure/cosmos": "^4.10.0",
-    "redis": "^6.1.0",
+    "redis": "^6.2.0",
     "pg": "^8.22.0"
   }
 }

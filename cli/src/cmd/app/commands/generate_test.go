@@ -1,10 +1,13 @@
 package commands
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jongio/azd-core/security"
 )
 
 func TestNormalizeVersion(t *testing.T) {
@@ -443,14 +446,69 @@ func TestFindOrCreateAzureYaml(t *testing.T) {
 		}
 	})
 
-	t.Run("rejects path traversal", func(t *testing.T) {
-		// Attempt to create azure.yaml with path traversal
-		maliciousDir := filepath.Join(tmpDir, "..", "..", "..", "etc")
+	t.Run("normalizes parent directory references", func(t *testing.T) {
+		testDir, err := os.MkdirTemp(tmpDir, "test-*")
+		if err != nil {
+			t.Fatalf("Failed to create test dir: %v", err)
+		}
 
-		_, _, err := findOrCreateAzureYaml(maliciousDir, false)
-		// Should fail due to security validation
+		// Build the path by concatenation rather than filepath.Join so the ".."
+		// survives into the argument: Join would clean it away before the call.
+		sep := string(filepath.Separator)
+		traversalDir := testDir + sep + "sub" + sep + ".."
+
+		path, created, err := findOrCreateAzureYaml(traversalDir, false)
+		if err != nil {
+			t.Fatalf("findOrCreateAzureYaml failed: %v", err)
+		}
+
+		if !created {
+			t.Errorf("Expected created=true, got false")
+		}
+
+		// The ".." must resolve back to testDir, so azure.yaml lands inside the
+		// directory we were handed and never escapes to "sub" or above testDir.
+		expected := filepath.Join(testDir, "azure.yaml")
+		if path != expected {
+			t.Errorf("Expected path=%q, got %q", expected, path)
+		}
+
+		if _, err := os.Stat(expected); err != nil {
+			t.Errorf("azure.yaml was not created at %s: %v", expected, err)
+		}
+
+		if _, err := os.Stat(filepath.Join(testDir, "sub")); !os.IsNotExist(err) {
+			t.Errorf("Unresolved %q segment leaked to disk under %s", "sub", testDir)
+		}
+	})
+
+	t.Run("returns error when azure.yaml cannot be written", func(t *testing.T) {
+		testDir, err := os.MkdirTemp(tmpDir, "test-*")
+		if err != nil {
+			t.Fatalf("Failed to create test dir: %v", err)
+		}
+
+		// A startDir that does not exist is the only setup that reaches the
+		// os.WriteFile branch on every platform. security.ValidatePath resolves
+		// symlinks and only tolerates a "does not exist" failure, so the missing
+		// directory yields ENOENT everywhere and validation passes, then
+		// os.WriteFile fails on the absent parent. Using a regular file as
+		// startDir instead would short-circuit in ValidatePath on Linux and macOS,
+		// where EvalSymlinks reports ENOTDIR rather than a missing path.
+		missingDir := filepath.Join(testDir, "does-not-exist")
+
+		path, created, err := findOrCreateAzureYaml(missingDir, false)
 		if err == nil {
-			t.Error("Expected error for path traversal, got nil")
+			t.Fatal("Expected error when azure.yaml cannot be written, got nil")
+		}
+		if !strings.Contains(err.Error(), "failed to create azure.yaml") {
+			t.Errorf("Expected wrapped write error, got %v", err)
+		}
+		if path != "" {
+			t.Errorf("Expected empty path on write failure, got %q", path)
+		}
+		if created {
+			t.Error("Expected created=false on write failure, got true")
 		}
 	})
 }
@@ -519,8 +577,11 @@ reqs:
 	})
 
 	t.Run("validates path", func(t *testing.T) {
-		// Attempt path traversal
-		maliciousPath := filepath.Join(tmpDir, "..", "..", "..", "etc", "passwd")
+		// Build the path by concatenation rather than filepath.Join so the ".."
+		// survives into the argument: Join would clean it away, leaving a path
+		// that sails past the guard and reads a real file (e.g. /etc/passwd).
+		sep := string(filepath.Separator)
+		maliciousPath := tmpDir + sep + ".." + sep + ".." + sep + "etc" + sep + "passwd"
 
 		detected := []DetectedRequirement{
 			{Name: "node", MinVersion: "22.0.0"},
@@ -528,7 +589,11 @@ reqs:
 
 		_, _, err := mergeReqs(maliciousPath, detected)
 		if err == nil {
-			t.Error("Expected error for path traversal, got nil")
+			t.Fatal("Expected error for path traversal, got nil")
+		}
+		// Assert the traversal guard fired, not just that some unrelated read failed.
+		if !errors.Is(err, security.ErrPathTraversal) {
+			t.Errorf("Expected ErrPathTraversal, got %v", err)
 		}
 	})
 

@@ -1476,6 +1476,7 @@ func quietSecurity() error {
 		"-severity=high",
 		"-confidence=high",
 		"-quiet",
+		"-exclude-dir=testdata",
 		"-include=G101,G102,G201,G202,G301,G305,G402,G403",
 		goSrcPattern,
 	)
@@ -2018,6 +2019,7 @@ func runQuickSecurity() error {
 		"-severity=high",
 		"-confidence=high",
 		"-quiet",
+		"-exclude-dir=testdata",
 		"-include=G101,G102,G201,G202,G301,G305,G402,G403",
 		goSrcPattern,
 	); err != nil {
@@ -2044,7 +2046,8 @@ func runGosec() error {
 		"-fmt=text",
 		"-exclude=G304,G307", // Exclude file paths and deferred error checks (we handle these)
 		"-nosec",             // Respect #nosec comments
-		goSrcPattern,         // Only scan src directory
+		"-exclude-dir=testdata",
+		goSrcPattern, // Only scan src directory
 	); err != nil {
 		fmt.Println("⚠️  Security scan failed. Ensure gosec is installed:")
 		fmt.Println("    go install github.com/securego/gosec/v2/cmd/gosec@latest")

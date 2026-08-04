@@ -13,20 +13,6 @@ const commandsCollection = defineCollection({
   }),
 });
 
-// Schema for guided tour steps
-const tourCollection = defineCollection({
-  loader: glob({ pattern: '**/*.{md,mdx}', base: './src/content/tour' }),
-  schema: z.object({
-    title: z.string(),
-    description: z.string(),
-    step: z.number(),
-    screenshot: z.string().optional(),
-    nextStep: z.string().optional(),
-    prevStep: z.string().optional(),
-  }),
-});
-
 export const collections = {
   commands: commandsCollection,
-  tour: tourCollection,
 };

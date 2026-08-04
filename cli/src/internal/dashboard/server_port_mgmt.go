@@ -312,22 +312,12 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			}
 		}()
 
-		// Monitor for server errors in background
-		go func(port int) {
-			select {
-			case err := <-errChan:
-				if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
-					slog.Warn("dashboard server encountered port conflict", "port", port, "error", err)
-				} else {
-					slog.Error("dashboard server encountered error after startup", "port", port, "error", err)
-				}
-			case <-s.stopChan:
-				return
-			}
-		}(port)
-
 		time.Sleep(100 * time.Millisecond)
 
+		// As in Start(), this check must be the sole consumer of errChan while it
+		// runs. A monitor goroutine started before it would swallow the bind error
+		// and make a failed attempt look successful. Starting it per attempt also
+		// leaked one goroutine for every port that failed.
 		select {
 		case <-errChan:
 			// This port also failed, try next
@@ -336,7 +326,21 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 			}
 			continue
 		default:
-			// Successfully started - register the new port in azdconfig
+			// Successfully started - monitor this port for later failures
+			go func(port int) {
+				select {
+				case err := <-errChan:
+					if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
+						slog.Warn("dashboard server encountered port conflict", "port", port, "error", err)
+					} else {
+						slog.Error("dashboard server encountered error after startup", "port", port, "error", err)
+					}
+				case <-s.stopChan:
+					return
+				}
+			}(port)
+
+			// register the new port in azdconfig
 			s.registerPortInConfig(port)
 			// Persist the session token so azd app stop can authenticate.
 			writeTokenFile(s.projectDir, s.sessionToken)

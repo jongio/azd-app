@@ -172,21 +172,6 @@ func (s *Server) Start() (string, error) {
 		}
 	}()
 
-	// Monitor for server errors in background
-	go func() {
-		select {
-		case err := <-errChan:
-			if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
-				slog.Warn("dashboard server encountered port conflict after startup", "error", err)
-				slog.Warn("another instance may be running; check for other azd app run processes")
-			} else {
-				slog.Error("dashboard server encountered error after startup", "error", err)
-			}
-		case <-s.stopChan:
-			return
-		}
-	}()
-
 	// Give server time to start
 	time.Sleep(constants.ServerStartupDelay)
 
@@ -195,7 +180,12 @@ func (s *Server) Start() (string, error) {
 	s.started = true
 	s.startedMu.Unlock()
 
-	// Check if there was an immediate error (like port already in use)
+	// Check if there was an immediate error (like port already in use).
+	// This check must be the only consumer of errChan until it completes.
+	// Starting the long-lived monitor goroutine before this point let it win the
+	// race for the single buffered error, so the bind failure was logged as a
+	// post-startup warning while Start() fell through to the success path and
+	// returned a port the server never bound.
 	select {
 	case err := <-errChan:
 		// Check if this is a port-in-use error
@@ -213,6 +203,23 @@ func (s *Server) Start() (string, error) {
 	default:
 		// Server started successfully
 	}
+
+	// Startup succeeded, so hand errChan over to the background monitor. The
+	// channel is buffered, so an error raised between the check above and this
+	// point is still delivered rather than dropped.
+	go func() {
+		select {
+		case err := <-errChan:
+			if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
+				slog.Warn("dashboard server encountered port conflict after startup", "error", err)
+				slog.Warn("another instance may be running; check for other azd app run processes")
+			} else {
+				slog.Error("dashboard server encountered error after startup", "error", err)
+			}
+		case <-s.stopChan:
+			return
+		}
+	}()
 
 	url := fmt.Sprintf("http://localhost:%d", port)
 
