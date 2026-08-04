@@ -868,14 +868,30 @@ func TestAllToolsHaveTitles(t *testing.T) {
 		"check_requirements":        "Check Prerequisites",
 		"get_environment_variables": "Get Environment Variables",
 		"set_environment_variable":  "Set Environment Variable",
+		"start_service":             "Start Service",
 	}
 
-	for name, title := range expected {
+	// Enumerate what is actually registered rather than trusting the map above.
+	// A hand-maintained list can only check the tools someone remembered to add
+	// to it, so a new tool with no title stayed invisible; start_service was
+	// missing here for exactly that reason.
+	registered := s.ListTools()
+
+	for name, tool := range registered {
 		t.Run(name, func(t *testing.T) {
-			tool := s.GetTool(name)
-			require.NotNil(t, tool, "tool %s should be registered", name)
+			require.NotEmpty(
+				t, tool.Tool.Annotations.Title,
+				"tool %s has no title annotation, which the MCP spec requires", name,
+			)
+
+			title, known := expected[name]
+			require.True(t, known, "tool %s is registered but not listed in this test", name)
 			require.Equal(t, title, tool.Tool.Annotations.Title)
 		})
+	}
+
+	for name := range expected {
+		require.Contains(t, registered, name, "test expects tool %s, which is not registered", name)
 	}
 }
 
