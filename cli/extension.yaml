@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/refs/heads/main/cli/azd/extensions/extension.schema.json
+
 id: jongio.azd.app
 namespace: app
 displayName: App Extension
@@ -6,6 +8,12 @@ usage: azd app <command> [options]
 # Keep this version aligned with the latest registry.json entry.
 version: 0.20.0
 language: go
+
+# The azd host version this extension requires. Every gRPC service and azdext
+# API it uses ships with that release, so this must track the azure-dev module
+# version in go.mod. TestRequiredAzdVersionTracksTheSdk enforces that.
+requiredAzdVersion: ">= 1.29.0"
+
 capabilities:
   - custom-commands
   - lifecycle-events
