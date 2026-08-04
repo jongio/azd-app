@@ -17,6 +17,13 @@ import (
 
 var structuredLogs bool
 
+// isDetachedChild reports whether this process is the background run spawned by
+// `azd app run --detach`. It is a variable rather than a direct call so tests
+// can exercise both sides of the environment-loading guard below. The real
+// detection caches under sync.Once and consumes its marker, so it cannot be
+// toggled more than once within a single process.
+var isDetachedChild = commands.IsDetachedChild
+
 func main() {
 	// azdext.Run owns the lifecycle: FORCE_COLOR handling, cobra SilenceErrors,
 	// context creation with tracing propagation, gRPC access token injection,
@@ -61,7 +68,13 @@ func newRootCmd() *cobra.Command {
 		// that served the parent exits as soon as the parent returns. That left
 		// the detached child blocked and completely silent for seconds, which is
 		// why its run.log was empty before it died.
-		if extCtx.Environment != "" && !commands.IsDetachedChild() {
+		//
+		// The azdext SDK does not remove the need for this guard. Neither
+		// NewExtensionRootCommand nor azdext.LoadAzdEnvironment changes the fact
+		// that reading environment values requires a live azd host, and the SDK
+		// loader shells out to the same `azd env get-values` (without even an -e
+		// flag). See TestDetachedChildSkipsEnvironmentLoad.
+		if extCtx.Environment != "" && !isDetachedChild() {
 			if err := env.LoadAzdEnvironment(cmd.Context(), extCtx.Environment); err != nil {
 				return fmt.Errorf("failed to load environment '%s': %w", extCtx.Environment, err)
 			}
