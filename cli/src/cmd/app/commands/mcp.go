@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -288,7 +289,24 @@ func isValidDuration(s string) bool {
 
 // validateProjectDir validates that the project directory path is safe
 // Prevents path traversal attacks and ensures the directory exists
+//
+// Every rejection is recorded at warn level. A model that has been steered
+// into probing the filesystem produces a burst of these, and without the log
+// the only evidence is an error string handed back to the model itself. This
+// is the audit trail that azdext.MCPSecurityPolicy.OnBlocked provides for the
+// SDK's own path check, which is not used here because it is weaker than this
+// one. See mcp_security_audit_test.go for the specific gaps.
 func validateProjectDir(dir string) (string, error) {
+	resolved, err := validateProjectDirCore(dir)
+	if err != nil {
+		slog.Warn("rejected project directory",
+			"path", sanitizeForLLM(dir),
+			"reason", err.Error())
+	}
+	return resolved, err
+}
+
+func validateProjectDirCore(dir string) (string, error) {
 	if dir == "" || dir == "." {
 		// Get current working directory for "." reference
 		cwd, err := os.Getwd()
