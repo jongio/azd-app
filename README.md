@@ -215,6 +215,19 @@ Ask Copilot things like:
 
 </div>
 
+### Configuration reference
+
+`azd app metadata` prints a machine readable description of everything this
+extension can be configured with: the JSON Schema for the `azure.yaml` keys it
+reads at project and service scope, the JSON Schema for its user configuration,
+and every environment variable it defines. Those schemas are generated from the
+Go types at run time and the environment variable list is checked against the
+source tree by a test, so the output cannot drift from the implementation.
+
+```bash
+azd app metadata
+```
+
 ---
 
 ## 🤝 Contributing
