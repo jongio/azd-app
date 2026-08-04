@@ -206,7 +206,10 @@ func NewMetadataCommand(rootCmdProvider func() *cobra.Command) *cobra.Command {
 				return fmt.Errorf("failed to marshal metadata: %w", err)
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), string(jsonBytes))
+			if _, err := fmt.Fprintln(cmd.OutOrStdout(), string(jsonBytes)); err != nil {
+				return fmt.Errorf("failed to write metadata: %w", err)
+			}
+
 			return nil
 		},
 	}

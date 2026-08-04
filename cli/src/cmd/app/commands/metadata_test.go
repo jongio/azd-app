@@ -3,6 +3,7 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -323,4 +324,27 @@ func dedupe(in []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// failingWriter always fails, so the metadata command's write error branch gets
+// exercised. Left uncovered it is unreachable in tests, which is how an
+// unchecked write survived there in the first place.
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
+}
+
+func TestMetadataCommandReportsWriteFailure(t *testing.T) {
+	command := NewMetadataCommand(newMetadataTestRoot)
+	command.SetOut(failingWriter{})
+	command.SetErr(failingWriter{})
+
+	err := command.Execute()
+	if err == nil {
+		t.Fatal("Execute() = nil, want a write failure")
+	}
+	if !strings.Contains(err.Error(), "failed to write metadata") {
+		t.Errorf("error = %v, want it to mention the metadata write", err)
+	}
 }
