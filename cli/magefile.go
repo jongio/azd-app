@@ -207,6 +207,89 @@ func Build() error {
 	return nil
 }
 
+// Pack packages the extension into archives using azd x pack.
+//
+// This is the artifact CI actually ships. mage build installs a bare binary,
+// which skips packaging entirely, so a developer who only ever runs it never
+// exercises the path a user installs through.
+func Pack() error {
+	if err := ensureAzdExtensions(); err != nil {
+		return err
+	}
+
+	version, err := getVersion()
+	if err != nil {
+		return err
+	}
+
+	// azd x pack reads the version from extension.yaml, so the dev version has
+	// to be written there or the archive name and the version compiled into the
+	// binary disagree.
+	restore, err := patchExtensionVersion(version)
+	if err != nil {
+		return err
+	}
+	defer restore()
+
+	fmt.Println("Building binary...")
+
+	env := map[string]string{
+		"EXTENSION_ID":      extensionID,
+		"EXTENSION_VERSION": version,
+	}
+
+	// --skip-install because packing is about producing the artifact, not
+	// replacing the installed extension.
+	if err := runWithEnvRetry(env, "azd", "x", "build", "--skip-install"); err != nil {
+		return fmt.Errorf(errBuildFailedFmt, err)
+	}
+
+	fmt.Println("Packaging extension...")
+	if err := sh.RunV("azd", "x", "pack"); err != nil {
+		return fmt.Errorf("azd x pack failed: %w", err)
+	}
+
+	fmt.Printf("✅ Package complete! Version: %s\n", version)
+	return nil
+}
+
+// Publish adds the packed extension to the repository's local registry.json.
+//
+// The registry path is fixed to the local file on purpose. This target exists
+// for the install-testing loop and must never be able to reach a real
+// registry; releasing is the release workflow's job.
+func Publish() error {
+	version, err := getVersion()
+	if err != nil {
+		return err
+	}
+
+	restore, err := patchExtensionVersion(version)
+	if err != nil {
+		return err
+	}
+	defer restore()
+
+	fmt.Println("Publishing to local registry...")
+	if err := sh.RunV("azd", "x", "publish", "--registry", "../registry.json", "--version", version); err != nil {
+		return fmt.Errorf("azd x publish failed: %w", err)
+	}
+
+	fmt.Println("✅ Published to local registry!")
+	return nil
+}
+
+// Setup runs Pack and Publish in sequence so the extension can be installed
+// the way a user installs it.
+func Setup() error {
+	fmt.Println("Setting up extension for local development...")
+	mg.SerialDeps(Pack, Publish)
+
+	fmt.Println("\n✅ Setup complete!")
+	fmt.Println("   Install with: azd extension install " + extensionID + " --source local")
+	return nil
+}
+
 // runWithEnvRetry runs a command with environment variables, retrying up to 3 times on failure.
 func runWithEnvRetry(env map[string]string, cmd string, args ...string) error {
 	const maxRetries = 3
