@@ -4,7 +4,7 @@
     "github.com/jongio/azd-app/cli/src/cmd/app": 60,
     "github.com/jongio/azd-app/cli/src/cmd/app/commands": 64.6,
     "github.com/jongio/azd-app/cli/src/cmd/docsgate": 90.4,
-    "github.com/jongio/azd-app/cli/src/internal/azdconfig": 47.1,
+    "github.com/jongio/azd-app/cli/src/internal/azdconfig": 54.9,
     "github.com/jongio/azd-app/cli/src/internal/azure": 42.8,
     "github.com/jongio/azd-app/cli/src/internal/cache": 88.5,
     "github.com/jongio/azd-app/cli/src/internal/certs": 91.9,
