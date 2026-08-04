@@ -9,7 +9,7 @@
   "dependencies": {
     "express": "^5.2.1",
     "pg": "^8.22.0",
-    "ioredis": "^5.11.1",
+    "ioredis": "^6.0.0",
     "@azure/service-bus": "^7.9.5"
   },
   "devDependencies": {

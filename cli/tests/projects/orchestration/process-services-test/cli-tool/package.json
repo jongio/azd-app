@@ -1,7 +1,7 @@
 {
   "name": "cli-tool",
   "version": "1.0.0",
-  "packageManager": "pnpm@11.17.0",
+  "packageManager": "pnpm@11.20.0",
   "bin": {
     "cli-tool": "./dist/cli.js"
   },
