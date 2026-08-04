@@ -1,5 +1,5 @@
 {
-  "total": 65.1,
+  "total": 65.2,
   "packages": {
     "github.com/jongio/azd-app/cli/src/cmd/app": 60,
     "github.com/jongio/azd-app/cli/src/cmd/app/commands": 64.6,
