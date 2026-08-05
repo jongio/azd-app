@@ -28,7 +28,7 @@ azd app health [flags]
 | `--service` | `-s` | string | | Monitor specific service(s) only (comma-separated) |
 | `--stream` | | bool | `false` | Enable streaming mode for real-time updates |
 | `--interval` | `-i` | duration | `5s` | Interval between health checks in streaming mode |
-| `--format` | `-f` | string | `text` | Output format: 'text', 'json', 'table' |
+| `--output` | `-o` | string | `text` | Output format: `text`, `json`, or `table`. This is azd's global output flag. |
 | `--endpoint` | | string | `/health` | Default health endpoint path to check |
 | `--timeout` | | duration | `5s` | Timeout for each health check |
 | `--all` | | bool | `false` | Show health for all projects on this machine |
@@ -124,7 +124,7 @@ azd app health [flags]
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │  Format & Display Output                                     │
-│  - Format according to --format flag                         │
+│  - Format according to --output flag                         │
 │  - Display timestamp                                         │
 │  - Show summary statistics                                   │
 └─────────────────────────────────────────────────────────────┘
@@ -709,7 +709,7 @@ Machine-readable format:
 Each line is a complete JSON object representing one health check cycle. Works with standard Unix tools:
 
 ```bash
-azd app health --stream --format json | jq '.services[] | select(.status != "healthy")'
+azd app health --stream --output json | jq '.services[] | select(.status != "healthy")'
 ```
 
 ### Server-Sent Events (SSE) Format (Dashboard API)
@@ -959,7 +959,7 @@ azd app health --stream --interval 10s
 
 ```bash
 # Check health and exit with code
-azd app health --format json
+azd app health --output json
 
 # Exit codes:
 # 0 = all healthy
@@ -976,7 +976,7 @@ azd app health || exit 1
 
 ```bash
 # Get health as JSON for processing
-azd app health --format json | jq '.summary.unhealthy'
+azd app health --output json | jq '.summary.unhealthy'
 
 # Monitor until healthy
 while ! azd app health --service api > /dev/null 2>&1; do
@@ -1011,7 +1011,7 @@ azd app health --endpoint /api/status
 
 ```bash
 # Stream to file for analysis
-azd app health --stream --format json > health.log
+azd app health --stream --output json > health.log
 
 # Parse later:
 cat health.log | jq -r '.services[] | select(.status != "healthy") | .serviceName'
@@ -1315,7 +1315,7 @@ Uptime: 100% (web), 95.8% (api)
 ### Example 3: JSON Output for Automation
 
 ```bash
-$ azd app health --format json
+$ azd app health --output json
 
 {
   "timestamp": "2024-11-08T10:30:00Z",

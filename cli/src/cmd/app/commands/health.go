@@ -95,14 +95,17 @@ Examples:
   # Stream with metrics
   azd app health --stream --interval 10s --metrics --metrics-port 9090`,
 		SilenceUsage: true,
-		RunE:         runHealth,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			healthOutput = inheritedOutputFormat(cmd, "text")
+			return runHealth(cmd, args)
+		},
 	}
+	registerOutputFormats(cmd, "text", "text", "json", "table")
 
 	// Basic flags
 	cmd.Flags().StringVarP(&healthService, "service", "s", "", "Monitor specific service(s) only (comma-separated)")
 	cmd.Flags().BoolVar(&healthStream, "stream", false, "Enable streaming mode for real-time updates")
 	cmd.Flags().DurationVarP(&healthInterval, "interval", "i", defaultHealthInterval, "Interval between health checks in streaming mode")
-	cmd.Flags().StringVarP(&healthOutput, "format", "f", "text", "Output format: 'text', 'json', 'table'")
 	cmd.Flags().StringVar(&healthEndpoint, "endpoint", defaultHealthEndpoint, "Default health endpoint path to check")
 	cmd.Flags().DurationVar(&healthTimeout, "timeout", defaultHealthTimeout, "Timeout for each health check")
 	cmd.Flags().BoolVar(&healthAll, "all", false, "Show health for all projects on this machine")
@@ -295,7 +298,7 @@ func validateHealthFlags() error {
 		return fmt.Errorf("interval (%v) must be greater than timeout (%v) in streaming mode", healthInterval, healthTimeout)
 	}
 	if healthOutput != "text" && healthOutput != jsonOutputVal && healthOutput != "table" {
-		return newInvalidFlagValueError("format", healthOutput, []string{"text", "json", "table"})
+		return newInvalidFlagValueError("output", healthOutput, []string{"text", "json", "table"})
 	}
 	// Validate metrics port is in valid range
 	if healthEnableMetrics && (healthMetricsPort < 1 || healthMetricsPort > 65535) {

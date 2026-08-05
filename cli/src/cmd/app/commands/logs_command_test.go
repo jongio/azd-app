@@ -31,7 +31,7 @@ func TestValidateLogsOptions(t *testing.T) {
 		{"valid source all", 100, "text", "all", "", "all", 0, false, ""},
 		{"summary with follow", 100, "text", "all", "", "local", 0, true, "--summary cannot be combined with --follow"},
 		{"negative tail", -1, "text", "all", "", "local", 0, true, "--tail must be a positive"},
-		{"invalid format", 100, "xml", "all", "", "local", 0, true, "--format must be"},
+		{"invalid format", 100, "xml", "all", "", "local", 0, true, "--output must be"},
 		{"invalid level", 100, "text", "trace", "", "local", 0, true, "--level must be one of"},
 		{"invalid since", 100, "text", "all", "5x", "local", 0, true, "--since must be a valid duration"},
 		{"invalid source", 100, "text", "all", "", "remote", 0, true, "--source must be"},
@@ -291,7 +291,7 @@ func TestLogsCommandStructure(t *testing.T) {
 	t.Run("flags exist", func(t *testing.T) {
 		flags := []string{
 			"follow", "service", "tail", "since", "timestamps",
-			"no-timestamps", "no-color", "level", "min-level", "format", "file", "exclude", "no-builtins", "context", "summary",
+			"no-timestamps", "no-color", "level", "min-level", "file", "exclude", "no-builtins", "context", "summary",
 		}
 		for _, flag := range flags {
 			if cmd.Flags().Lookup(flag) == nil {
@@ -332,11 +332,6 @@ func TestLogsCommandStructure(t *testing.T) {
 		levelFlag := cmd.Flags().Lookup("level")
 		if levelFlag.DefValue != "all" {
 			t.Errorf("level default = %q, want %q", levelFlag.DefValue, "all")
-		}
-
-		formatFlag := cmd.Flags().Lookup("format")
-		if formatFlag.DefValue != "text" {
-			t.Errorf("format default = %q, want %q", formatFlag.DefValue, "text")
 		}
 
 		contextFlag := cmd.Flags().Lookup("context")

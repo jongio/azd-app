@@ -22,9 +22,6 @@ func TestNewGraphCommand(t *testing.T) {
 	if cmd.Use != "graph" {
 		t.Fatalf("Use = %q, want graph", cmd.Use)
 	}
-	if cmd.Flags().Lookup("format") == nil {
-		t.Fatal("format flag not found")
-	}
 	if cmd.Flags().Lookup("focus") == nil {
 		t.Fatal("focus flag not found")
 	}
@@ -619,7 +616,7 @@ func TestRunGraphInvalidFormat(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for invalid format")
 	}
-	if !strings.Contains(err.Error(), "invalid --format value") {
+	if !strings.Contains(err.Error(), "invalid --output value") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

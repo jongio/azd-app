@@ -276,10 +276,10 @@ Examples:
   azd app logs --file logs.txt
 
   # Output as JSON for processing
-  azd app logs --format json
+  azd app logs --output json
 
   # Output errors as JSON with context
-  azd app logs --level error --context 3 --format json
+  azd app logs --level error --context 3 --output json
 
   # Show counts by service and level
   azd app logs --summary
@@ -294,11 +294,13 @@ Examples:
   azd app logs --source azure --follow`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.output = inheritedOutputFormat(cmd, "text")
 			return runLogsWithOptions(opts, args)
 		},
 		ValidArgsFunction: completeServiceArgs,
 	}
 
+	registerOutputFormats(cmd, "text", "text", jsonOutputVal)
 	cmd.Flags().BoolVarP(&opts.follow, "follow", "f", false, "Follow log output (tail -f behavior)")
 	cmd.Flags().StringVarP(&opts.service, "service", "s", "", "Filter by service name(s) (comma-separated)")
 	cmd.Flags().IntVarP(&opts.tail, "tail", "n", defaultTailLines, "Number of lines to show from the end")
@@ -308,11 +310,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.noColor, "no-color", false, "Disable colored output")
 	cmd.Flags().StringVar(&opts.level, "level", "all", "Filter by log level (info, warn, error, debug, all)")
 	cmd.Flags().StringVar(&opts.minLevel, "min-level", "", "Show entries at this severity or higher (debug < info < warn < error); cannot be combined with an explicit --level (info/warn/error/debug) or --context")
-	// --output/-o used to live here, but azd reserves both the long and short
-	// form for its own global output flag, and a local definition silently
-	// shadowed it. --format carries the same values and is now the documented
-	// flag. There is no shorthand because -f is taken by --follow.
-	cmd.Flags().StringVar(&opts.output, "format", "text", "Output format (text, json)")
+
 	cmd.Flags().StringVar(&opts.file, "file", "", "Write logs to file instead of stdout")
 	cmd.Flags().StringVar(&opts.exclude, "exclude", "", "Regex patterns to exclude (comma-separated)")
 	cmd.Flags().StringVar(&opts.grep, "grep", "", "Only show log lines matching this regex (applied after --exclude)")

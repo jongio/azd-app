@@ -107,7 +107,7 @@ func newRootCmd() *cobra.Command {
 			}
 		}
 
-		return cliout.SetFormat(extCtx.OutputFormat)
+		return cliout.SetFormat(commands.CliOutFormatFor(cmd, extCtx.OutputFormat))
 	}
 
 	// Register all commands

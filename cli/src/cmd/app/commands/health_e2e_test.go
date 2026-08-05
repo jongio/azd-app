@@ -151,7 +151,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "health", "--format", "json")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "json")
 		cmd.Dir = projectDir
 
 		// Capture stdout only (stderr has log messages that would break JSON parsing)
@@ -187,7 +187,7 @@ func TestHealthCommandE2E_FullWorkflow(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "health", "--format", "table")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "table")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -363,7 +363,7 @@ func TestHealthCommandE2E_ErrorCases(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, binaryPath, "health", "--format", "invalid")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "invalid")
 		cmd.Dir = projectDir
 		output, err := cmd.CombinedOutput()
 
@@ -372,7 +372,7 @@ func TestHealthCommandE2E_ErrorCases(t *testing.T) {
 		}
 
 		outputStr := string(output)
-		if !strings.Contains(outputStr, "invalid") && !strings.Contains(outputStr, "format") {
+		if !strings.Contains(outputStr, "invalid") && !strings.Contains(outputStr, "output") {
 			t.Error("Error message should mention invalid format")
 		}
 
@@ -441,7 +441,7 @@ func TestHealthCommandE2E_CrossPlatform(t *testing.T) {
 		time.Sleep(30 * time.Second)
 
 		// Health check should detect running processes
-		cmd := exec.CommandContext(ctx, binaryPath, "health", "--format", "json")
+		cmd := exec.CommandContext(ctx, binaryPath, "health", "--output", "json")
 		cmd.Dir = projectDir
 
 		// Capture stdout only (stderr has log messages that would break JSON parsing)
