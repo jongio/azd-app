@@ -33,7 +33,7 @@ The existing screenshot capture system uses the `demo` project which contains on
 **Prerequisites**: 
 - Azure resources must be deployed via `azd provision` in azure-logs-test
 - Services must be running and generating logs (wait 5-10min for initial logs)
-- Azure CLI authenticated (`az login`)
+- Signed in to azd (`azd auth login`)
 - Log Analytics workspace operational with 1-5min ingestion delay
 
 **New Screenshots to Capture**:
@@ -208,7 +208,7 @@ Href: "/azd-app/reference/azure-logs/"
    // If not, run: azd provision (or document manual setup requirement)
    ```
 3. Increase wait times for Azure Log Analytics (polling takes longer than local logs: 15s minimum)
-4. Add authentication check (Azure CLI login required: `az account show`)
+4. Add authentication check (azd login required: `azd auth login --check-status`)
 
 **New Screenshot Configs** (add to `screenshot-config.ts`):
 
@@ -302,7 +302,7 @@ Add configurations for Azure logs views (see Solution #1 above)
 - Services running and generating logs
 
 **Pre-requisites** (document in script or README):
-1. `az login` - authenticate to Azure
+1. `azd auth login` - authenticate to Azure
 2. `azd provision` - deploy resources if not already deployed
 3. Ensure services are generating logs (may need to trigger some activity)
 
@@ -379,7 +379,7 @@ web/src/pages/reference/
 3. Show meaningful log data (not empty state)
 
 **Authentication**: Script should check for:
-- Azure CLI logged in (`az account show`)
+- Signed in to azd (`azd auth login --check-status`)
 - Proper subscription selected
 - Access to Log Analytics workspace
 

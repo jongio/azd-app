@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * Tour Overview Page
  * 
@@ -19,7 +20,7 @@ const totalTime = getTotalEstimatedTime();
   <div class="tour-overview">
     <!-- Hero -->
     <section class="tour-hero" aria-labelledby="tour-heading">
-      <span class="tour-hero-icon" aria-hidden="true">🎯</span>
+      <span class="tour-hero-icon" aria-hidden="true"><Icon name="target" /></span>
       <h1 id="tour-heading" class="tour-hero-title">Guided Tour</h1>
       <p class="tour-hero-description">
         Learn azd-app step by step. This tour covers installation, 
@@ -118,17 +119,17 @@ const totalTime = getTotalEstimatedTime();
       <h2 id="reference-heading" class="tour-reference-title">Quick Reference</h2>
       <div class="tour-reference-grid">
         <a href={`${baseUrl}reference/azure-yaml/`} class="tour-reference-card">
-          <span class="tour-reference-icon" aria-hidden="true">📘</span>
+          <span class="tour-reference-icon" aria-hidden="true"><Icon name="book-marked" /></span>
           <h3 class="tour-reference-card-title">azure.yaml Reference</h3>
           <p class="tour-reference-card-description">Complete guide to all configuration options</p>
         </a>
         <a href={`${baseUrl}reference/cli/`} class="tour-reference-card">
-          <span class="tour-reference-icon" aria-hidden="true">💻</span>
+          <span class="tour-reference-icon" aria-hidden="true"><Icon name="monitor" /></span>
           <h3 class="tour-reference-card-title">CLI Reference</h3>
           <p class="tour-reference-card-description">All azd app commands and flags</p>
         </a>
         <a href={`${baseUrl}mcp/`} class="tour-reference-card">
-          <span class="tour-reference-icon" aria-hidden="true">🤖</span>
+          <span class="tour-reference-icon" aria-hidden="true"><Icon name="bot" /></span>
           <h3 class="tour-reference-card-title">MCP Server</h3>
           <p class="tour-reference-card-description">AI debugging with GitHub Copilot</p>
         </a>

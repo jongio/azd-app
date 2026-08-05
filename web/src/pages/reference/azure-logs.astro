@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 import Layout from '../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
 import Screenshot from '../../components/Screenshot.astro';
@@ -115,17 +116,17 @@ const yamlCustomKQL = `services:
       <h2 class="text-2xl font-bold mb-4">Supported Azure Services</h2>
       <div class="grid gap-4 md:grid-cols-3 mt-6">
         <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
-          <div class="text-2xl mb-2">📦</div>
+          <div class=" mb-2"><Icon name="package" size={24} /></div>
           <div class="font-semibold text-neutral-900 dark:text-neutral-100">Container Apps</div>
           <div class="text-sm text-neutral-600 dark:text-neutral-400">ContainerAppConsoleLogs_CL</div>
         </div>
         <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
-          <div class="text-2xl mb-2">🌐</div>
+          <div class=" mb-2"><Icon name="globe" size={24} /></div>
           <div class="font-semibold text-neutral-900 dark:text-neutral-100">App Service</div>
           <div class="text-sm text-neutral-600 dark:text-neutral-400">AppServiceConsoleLogs</div>
         </div>
         <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
-          <div class="text-2xl mb-2">⚡</div>
+          <div class=" mb-2"><Icon name="zap" size={24} /></div>
           <div class="font-semibold text-neutral-900 dark:text-neutral-100">Functions</div>
           <div class="text-sm text-neutral-600 dark:text-neutral-400">FunctionAppLogs</div>
         </div>
@@ -156,7 +157,7 @@ const yamlCustomKQL = `services:
       <Code code={yamlServiceLevel} lang="yaml" title="azure.yaml" />
 
       <div class="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-        <div class="font-semibold text-amber-900 dark:text-amber-100 mb-2">💡 Table Names</div>
+        <div class="font-semibold text-amber-900 dark:text-amber-100 mb-2"><Icon name="lightbulb" /> Table Names</div>
         <p class="text-sm text-amber-800 dark:text-amber-200">
           Container Apps use custom log tables with <code class="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-800 rounded">_CL</code> suffix. App Service and Functions use standard tables without suffix.
         </p>
@@ -211,13 +212,13 @@ const yamlCustomKQL = `services:
     <section class="mb-12">
       <h2 class="text-2xl font-bold mb-4">Authentication Requirements</h2>
       <p class="text-neutral-700 dark:text-neutral-300 mb-4">
-        Azure Log Analytics integration requires Azure CLI authentication. Ensure you're logged in before running <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azd app run</code>:
+        Azure Log Analytics integration requires Azure authentication. Ensure you're signed in before running <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azd app run</code>:
       </p>
       
-      <Code code="az login" lang="bash" />
+      <Code code="azd auth login" lang="bash" />
 
       <p class="text-neutral-700 dark:text-neutral-300 mt-4">
-        The azd app will use your Azure CLI credentials to query Log Analytics workspaces associated with your deployed resources.
+        The azd app will use your azd credentials to query Log Analytics workspaces associated with your deployed resources.
       </p>
     </section>
 
@@ -228,7 +229,7 @@ const yamlCustomKQL = `services:
       <h3 class="text-xl font-semibold mb-3">No Logs Appearing</h3>
       <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300 mb-6">
         <li><strong>Wait for ingestion:</strong> Azure Log Analytics has a 1-5 minute delay. New logs take time to appear.</li>
-        <li><strong>Check authentication:</strong> Run <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">az account show</code> to verify you're logged in.</li>
+        <li><strong>Check authentication:</strong> Run <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azd auth login</code> to make sure you're signed in.</li>
         <li><strong>Verify deployment:</strong> Ensure services are actually deployed to Azure with <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azd provision</code> or <code class="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded text-sm">azd up</code>.</li>
         <li><strong>Check table names:</strong> Ensure the correct Log Analytics table is configured for each service type.</li>
       </ul>
@@ -268,7 +269,7 @@ const yamlCustomKQL = `services:
       <Code code={yamlCustomKQL} lang="yaml" title="azure.yaml" />
 
       <div class="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-        <div class="font-semibold text-amber-900 dark:text-amber-100 mb-2">⚠️ Advanced Feature</div>
+        <div class="font-semibold text-amber-900 dark:text-amber-100 mb-2"><Icon name="triangle-alert" /> Advanced Feature</div>
         <p class="text-sm text-amber-800 dark:text-amber-200">
           Custom KQL queries are for advanced users familiar with Azure Log Analytics. The dashboard time range and service filters will not affect custom queries.
         </p>

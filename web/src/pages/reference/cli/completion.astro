@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
 const usageCode = "azd app completion [command]";
@@ -7,6 +8,7 @@ const example1 = "azd app completion bash > ~/.azd-app-completion.bash";
 const example2 = "azd app completion zsh > ~/.azd-app-completion.zsh";
 const example3 = "azd app completion powershell | Out-String | Invoke-Expression";
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 
 <Layout title="completion - CLI Reference" description="Generate shell autocompletion scripts for `azd app`.">
   <div class="max-w-4xl mx-auto px-4 py-12">
@@ -35,7 +37,7 @@ const example3 = "azd app completion powershell | Out-String | Invoke-Expression
   <Code code={example2} lang="bash" frame="terminal" />
   <Code code={example3} lang="bash" frame="terminal" /></div>
 
-    <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700"><h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">📚 Detailed Documentation</h3><p class="text-neutral-700 dark:text-neutral-300 mb-4">For complete documentation including flows, diagrams, and advanced usage, see the full command specification.</p><a href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/completion.md" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline">View full completion specification →</a></div>
+    <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700"><h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100"><Icon name="book-open" /> Detailed Documentation</h3><p class="text-neutral-700 dark:text-neutral-300 mb-4">For complete documentation including flows, diagrams, and advanced usage, see the full command specification.</p><a href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/completion.md" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline">View full completion specification →</a></div>
 
     <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between">

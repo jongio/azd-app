@@ -148,8 +148,8 @@ func (c *CredentialChain) GetToken(ctx context.Context, options policy.TokenRequ
 // 1. AZD_ACCESS_TOKEN environment variable (from azd extension context)
 // 2. Azure Developer CLI credentials (from 'azd auth login')
 // 3. Azure CLI credentials (from 'az login')
-// 3. Environment variables (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_CLIENT_SECRET)
-// 4. Managed Identity (when running in Azure)
+// 4. Environment variables (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_CLIENT_SECRET)
+// 5. Managed Identity (when running in Azure)
 func NewCredentialChain() (*CredentialChain, error) {
 	// Try azd extension token first
 	if token := os.Getenv("AZD_ACCESS_TOKEN"); token != "" {
@@ -204,10 +204,10 @@ func NewAzureCredential() (azcore.TokenCredential, error) {
 // 3. DefaultAzureCredential defaults to the last requested scope
 //
 // WORKAROUND:
-//   - We rely on Azure CLI (via DefaultAzureCredential) which can handle
-//     multiple scopes by caching separate tokens per resource
+//   - We rely on the azd credential chain (via DefaultAzureCredential) which can
+//     handle multiple scopes by caching separate tokens per resource
 //   - The azlogs.Client automatically requests the correct scope internally
-//   - Users must be logged in via `az login` for this to work reliably
+//   - Users must be signed in via `azd auth login` for this to work reliably
 //
 // FUTURE FIX:
 // - Azure SDK for Go should expose scope configuration on azlogs.Client

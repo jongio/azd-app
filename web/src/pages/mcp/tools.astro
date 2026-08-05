@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * MCP Tools Reference
  * 
@@ -305,9 +306,9 @@ const mcpTools = [
 
 // Group tools by category
 const categories = [
-  { name: "Observe", icon: "👁️", description: "View service status, logs, and configuration" },
-  { name: "Operate", icon: "⚙️", description: "Start, stop, and manage services" },
-  { name: "Configure", icon: "🔧", description: "Check requirements and manage environment" },
+  { name: "Observe", icon: "eye", description: "View service status, logs, and configuration" },
+  { name: "Operate", icon: "settings", description: "Start, stop, and manage services" },
+  { name: "Configure", icon: "wrench", description: "Check requirements and manage environment" },
 ];
 
 const toolsByCategory = categories.map(cat => ({
@@ -337,7 +338,7 @@ const toolsByCategory = categories.map(cat => ({
       <div class="tools-nav-grid">
         {categories.map((cat) => (
           <a href={`#${cat.name.toLowerCase()}`} class="tools-nav-item">
-            <span class="tools-nav-icon" aria-hidden="true">{cat.icon}</span>
+            <span class="tools-nav-icon"><Icon name={cat.icon} size={18} /></span>
             <span class="tools-nav-name">{cat.name}</span>
             <span class="tools-nav-count">
               {mcpTools.filter(t => t.category === cat.name).length} tools
@@ -351,7 +352,7 @@ const toolsByCategory = categories.map(cat => ({
     {toolsByCategory.map((category) => (
       <section class="tools-category" id={category.name.toLowerCase()}>
         <header class="tools-category-header">
-          <span class="tools-category-icon" aria-hidden="true">{category.icon}</span>
+          <span class="tools-category-icon"><Icon name={category.icon} size={24} /></span>
           <div class="tools-category-info">
             <h2 class="tools-category-title">{category.name}</h2>
             <p class="tools-category-description">{category.description}</p>
@@ -432,15 +433,15 @@ const toolsByCategory = categories.map(cat => ({
       <h2 class="tools-related-title">Related</h2>
       <div class="tools-related-grid">
         <a href={`${baseUrl}mcp/prompts/`} class="tools-related-card">
-          <span aria-hidden="true">💬</span>
+          <span aria-hidden="true"><Icon name="message-circle" /></span>
           <span>Prompt Library</span>
         </a>
         <a href={`${baseUrl}mcp/ai-debugging/`} class="tools-related-card">
-          <span aria-hidden="true">🔍</span>
+          <span aria-hidden="true"><Icon name="search" /></span>
           <span>AI Debugging Guide</span>
         </a>
         <a href={`${baseUrl}mcp/setup/`} class="tools-related-card">
-          <span aria-hidden="true">⚙️</span>
+          <span aria-hidden="true"><Icon name="settings" /></span>
           <span>Setup Guide</span>
         </a>
       </div>

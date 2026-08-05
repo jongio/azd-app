@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * LanguageIndicator Component
  * 
@@ -86,7 +87,7 @@ const languageConfig: Record<string, LanguageConfig> = {
   python: {
     displayName: 'Python',
     shortName: 'py',
-    icon: '🐍',
+    icon: 'code',
   },
   go: {
     displayName: 'Go',
@@ -101,7 +102,7 @@ const languageConfig: Record<string, LanguageConfig> = {
   dockerfile: {
     displayName: 'Dockerfile',
     shortName: 'docker',
-    icon: '🐳',
+    icon: 'container',
   },
   plaintext: {
     displayName: 'Plain Text',
@@ -138,9 +139,7 @@ const displayText = size === 'sm' ? config.shortName : language;
   aria-label={`Language: ${config.displayName}`}
 >
   {showIcon && config.icon && (
-    <span class="language-indicator-icon" aria-hidden="true">
-      {config.icon}
-    </span>
+    <span class="language-indicator-icon"><Icon name={config.icon} size={16} /></span>
   )}
   <span class="language-indicator-label">
     {displayText}
@@ -152,7 +151,7 @@ const displayText = size === 'sm' ? config.shortName : language;
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     font-weight: 500;
     text-transform: lowercase;
     background: var(--language-indicator-bg);

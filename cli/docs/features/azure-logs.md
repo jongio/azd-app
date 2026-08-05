@@ -52,14 +52,14 @@ Sign in to Azure and verify you have Log Analytics Reader permissions.
 - ✅ Can access the workspace successfully
 
 **Quick fixes:**
-- One-click login with `az login`
+- One-click login with `azd auth login`
 - Copy-paste role assignment commands
 - Link to Azure Portal for manual role assignment
 
 **Common issues:**
 - "Not authenticated": Click "Sign In" to authenticate with Azure CLI
 - "Permission denied": Assign "Log Analytics Reader" role to your user account
-- "Authentication expired": Re-run `az login` to refresh credentials
+- "Authentication expired": Re-run `azd auth login` to refresh credentials
 
 #### Step 3: Diagnostic Settings
 
@@ -215,7 +215,7 @@ You can still complete setup and view logs later when services become active.
   - Trigger service activity (visit web app, invoke function, etc.)
   - Check that service is running in Azure Portal
 - **"Authentication failed"**: 
-  - Re-run `azd auth login` or `az login`
+- Re-run `azd auth login`
   - Verify Log Analytics Reader role is assigned
 - **"Diagnostic settings not configured"**: 
   - Click "← Back to Diagnostic Settings" 
@@ -289,7 +289,7 @@ When all steps are complete:
 
 ## Prerequisites
 
-1. **Azure CLI** - Logged in with `az login`
+1. **Azure Developer CLI** - Signed in with `azd auth login`
 2. **azd environment** - Project provisioned with `azd provision`
 3. **Log Analytics Workspace** - Configured to receive logs from your services
 
@@ -730,7 +730,7 @@ Toggle modes using the mode selector in the dashboard header or with keyboard sh
 
 **Solution**:
 1. Ensure you have **Reader** role on resources or resource group
-2. Verify authentication: `azd auth login` or `az login`
+2. Verify authentication: `azd auth login`
 3. Check network connectivity to Azure
 4. Click **Retry** after fixing authentication/permissions
 5. If persistent, click **Skip This Step** to proceed anyway
@@ -790,7 +790,7 @@ Toggle modes using the mode selector in the dashboard header or with keyboard sh
      --scope <resource-id>
    ```
 2. Wait 5-10 minutes for RBAC permissions to propagate
-3. Re-authenticate: `az logout && az login`
+3. Re-authenticate: `azd auth logout && azd auth login`
 4. Click **Retry** in Step 3
 
 #### Bicep template modal won't load
@@ -814,7 +814,7 @@ Toggle modes using the mode selector in the dashboard header or with keyboard sh
 **Cause**: Cannot query Log Analytics workspace or authentication failed.
 
 **Solution**:
-1. Verify authentication: `azd auth login` or `az login`
+1. Verify authentication: `azd auth login`
 2. Ensure **Log Analytics Reader** role is assigned:
    ```bash
    az role assignment create \
@@ -884,8 +884,8 @@ Toggle modes using the mode selector in the dashboard header or with keyboard sh
 **Solution**:
 1. Re-authenticate:
    ```bash
-   az logout
-   az login
+   azd auth logout
+   azd auth login
    ```
 2. Verify Log Analytics Reader role:
    ```bash
@@ -960,12 +960,12 @@ Toggle modes using the mode selector in the dashboard header or with keyboard sh
 1. Open the **Azure Logs Setup Guide** and complete Step 2 (Authentication)
 2. Re-authenticate with Azure:
    ```bash
-   az login
+   azd auth login
    azd auth login
    ```
 3. Verify subscription access:
    ```bash
-   az account show
+   azd auth login --check-status
    ```
 
 ### "Workspace not found"
@@ -1042,8 +1042,8 @@ Toggle modes using the mode selector in the dashboard header or with keyboard sh
 2. Click "Recheck" or "Retry" button in the affected step
 3. Try logging out and back in:
    ```bash
-   az logout
-   az login
+   azd auth logout
+   azd auth login
    ```
 4. Verify role assignment in Azure Portal:
    - Navigate to resource → Access control (IAM)

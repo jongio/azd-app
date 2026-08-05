@@ -1,9 +1,11 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
 const usageCode = "azd app listen";
 const example0 = "azd app listen";
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 
 <Layout title="listen - CLI Reference" description="Start the extension server (internal, required by the azd extension framework).">
   <div class="max-w-4xl mx-auto px-4 py-12">
@@ -29,7 +31,7 @@ const example0 = "azd app listen";
 
     <h2 class="text-2xl font-bold mt-12 mb-6">Examples</h2><div class="space-y-4"><Code code={example0} lang="bash" frame="terminal" /></div>
 
-    <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700"><h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">📚 Detailed Documentation</h3><p class="text-neutral-700 dark:text-neutral-300 mb-4">For complete documentation including flows, diagrams, and advanced usage, see the full command specification.</p><a href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/listen.md" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline">View full listen specification →</a></div>
+    <div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700"><h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100"><Icon name="book-open" /> Detailed Documentation</h3><p class="text-neutral-700 dark:text-neutral-300 mb-4">For complete documentation including flows, diagrams, and advanced usage, see the full command specification.</p><a href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/listen.md" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline">View full listen specification →</a></div>
 
     <div class="mt-12 pt-8 border-t border-neutral-200 dark:border-neutral-700">
       <div class="flex justify-between">

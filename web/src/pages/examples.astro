@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * Examples Gallery
  * 
@@ -25,7 +26,7 @@ const examples: Example[] = [
     id: 'nodejs',
     title: 'Node.js Express API',
     language: 'JavaScript',
-    icon: '🟢',
+    icon: 'circle-check',
     description: 'A REST API with Express.js, featuring health endpoints and structured logging.',
     azureYaml: `name: nodejs-api
 services:
@@ -59,7 +60,7 @@ services:
     id: 'python',
     title: 'Python FastAPI',
     language: 'Python',
-    icon: '🐍',
+    icon: 'code',
     description: 'A modern Python API with FastAPI, automatic OpenAPI docs, and async support.',
     azureYaml: `name: python-api
 services:
@@ -93,7 +94,7 @@ services:
     id: 'fullstack',
     title: 'Fullstack React + Node',
     language: 'TypeScript',
-    icon: '⚛️',
+    icon: 'atom',
     description: 'A complete fullstack app with React frontend, Node.js API, and PostgreSQL.',
     azureYaml: `name: fullstack-app
 services:
@@ -140,7 +141,7 @@ resources:
     id: 'containers',
     title: 'API with Container Services',
     language: 'Node.js + Docker',
-    icon: '🐳',
+    icon: 'container',
     description: 'A Node.js API with PostgreSQL database and Redis cache running as container services.',
     azureYaml: `name: api-with-containers
 services:
@@ -215,7 +216,7 @@ services:
           href={`#${ex.id}`}
           class="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors border border-neutral-200 dark:border-neutral-700"
         >
-          <span class="mr-2">{ex.icon}</span>
+          <span class="mr-2"><Icon name={ex.icon} size={18} /></span>
           {ex.title}
         </a>
       ))}
@@ -227,7 +228,7 @@ services:
         <article id={ex.id} class="scroll-mt-20">
           <!-- Example Header -->
           <div class="flex items-start gap-4 mb-6">
-            <span class="text-4xl">{ex.icon}</span>
+            <span><Icon name={ex.icon} size={36} /></span>
             <div>
               <h2 class="text-2xl font-bold">{ex.title}</h2>
               <p class="text-neutral-700 dark:text-neutral-300">{ex.description}</p>
@@ -251,7 +252,7 @@ services:
           <!-- Copilot Debugging -->
           <div class="mt-6 p-6 bg-purple-100 dark:bg-purple-900/40 rounded-lg border border-purple-300 dark:border-purple-700">
             <div class="flex items-start gap-4">
-              <span class="text-2xl">🤖</span>
+              <span class="text-2xl"><Icon name="bot" /></span>
               <div class="flex-1">
                 <h3 class="font-semibold mb-2 text-neutral-900 dark:text-neutral-100">Copilot Debugging Tip</h3>
                 <p class="text-neutral-700 dark:text-neutral-300 mb-4">{ex.copilotTip}</p>
@@ -288,7 +289,7 @@ services:
     <div class="mt-16 grid md:grid-cols-2 gap-6">
       <div class="p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700">
         <h3 class="text-xl font-bold mb-3 text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-          <span>📘</span>
+          <span><Icon name="book-marked" /></span>
           <span>azure.yaml Reference</span>
         </h3>
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
@@ -304,7 +305,7 @@ services:
       
       <div class="p-6 bg-green-100 dark:bg-green-900/40 rounded-lg border border-green-300 dark:border-green-700">
         <h3 class="text-xl font-bold mb-3 text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-          <span>🚀</span>
+          <span><Icon name="rocket" /></span>
           <span>Try the Demo</span>
         </h3>
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
@@ -331,7 +332,7 @@ services:
         href="/azd-app/mcp/setup/" 
         class="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
       >
-        <span>🤖</span>
+        <span><Icon name="bot" /></span>
         Set up MCP Server
       </a>
     </div>

@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 import Layout from '../../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
 
@@ -391,7 +392,7 @@ azd app mcp serve`;
 
     <section class="mt-12 p-6 bg-purple-100 dark:bg-purple-900/40 rounded-lg border border-purple-300 dark:border-purple-700">
       <div class="flex items-start gap-4">
-        <span class="text-3xl">🤖</span>
+        <span><Icon name="bot" size={30} /></span>
         <div>
           <h3 class="text-xl font-bold mb-2 text-neutral-900 dark:text-neutral-100">AI-Powered Debugging with MCP</h3>
           <p class="text-neutral-700 dark:text-neutral-300 mb-4">

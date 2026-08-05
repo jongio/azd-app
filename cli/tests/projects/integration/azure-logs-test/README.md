@@ -15,7 +15,6 @@ This test project contains services for every Azure host type currently supporte
 ```bash
 # Install required tools
 azd auth login
-az login
 
 # Install azd app extension
 azd extension install jongio.azd.app

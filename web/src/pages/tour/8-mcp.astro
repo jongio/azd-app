@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * Tour Step 8: MCP server integration
  */
@@ -104,19 +105,19 @@ const nextStep = getNextStep(8);
 
       <div class="prompt-examples">
         <div class="prompt-example">
-          <span class="prompt-icon">💬</span>
+          <span class="prompt-icon"><Icon name="message-circle" /></span>
           <span class="prompt-text">"What services are running and what's their health status?"</span>
         </div>
         <div class="prompt-example">
-          <span class="prompt-icon">💬</span>
+          <span class="prompt-icon"><Icon name="message-circle" /></span>
           <span class="prompt-text">"Show me recent errors from the API service"</span>
         </div>
         <div class="prompt-example">
-          <span class="prompt-icon">💬</span>
+          <span class="prompt-icon"><Icon name="message-circle" /></span>
           <span class="prompt-text">"Why is my database connection failing?"</span>
         </div>
         <div class="prompt-example">
-          <span class="prompt-icon">💬</span>
+          <span class="prompt-icon"><Icon name="message-circle" /></span>
           <span class="prompt-text">"Help me debug the 500 error in the logs"</span>
         </div>
       </div>
@@ -166,7 +167,7 @@ const nextStep = getNextStep(8);
       </LearnMoreSection>
 
       <div class="congratulations-banner">
-        <span class="congratulations-icon">🎉</span>
+        <span class="congratulations-icon"><Icon name="party-popper" /></span>
         <div class="congratulations-content">
           <h3>Congratulations!</h3>
           <p>You've completed the final step of the guided tour!</p>
@@ -331,7 +332,7 @@ const nextStep = getNextStep(8);
   }
 
   .prompt-text {
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     font-size: 0.875rem;
     color: var(--color-text-primary);
   }

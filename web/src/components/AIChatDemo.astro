@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * AIChatDemo Component
  * 
@@ -100,7 +101,7 @@ connection = Database(
           
           {message.toolCall && (
             <div class="ai-chat-tool-call">
-              <span class="ai-chat-tool-icon" aria-hidden="true">🔧</span>
+              <span class="ai-chat-tool-icon" aria-hidden="true"><Icon name="wrench" /></span>
               <span class="ai-chat-tool-text">
                 Calling <code>{message.toolCall.name}</code>...
               </span>
@@ -271,7 +272,7 @@ connection = Database(
   }
 
   .ai-chat-tool-text code {
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     font-weight: 600;
   }
 
@@ -296,14 +297,14 @@ connection = Database(
   }
 
   .ai-chat-code-lang {
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     font-size: 0.75rem;
     color: var(--color-text-tertiary);
     text-transform: lowercase;
   }
 
   .ai-chat-code-file {
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     font-size: 0.75rem;
     color: var(--color-text-secondary);
   }
@@ -311,7 +312,7 @@ connection = Database(
   .ai-chat-code-content {
     margin: 0;
     padding: 0.75rem;
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     font-size: 0.75rem;
     line-height: 1.5;
     color: var(--code-text-color);

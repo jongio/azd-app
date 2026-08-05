@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 import Layout from '../../components/Layout.astro';
 import { Code } from 'astro-expressive-code/components';
 
@@ -920,7 +921,7 @@ const resourceTypesExample = `resources:
 
     <!-- Hero Header -->
     <div class="mb-12 text-center">
-      <div class="text-6xl mb-4">📘</div>
+      <div class="mb-4"><Icon name="book-marked" size={56} /></div>
       <h1 class="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
         azure.yaml Reference
       </h1>
@@ -933,7 +934,7 @@ const resourceTypesExample = `resources:
     <!-- Fun Intro -->
     <div class="mb-12 p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border-2 border-blue-200 dark:border-blue-800">
       <h2 class="text-2xl font-bold mb-3 flex items-center gap-2">
-        <span>🎯</span>
+        <span><Icon name="target" /></span>
         <span>What is azure.yaml?</span>
       </h2>
       <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-4">
@@ -942,14 +943,14 @@ const resourceTypesExample = `resources:
       </p>
       <div class="grid md:grid-cols-2 gap-4 mb-4">
         <div class="p-4 bg-white dark:bg-neutral-900 rounded-lg border border-blue-300 dark:border-blue-700">
-          <div class="font-bold text-lg mb-2">💻 Local Development (azd app)</div>
+          <div class="font-bold text-lg mb-2"><Icon name="monitor" /> Local Development (azd app)</div>
           <div class="text-neutral-700 dark:text-neutral-300 text-sm">
             Define services, health checks, logging, tests, and everything needed to orchestrate your local environment. 
             Like docker-compose.yml on steroids!
           </div>
         </div>
         <div class="p-4 bg-white dark:bg-neutral-900 rounded-lg border border-purple-300 dark:border-purple-700">
-          <div class="font-bold text-lg mb-2">☁️ Azure Deployment (azd)</div>
+          <div class="font-bold text-lg mb-2"><Icon name="cloud" /> Azure Deployment (azd)</div>
           <div class="text-neutral-700 dark:text-neutral-300 text-sm">
             Configure infrastructure, pipelines, and deployment to Azure. Supports Container Apps, App Service, 
             Functions, AKS, and more!
@@ -958,14 +959,14 @@ const resourceTypesExample = `resources:
       </div>
       <p class="text-neutral-700 dark:text-neutral-300">
         <strong>This reference covers ALL properties</strong> - both for local development with <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd app</code> 
-        and Azure deployment with standard <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd</code>. It's the complete guide! 📚
+ and Azure deployment with standard<code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azd</code>. It's the complete guide!
       </p>
     </div>
 
     <!-- Quick Start -->
     <section class="mb-16">
       <h2 class="text-3xl font-bold mb-6 flex items-center gap-2">
-        <span>⚡</span>
+        <span><Icon name="zap" /></span>
         <span>Quick Start Example</span>
       </h2>
       <p class="text-neutral-700 dark:text-neutral-300 mb-4">
@@ -973,13 +974,13 @@ const resourceTypesExample = `resources:
       </p>
       <Code code={basicExample} lang="yaml" />
       <p class="mt-4 text-neutral-700 dark:text-neutral-300">
-        That's it! With just this, azd app will auto-detect your tech stack, figure out how to run your services, and set up health checks. Magic! ✨
+        That's it! With just this, azd app will auto-detect your tech stack, figure out how to run your services, and set up health checks. Magic! <Icon name="sparkles" />
       </p>
     </section>
 
     <!-- Table of Contents -->
     <div class="mb-16 p-6 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
-      <h2 class="text-2xl font-bold mb-4">📑 Table of Contents</h2>
+      <h2 class="text-2xl font-bold mb-4"><Icon name="list" /> Table of Contents</h2>
       <div class="grid md:grid-cols-2 gap-3">
         <a href="#name" class="text-blue-600 dark:text-blue-400 hover:underline">→ name - Your app's identity</a>
         <a href="#services" class="text-blue-600 dark:text-blue-400 hover:underline">→ services - The heart of your config</a>
@@ -1005,7 +1006,7 @@ const resourceTypesExample = `resources:
       <!-- NAME -->
       <section id="name" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">🏷️</span>
+          <span><Icon name="tag" size={36} /></span>
           <span>name</span>
           <span class="text-sm font-normal text-red-500 ml-2">(required)</span>
         </h2>
@@ -1029,7 +1030,7 @@ const resourceTypesExample = `resources:
               <tr>
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">name</code></td>
                 <td class="py-3 px-4">string</td>
-                <td class="py-3 px-4">✅ Yes</td>
+                <td class="py-3 px-4"><Icon name="circle-check" /> Yes</td>
                 <td class="py-3 px-4"><code class="text-xs">^[a-z0-9]([-a-z0-9]*[a-z0-9])?$</code></td>
                 <td class="py-3 px-4">2-64 chars</td>
               </tr>
@@ -1040,11 +1041,11 @@ const resourceTypesExample = `resources:
         <div class="bg-neutral-100 dark:bg-neutral-800 p-4 rounded-lg mb-4">
           <h3 class="text-lg font-semibold mb-2">Rules & Restrictions</h3>
           <ul class="list-disc list-inside space-y-1 text-neutral-700 dark:text-neutral-300">
-            <li>✅ Lowercase letters (a-z), numbers (0-9), hyphens (-) only</li>
-            <li>✅ Must start and end with a letter or number</li>
-            <li>✅ Length: 2-64 characters</li>
-            <li>❌ No uppercase, spaces, special characters, or unicode</li>
-            <li>❌ Cannot be empty or just whitespace</li>
+            <li><Icon name="circle-check" /> Lowercase letters (a-z), numbers (0-9), hyphens (-) only</li>
+            <li><Icon name="circle-check" /> Must start and end with a letter or number</li>
+            <li><Icon name="circle-check" /> Length: 2-64 characters</li>
+            <li><Icon name="circle-x" /> No uppercase, spaces, special characters, or unicode</li>
+            <li><Icon name="circle-x" /> Cannot be empty or just whitespace</li>
           </ul>
         </div>
 
@@ -1054,17 +1055,17 @@ const resourceTypesExample = `resources:
       <!-- SERVICES -->
       <section id="services" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">🎭</span>
+          <span><Icon name="drama" size={36} /></span>
           <span>services</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
-          The services section is where the real party happens! 🎉 This is where you define all the different 
+ The services section is where the real party happens! This is where you define all the different
           pieces of your application - web frontends, APIs, background workers, databases, caches, you name it.
         </p>
 
         <div class="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 p-6 rounded-xl border border-green-200 dark:border-green-800 mb-6">
           <h3 class="text-xl font-bold mb-3 flex items-center gap-2">
-            <span>🧠</span>
+            <span><Icon name="brain" /></span>
             <span>Smart Auto-Detection</span>
           </h3>
           <p class="text-neutral-700 dark:text-neutral-300">
@@ -1083,19 +1084,19 @@ const resourceTypesExample = `resources:
           
           <div class="grid md:grid-cols-2 gap-4 mb-6">
             <div class="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
-              <div class="font-bold text-lg mb-1">🌐 http</div>
+              <div class="font-bold text-lg mb-1"><Icon name="globe" /> http</div>
               <div class="text-sm text-neutral-700 dark:text-neutral-300">Web servers, APIs, anything with HTTP endpoints. Default when ports are defined.</div>
             </div>
             <div class="p-4 bg-purple-50 dark:bg-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-700">
-              <div class="font-bold text-lg mb-1">🔌 tcp</div>
+              <div class="font-bold text-lg mb-1"><Icon name="plug" /> tcp</div>
               <div class="text-sm text-neutral-700 dark:text-neutral-300">Raw TCP connections like databases, Redis, message queues.</div>
             </div>
             <div class="p-4 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-700">
-              <div class="font-bold text-lg mb-1">⚙️ process</div>
+              <div class="font-bold text-lg mb-1"><Icon name="settings" /> process</div>
               <div class="text-sm text-neutral-700 dark:text-neutral-300">Background workers, queue processors. Default when no ports.</div>
             </div>
             <div class="p-4 bg-orange-50 dark:bg-orange-900/30 rounded-lg border border-orange-200 dark:border-orange-700">
-              <div class="font-bold text-lg mb-1">🐳 container</div>
+              <div class="font-bold text-lg mb-1"><Icon name="container" /> container</div>
               <div class="text-sm text-neutral-700 dark:text-neutral-300">Docker containers. Auto-detected when <code class="bg-white dark:bg-neutral-800 px-1 rounded">image</code> is set.</div>
             </div>
           </div>
@@ -1109,19 +1110,19 @@ const resourceTypesExample = `resources:
 
           <div class="grid md:grid-cols-2 gap-4 mb-6">
             <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
-              <div class="font-bold mb-1">🔄 daemon (default)</div>
+              <div class="font-bold mb-1"><Icon name="refresh-cw" /> daemon (default)</div>
               <div class="text-sm text-neutral-700 dark:text-neutral-300">Long-running process that stays up. Most services use this.</div>
             </div>
             <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
-              <div class="font-bold mb-1">👀 watch</div>
+              <div class="font-bold mb-1"><Icon name="eye" /> watch</div>
               <div class="text-sm text-neutral-700 dark:text-neutral-300">Continuous file watcher (tsc --watch, nodemon). Monitors output for health.</div>
             </div>
             <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
-              <div class="font-bold mb-1">🏗️ build</div>
+              <div class="font-bold mb-1"><Icon name="hammer" /> build</div>
               <div class="text-sm text-neutral-700 dark:text-neutral-300">One-time build process that exits when done.</div>
             </div>
             <div class="p-4 bg-neutral-100 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-700">
-              <div class="font-bold mb-1">📋 task</div>
+              <div class="font-bold mb-1"><Icon name="clipboard-list" /> task</div>
               <div class="text-sm text-neutral-700 dark:text-neutral-300">Run manually on-demand (migrations, seeds).</div>
             </div>
           </div>
@@ -1394,7 +1395,7 @@ const resourceTypesExample = `resources:
                 <td class="py-3 px-4">
                   <div class="mb-1">Auto-discovered local URL (NEVER overridden). Always shows the actual localhost endpoint.</div>
                   <div class="text-xs mt-1">Examples: <code class="px-1 bg-white dark:bg-neutral-700 rounded">http://localhost:3000</code>, <code class="px-1 bg-white dark:bg-neutral-700 rounded">http://localhost:8080</code></div>
-                  <div class="text-xs mt-1 text-amber-700 dark:text-amber-400">⚠️ If service has custom URL, both URLs are preserved separately</div>
+                  <div class="text-xs mt-1 text-amber-700 dark:text-amber-400"><Icon name="triangle-alert" /> If service has custom URL, both URLs are preserved separately</div>
                 </td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
@@ -1415,7 +1416,7 @@ const resourceTypesExample = `resources:
                 <td class="py-3 px-4">
                   <div class="mb-1">Auto-discovered Azure URL (NEVER overridden). Always shows the actual provisioned endpoint.</div>
                   <div class="text-xs mt-1">Examples: <code class="px-1 bg-white dark:bg-neutral-700 rounded">https://myapp.azurewebsites.net</code>, <code class="px-1 bg-white dark:bg-neutral-700 rounded">https://myapi.azurecontainerapps.io</code></div>
-                  <div class="text-xs mt-1 text-amber-700 dark:text-amber-400">⚠️ If service has custom domain, both URLs are preserved separately</div>
+                  <div class="text-xs mt-1 text-amber-700 dark:text-amber-400"><Icon name="triangle-alert" /> If service has custom domain, both URLs are preserved separately</div>
                 </td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
@@ -1437,7 +1438,7 @@ const resourceTypesExample = `resources:
                   <div class="mb-1">Custom domain name for Azure deployment (domain only, no protocol). Converted to HTTPS URL for display. The original Azure URL is preserved in <code class="px-1 bg-white dark:bg-neutral-700 rounded">azure.url</code>.</div>
                   <div class="text-xs mt-1">Can be auto-discovered from Azure resource settings (e.g., App Service custom domain) or set locally in azure.yaml.</div>
                   <div class="text-xs mt-1">Examples: <code class="px-1 bg-white dark:bg-neutral-700 rounded">www.contoso.com</code>, <code class="px-1 bg-white dark:bg-neutral-700 rounded">api.fabrikam.com</code></div>
-                  <div class="text-xs mt-1 text-amber-700 dark:text-amber-400">⚠️ Do not include <code>http://</code> or <code>https://</code></div>
+                  <div class="text-xs mt-1 text-amber-700 dark:text-amber-400"><Icon name="triangle-alert" /> Do not include <code>http://</code> or <code>https://</code></div>
                 </td>
               </tr>
             </tbody>
@@ -1499,7 +1500,7 @@ const resourceTypesExample = `resources:
 
         <div class="mt-6 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
           <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
-            <span>🎯</span>
+            <span><Icon name="target" /></span>
             <span>How It Works: URL Property Design</span>
           </h3>
           <p class="text-neutral-700 dark:text-neutral-300 mb-3">
@@ -1527,7 +1528,7 @@ const resourceTypesExample = `resources:
           
           <div class="mt-4 p-3 bg-purple-100 dark:bg-purple-900/30 rounded border border-purple-300 dark:border-purple-700">
             <div class="font-semibold mb-2 flex items-center gap-2">
-              <span>🔒</span>
+              <span><Icon name="lock" /></span>
               <span>Readonly Properties</span>
             </div>
             <p class="text-sm text-neutral-700 dark:text-neutral-300">
@@ -1541,7 +1542,7 @@ const resourceTypesExample = `resources:
 
         <div class="mt-6 p-6 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
           <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
-            <span>💡</span>
+            <span><Icon name="lightbulb" /></span>
             <span>Example: URL Separation</span>
           </h3>
           <div class="mb-3">
@@ -1572,7 +1573,7 @@ const resourceTypesExample = `resources:
 
         <div class="mt-6 p-6 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
           <h3 class="text-lg font-bold mb-3 flex items-center gap-2">
-            <span>✨</span>
+            <span><Icon name="sparkles" /></span>
             <span>Display Behavior</span>
           </h3>
           <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
@@ -1585,7 +1586,7 @@ const resourceTypesExample = `resources:
 
         <div class="mt-6 p-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
           <h3 class="text-lg font-bold mb-2 flex items-center gap-2">
-            <span>⚠️</span>
+            <span><Icon name="triangle-alert" /></span>
             <span>Important Notes</span>
           </h3>
           <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
@@ -1604,17 +1605,17 @@ const resourceTypesExample = `resources:
       <!-- HEALTHCHECKS -->
       <section id="healthchecks" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">❤️</span>
+          <span><Icon name="heart" size={36} /></span>
           <span>Health Checks</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
           Health checks are how azd app knows when your services are actually ready to accept connections. 
-          No more "Connection refused" errors because you tried to hit your API before it finished starting up! 🎯
+ No more "Connection refused" errors because you tried to hit your API before it finished starting up!
         </p>
 
         <div class="bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-xl border border-yellow-200 dark:border-yellow-700 mb-6">
           <h3 class="text-lg font-bold mb-2 flex items-center gap-2">
-            <span>💡</span>
+            <span><Icon name="lightbulb" /></span>
             <span>Pro Tip</span>
           </h3>
           <p class="text-neutral-700 dark:text-neutral-300">
@@ -1695,7 +1696,7 @@ const resourceTypesExample = `resources:
       <!-- DOCKER -->
       <section id="docker" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">🐳</span>
+          <span><Icon name="container" size={36} /></span>
           <span>Docker & Containers</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
@@ -1706,7 +1707,7 @@ const resourceTypesExample = `resources:
         <Code code={dockerService} lang="yaml" />
 
         <div class="mt-6 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-          <h3 class="text-lg font-bold mb-2">📦 Container Service Properties</h3>
+          <h3 class="text-lg font-bold mb-2"><Icon name="package" /> Container Service Properties</h3>
           <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">image</code> - Docker image name (makes it a container service)</li>
             <li><code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">ports</code> - Port mappings in "host:container" format (every listed port is published)</li>
@@ -1722,7 +1723,7 @@ const resourceTypesExample = `resources:
           </ul>
           <p class="mt-3 text-neutral-700 dark:text-neutral-300">
             Container services in a project share a Docker network and resolve each other by
-            service name — e.g. <code class="px-1 bg-white dark:bg-neutral-800 rounded">BLOB_SERVER: azurite</code>
+            service name, e.g. <code class="px-1 bg-white dark:bg-neutral-800 rounded">BLOB_SERVER: azurite</code>
             connects to the <code class="px-1 bg-white dark:bg-neutral-800 rounded">azurite</code> container.
           </p>
         </div>
@@ -1806,7 +1807,7 @@ const resourceTypesExample = `resources:
       <!-- RESOURCES -->
       <section id="resources" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">☁️</span>
+          <span><Icon name="cloud" size={36} /></span>
           <span>resources</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
@@ -1925,7 +1926,7 @@ const resourceTypesExample = `resources:
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">type</code></td>
                 <td class="py-3 px-4">enum</td>
-                <td class="py-3 px-4">✅ Yes</td>
+                <td class="py-3 px-4"><Icon name="circle-check" /> Yes</td>
                 <td class="py-3 px-4">Azure resource type (see table above)</td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
@@ -1954,26 +1955,26 @@ const resourceTypesExample = `resources:
       <!-- REQUIREMENTS -->
       <section id="requirements" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">✅</span>
+          <span><Icon name="circle-check" size={36} /></span>
           <span>reqs (Prerequisites)</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
           Define prerequisite tools your project needs. azd app will check for these tools and their versions 
-          before running your application. No more "works on my machine" problems! 🎉
+ before running your application. No more "works on my machine" problems!
         </p>
 
         <Code code={requirementsExample} lang="yaml" />
 
         <div class="mt-6 grid md:grid-cols-2 gap-4">
           <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-            <h3 class="font-bold mb-2">🔍 Built-in Tools</h3>
+            <h3 class="font-bold mb-2"><Icon name="search" /> Built-in Tools</h3>
             <p class="text-sm text-neutral-700 dark:text-neutral-300">
               azd app has smart defaults for common tools: node, python, docker, go, java, dotnet, rust, etc. 
               Just specify the name and minVersion!
             </p>
           </div>
           <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-            <h3 class="font-bold mb-2">🛠️ Custom Tools</h3>
+            <h3 class="font-bold mb-2"><Icon name="wrench" /> Custom Tools</h3>
             <p class="text-sm text-neutral-700 dark:text-neutral-300">
               For custom tools, specify how to check the version with <code class="px-1 bg-white dark:bg-neutral-800 rounded">command</code>, 
               <code class="px-1 bg-white dark:bg-neutral-800 rounded">args</code>, and parsing options.
@@ -1996,7 +1997,7 @@ const resourceTypesExample = `resources:
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
                 <td class="py-3 px-4"><code class="text-blue-600 dark:text-blue-400">name</code></td>
                 <td class="py-3 px-4">string</td>
-                <td class="py-3 px-4">✅ Yes</td>
+                <td class="py-3 px-4"><Icon name="circle-check" /> Yes</td>
                 <td class="py-3 px-4">Tool name (node, python, docker, go, etc.)</td>
               </tr>
               <tr class="border-t border-neutral-200 dark:border-neutral-700">
@@ -2092,7 +2093,7 @@ const resourceTypesExample = `resources:
       <!-- HOOKS -->
       <section id="hooks" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">🪝</span>
+          <span><Icon name="webhook" size={36} /></span>
           <span>hooks (Lifecycle Hooks)</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
@@ -2262,7 +2263,7 @@ const resourceTypesExample = `resources:
       <!-- LOGGING -->
       <section id="logging" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">📊</span>
+          <span><Icon name="chart-column" size={36} /></span>
           <span>logs (Logging Configuration)</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
@@ -2278,7 +2279,7 @@ const resourceTypesExample = `resources:
         </p>
         
         <div class="mt-4 mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <div class="font-semibold text-blue-900 dark:text-blue-100 mb-2">📘 Complete Azure Logs Guide</div>
+          <div class="font-semibold text-blue-900 dark:text-blue-100 mb-2"><Icon name="book-marked" /> Complete Azure Logs Guide</div>
           <p class="text-sm text-blue-800 dark:text-blue-200">
             See the <a href="/azd-app/reference/azure-logs/" class="underline">Azure Cloud Log Streaming</a> reference for detailed setup, dashboard features, troubleshooting, and examples.
           </p>
@@ -2402,7 +2403,7 @@ const resourceTypesExample = `resources:
       <!-- TESTING -->
       <section id="testing" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">🧪</span>
+          <span><Icon name="flask-conical" size={36} /></span>
           <span>test (Testing Configuration)</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
@@ -2583,7 +2584,7 @@ const resourceTypesExample = `resources:
       <!-- INFRASTRUCTURE -->
       <section id="infra" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">🏗️</span>
+          <span><Icon name="hammer" size={36} /></span>
           <span>infra (Infrastructure Configuration)</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
@@ -2605,7 +2606,7 @@ const resourceTypesExample = `resources:
       <!-- PIPELINE -->
       <section id="pipeline" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">🔄</span>
+          <span><Icon name="refresh-cw" size={36} /></span>
           <span>pipeline (CI/CD Configuration)</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
@@ -2627,7 +2628,7 @@ const resourceTypesExample = `resources:
       <!-- DEPLOYMENT PROPERTIES -->
       <section id="deployment" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">🚀</span>
+          <span><Icon name="rocket" size={36} /></span>
           <span>Deployment & Cloud Properties</span>
         </h2>
 
@@ -2960,33 +2961,33 @@ const resourceTypesExample = `resources:
       <!-- FULL EXAMPLE -->
       <section id="full-example" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">🎪</span>
+          <span><Icon name="tent" size={36} /></span>
           <span>The Grand Finale: Complete Example</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
           Feast your eyes on this masterpiece! A real-world <code class="px-2 py-1 bg-neutral-100 dark:bg-neutral-800 rounded">azure.yaml</code> 
-          with all the bells and whistles. This is what peak performance looks like! 🏆
+ with all the bells and whistles. This is what peak performance looks like!
         </p>
 
         <Code code={fullExample} lang="yaml" />
 
         <div class="mt-6 p-6 bg-gradient-to-r from-pink-50 to-yellow-50 dark:from-pink-900/20 dark:to-yellow-900/20 rounded-xl border-2 border-pink-200 dark:border-pink-800">
           <h3 class="text-lg font-bold mb-2 flex items-center gap-2">
-            <span>🎉</span>
+            <span><Icon name="party-popper" /></span>
             <span>What's Happening Here?</span>
           </h3>
           <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
-            <li>🎯 Next.js frontend with environment variables and tests</li>
-            <li>🐍 FastAPI backend with health checks and Log Analytics</li>
-            <li>⚙️ Python background worker for queue processing</li>
-            <li>👀 TypeScript compiler in watch mode with output monitoring</li>
-            <li>🐘 PostgreSQL database container with health checks</li>
-            <li>⚡ Redis cache for sessions and caching</li>
-            <li>☁️ Azurite for Azure Storage emulation</li>
-            <li>✅ Prerequisites checking for Node, Docker, and Python</li>
-            <li>🪝 Lifecycle hooks for setup and notifications</li>
-            <li>📊 Global logging with filters and Azure Analytics</li>
-            <li>🧪 Comprehensive testing with coverage tracking</li>
+            <li><Icon name="target" /> Next.js frontend with environment variables and tests</li>
+            <li><Icon name="code" /> FastAPI backend with health checks and Log Analytics</li>
+            <li><Icon name="settings" /> Python background worker for queue processing</li>
+            <li><Icon name="eye" /> TypeScript compiler in watch mode with output monitoring</li>
+            <li><Icon name="database" /> PostgreSQL database container with health checks</li>
+            <li><Icon name="zap" /> Redis cache for sessions and caching</li>
+            <li><Icon name="cloud" /> Azurite for Azure Storage emulation</li>
+            <li><Icon name="circle-check" /> Prerequisites checking for Node, Docker, and Python</li>
+            <li><Icon name="webhook" /> Lifecycle hooks for setup and notifications</li>
+            <li><Icon name="chart-column" /> Global logging with filters and Azure Analytics</li>
+            <li><Icon name="flask-conical" /> Comprehensive testing with coverage tracking</li>
           </ul>
         </div>
       </section>
@@ -2994,7 +2995,7 @@ const resourceTypesExample = `resources:
       <!-- QUICK REFERENCE -->
       <section id="quick-ref" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">⚡</span>
+          <span><Icon name="zap" size={36} /></span>
           <span>Quick Reference</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
@@ -3006,20 +3007,20 @@ const resourceTypesExample = `resources:
       <!-- Fun Tips -->
       <section class="mb-16">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">💎</span>
+          <span><Icon name="gem" size={36} /></span>
           <span>Pro Tips & Tricks</span>
         </h2>
         
         <div class="space-y-4">
           <div class="p-5 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border-l-4 border-blue-500">
-            <h3 class="font-bold mb-2">🎯 Let Auto-Detection Do Its Thing</h3>
+            <h3 class="font-bold mb-2"><Icon name="target" /> Let Auto-Detection Do Its Thing</h3>
             <p class="text-neutral-700 dark:text-neutral-300">
               Start minimal! azd app will figure out your language, framework, and run commands. Add overrides only when needed.
             </p>
           </div>
 
           <div class="p-5 bg-gradient-to-r from-green-50 to-cyan-50 dark:from-green-900/20 dark:to-cyan-900/20 rounded-lg border-l-4 border-green-500">
-            <h3 class="font-bold mb-2">🔗 Use Dependencies Wisely</h3>
+            <h3 class="font-bold mb-2"><Icon name="link" /> Use Dependencies Wisely</h3>
             <p class="text-neutral-700 dark:text-neutral-300">
               The <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">uses</code> property ensures services start in the right order. 
               Your API won't start until the database is healthy!
@@ -3027,28 +3028,28 @@ const resourceTypesExample = `resources:
           </div>
 
           <div class="p-5 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-lg border-l-4 border-orange-500">
-            <h3 class="font-bold mb-2">🏥 Health Checks Are Your Friend</h3>
+            <h3 class="font-bold mb-2"><Icon name="stethoscope" /> Health Checks Are Your Friend</h3>
             <p class="text-neutral-700 dark:text-neutral-300">
               Proper health checks prevent race conditions. For watch mode services, use output patterns instead of HTTP checks!
             </p>
           </div>
 
           <div class="p-5 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border-l-4 border-purple-500">
-            <h3 class="font-bold mb-2">📊 Filter Those Logs</h3>
+            <h3 class="font-bold mb-2"><Icon name="chart-column" /> Filter Those Logs</h3>
             <p class="text-neutral-700 dark:text-neutral-300">
               Nobody needs to see "npm warn deprecated" 500 times. Use log filters to keep your output clean and focused!
             </p>
           </div>
 
           <div class="p-5 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-lg border-l-4 border-yellow-500">
-            <h3 class="font-bold mb-2">🐳 Containers for Infrastructure</h3>
+            <h3 class="font-bold mb-2"><Icon name="container" /> Containers for Infrastructure</h3>
             <p class="text-neutral-700 dark:text-neutral-300">
               Run databases, caches, and Azure emulators as containers. No need to install PostgreSQL on every dev machine!
             </p>
           </div>
 
           <div class="p-5 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-lg border-l-4 border-cyan-500">
-            <h3 class="font-bold mb-2">🧪 Test Early, Test Often</h3>
+            <h3 class="font-bold mb-2"><Icon name="flask-conical" /> Test Early, Test Often</h3>
             <p class="text-neutral-700 dark:text-neutral-300">
               Configure tests in <code class="px-2 py-1 bg-white dark:bg-neutral-800 rounded">azure.yaml</code> so everyone runs them the same way. 
               Enforce coverage thresholds to maintain quality!
@@ -3060,7 +3061,7 @@ const resourceTypesExample = `resources:
       <!-- METADATA -->
       <section id="metadata" class="mb-16 scroll-mt-8">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">🏷️</span>
+          <span><Icon name="tag" size={36} /></span>
           <span>metadata (Custom Metadata)</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 text-lg mb-6">
@@ -3115,7 +3116,7 @@ const resourceTypesExample = `resources:
       <!-- Schema Validation -->
       <section class="mb-16">
         <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
-          <span class="text-4xl">🔍</span>
+          <span><Icon name="search" size={36} /></span>
           <span>Schema Validation & IntelliSense</span>
         </h2>
         <p class="text-neutral-700 dark:text-neutral-300 mb-4">
@@ -3136,7 +3137,7 @@ const resourceTypesExample = `resources:
 
         <div class="mt-6 p-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-700">
           <h3 class="text-lg font-bold mb-2 flex items-center gap-2">
-            <span>💡</span>
+            <span><Icon name="lightbulb" /></span>
             <span>Which Schema Should I Use?</span>
           </h3>
           <ul class="list-disc list-inside space-y-2 text-neutral-700 dark:text-neutral-300">
@@ -3151,22 +3152,22 @@ const resourceTypesExample = `resources:
 
     <!-- Footer Navigation -->
     <div class="mt-16 pt-8 border-t-2 border-neutral-200 dark:border-neutral-700">
-      <h2 class="text-2xl font-bold mb-6">🔗 Related Documentation</h2>
+      <h2 class="text-2xl font-bold mb-6"><Icon name="link" /> Related Documentation</h2>
       <div class="grid md:grid-cols-2 gap-4">
         <a href="/azd-app/quick-start/" class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
-          <div class="font-bold text-lg mb-1">🚀 Quick Start</div>
+          <div class="font-bold text-lg mb-1"><Icon name="rocket" /> Quick Start</div>
           <div class="text-sm text-neutral-700 dark:text-neutral-300">Get up and running in minutes</div>
         </a>
         <a href="/azd-app/reference/containers/" class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700 hover:border-purple-500 dark:hover:border-purple-500 transition-colors">
-          <div class="font-bold text-lg mb-1">🐳 Container Services</div>
+          <div class="font-bold text-lg mb-1"><Icon name="container" /> Container Services</div>
           <div class="text-sm text-neutral-700 dark:text-neutral-300">Run databases and Azure emulators</div>
         </a>
         <a href="/azd-app/reference/cli/" class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700 hover:border-green-500 dark:hover:border-green-500 transition-colors">
-          <div class="font-bold text-lg mb-1">💻 CLI Reference</div>
+          <div class="font-bold text-lg mb-1"><Icon name="monitor" /> CLI Reference</div>
           <div class="text-sm text-neutral-700 dark:text-neutral-300">All azd app commands</div>
         </a>
         <a href="/azd-app/tour/" class="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700 hover:border-orange-500 dark:hover:border-orange-500 transition-colors">
-          <div class="font-bold text-lg mb-1">🎓 Interactive Tour</div>
+          <div class="font-bold text-lg mb-1"><Icon name="graduation-cap" /> Interactive Tour</div>
           <div class="text-sm text-neutral-700 dark:text-neutral-300">Learn by doing</div>
         </a>
       </div>
@@ -3174,7 +3175,7 @@ const resourceTypesExample = `resources:
 
     <!-- Final CTA -->
     <div class="mt-12 p-8 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl text-center">
-      <h2 class="text-3xl font-bold mb-3">Ready to Build Something Amazing? 🚀</h2>
+      <h2 class="text-3xl font-bold mb-3">Ready to Build Something Amazing? <Icon name="rocket" /></h2>
       <p class="text-lg mb-6 opacity-90">
         Now that you're an azure.yaml expert, go forth and orchestrate some awesome local development environments!
       </p>
