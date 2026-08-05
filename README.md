@@ -243,9 +243,14 @@ azd app is part of a suite of Azure Developer CLI extensions by [Jon Gallant](ht
 | Extension | Description | Website |
 |-----------|-------------|---------|
 | **[azd app](https://github.com/jongio/azd-app)** | Run Azure apps locally with auto-dependencies, dashboard, and AI debugging | [jongio.github.io/azd-app](https://jongio.github.io/azd-app/) |
-| **[azd copilot](https://github.com/jongio/azd-copilot)** | AI-powered Azure development with 16 agents and 28 skills | [jongio.github.io/azd-copilot](https://jongio.github.io/azd-copilot/) |
-| **[azd exec](https://github.com/jongio/azd-exec)** | Execute scripts with azd environment context and Key Vault integration | [jongio.github.io/azd-exec](https://jongio.github.io/azd-exec/) |
 | **[azd rest](https://github.com/jongio/azd-rest)** | Authenticated REST API calls with automatic scope detection | [jongio.github.io/azd-rest](https://jongio.github.io/azd-rest/) |
+
+Install both in one step with the extension pack: `azd extension install jongio.azd`.
+
+Two entries were removed from this table rather than updated. **azd copilot** is
+retired and being archived; it still resolves for existing installs but is no longer
+maintained. **azd exec** is no longer needed at all, because `azd exec` shipped as a
+built-in azd command in v1.25.1.
 
 🌐 **Extension Hub**: [jongio.github.io/azd-extensions](https://jongio.github.io/azd-extensions/) — Browse all extensions, quick install, and registry info.
 
