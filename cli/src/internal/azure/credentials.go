@@ -124,7 +124,7 @@ func (c *AzdTokenCredential) GetToken(ctx context.Context, options policy.TokenR
 }
 
 // CredentialChain provides Azure credentials with multiple fallback options.
-// It tries credentials in order: azd token, Azure CLI, environment variables, managed identity.
+// It tries the azd token first, then the Azure Developer CLI, then DefaultAzureCredential.
 type CredentialChain struct {
 	credential azcore.TokenCredential
 	source     string
