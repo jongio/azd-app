@@ -1,5 +1,5 @@
 ---
-import Icon from '@jongio/azd-web-core/components/Icon.astro';
+import Icon, { type IconName } from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * ChallengeCallout Component
  * 
@@ -16,8 +16,8 @@ interface Props {
   description?: string;
   /** Copilot prompt to copy */
   prompt?: string;
-  /** Challenge icon/emoji */
-  icon?: string;
+  /** Challenge icon name from the shared Lucide registry */
+  icon?: IconName;
   /** Additional CSS classes */
   class?: string;
 }

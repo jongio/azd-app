@@ -75,7 +75,7 @@ const totalTime = getTotalEstimatedTime();
             data-step-number={step.number}
           >
             <div class="tour-step-card-header">
-              <span class="tour-step-card-icon" aria-hidden="true">{step.icon}</span>
+              <span class="tour-step-card-icon"><Icon name={step.icon} size={28} /></span>
               <span class="tour-step-card-number">Step {step.number}</span>
             </div>
             <h3 class="tour-step-card-title">{step.title}</h3>

@@ -7,15 +7,7 @@
  */
 import Icon, { type IconName } from '@jongio/azd-web-core/components/Icon.astro';
 
-interface Props {
-  /** Feature icon name from the shared Lucide registry */
-  icon?: IconName;
-  /**
-   * Inline SVG markup, for brand marks only (GitHub, Docker, etc).
-   * Lucide ships no brand icons, so those cannot come from `icon`.
-   * Trusted author-authored markup only - never pass user input here.
-   */
-  iconSvg?: string;
+interface BaseProps {
   /** Feature title */
   title: string;
   /** Feature description */
@@ -27,6 +19,29 @@ interface Props {
   /** Additional CSS classes */
   class?: string;
 }
+
+/**
+ * Exactly one icon source is required. Making these a union rather than two
+ * optional props means omitting both is a compile error instead of a card
+ * that silently renders an empty icon slot.
+ */
+type IconProps =
+  | {
+      /** Feature icon name from the shared Lucide registry */
+      icon: IconName;
+      iconSvg?: never;
+    }
+  | {
+      icon?: never;
+      /**
+       * Inline SVG markup, for brand marks only (GitHub, Docker, etc).
+       * Lucide ships no brand icons, so those cannot come from `icon`.
+       * Trusted author-authored markup only - never pass user input here.
+       */
+      iconSvg: string;
+    };
+
+type Props = BaseProps & IconProps;
 
 const {
   icon,

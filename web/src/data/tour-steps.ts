@@ -4,6 +4,8 @@
  * Defines the 8-step guided tour structure with all metadata.
  */
 
+import type { IconName } from '@jongio/azd-web-core/components/Icon.astro';
+
 export interface TourStep {
   /** Step number (1-8) */
   number: number;
@@ -15,8 +17,8 @@ export interface TourStep {
   description: string;
   /** Estimated completion time in minutes */
   estimatedTime: number;
-  /** Step icon/emoji */
-  icon: string;
+  /** Lucide icon name from the azd-web-core registry */
+  icon: IconName;
   /** Prerequisites (previous step numbers) */
   prerequisites: number[];
   /** Related documentation links */

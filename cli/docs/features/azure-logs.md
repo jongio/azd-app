@@ -961,7 +961,6 @@ Toggle modes using the mode selector in the dashboard header or with keyboard sh
 2. Re-authenticate with Azure:
    ```bash
    azd auth login
-   azd auth login
    ```
 3. Verify subscription access:
    ```bash

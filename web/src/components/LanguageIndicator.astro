@@ -1,5 +1,5 @@
 ---
-import Icon from '@jongio/azd-web-core/components/Icon.astro';
+import Icon, { type IconName } from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * LanguageIndicator Component
  * 
@@ -40,19 +40,19 @@ interface Props {
 interface LanguageConfig {
   displayName: string;
   shortName: string;
-  icon: string | null;
+  icon: IconName | null;
 }
 
 const languageConfig: Record<string, LanguageConfig> = {
   bash: {
     displayName: 'Bash',
     shortName: 'bash',
-    icon: '❯',
+    icon: 'terminal',
   },
   shell: {
     displayName: 'Shell',
     shortName: 'sh',
-    icon: '❯',
+    icon: 'terminal',
   },
   yaml: {
     displayName: 'YAML',
@@ -62,27 +62,27 @@ const languageConfig: Record<string, LanguageConfig> = {
   json: {
     displayName: 'JSON',
     shortName: 'json',
-    icon: '{ }',
+    icon: 'file-code',
   },
   typescript: {
     displayName: 'TypeScript',
     shortName: 'ts',
-    icon: 'TS',
+    icon: 'file-code',
   },
   ts: {
     displayName: 'TypeScript',
     shortName: 'ts',
-    icon: 'TS',
+    icon: 'file-code',
   },
   javascript: {
     displayName: 'JavaScript',
     shortName: 'js',
-    icon: 'JS',
+    icon: 'file-code',
   },
   js: {
     displayName: 'JavaScript',
     shortName: 'js',
-    icon: 'JS',
+    icon: 'file-code',
   },
   python: {
     displayName: 'Python',
