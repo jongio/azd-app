@@ -145,12 +145,12 @@ func (c *CredentialChain) GetToken(ctx context.Context, options policy.TokenRequ
 
 // NewCredentialChain creates a new credential chain that tries multiple credential sources.
 // Priority order:
-// 1. AZD_ACCESS_TOKEN environment variable (from azd extension context)
-// 2. Azure Developer CLI credentials (from 'azd auth login')
-// 3. DefaultAzureCredential, which covers environment variables, workload identity,
-//    managed identity, Azure CLI and Azure PowerShell. See the azidentity docs for
-//    the authoritative sub-order; it is not flattened here so this comment cannot
-//    drift from the SDK.
+//  1. AZD_ACCESS_TOKEN environment variable (from azd extension context)
+//  2. Azure Developer CLI credentials (from 'azd auth login')
+//  3. DefaultAzureCredential, which covers environment variables, workload identity,
+//     managed identity, Azure CLI and Azure PowerShell. See the azidentity docs for
+//     the authoritative sub-order; it is not flattened here so this comment cannot
+//     drift from the SDK.
 func NewCredentialChain() (*CredentialChain, error) {
 	// Try azd extension token first
 	if token := os.Getenv("AZD_ACCESS_TOKEN"); token != "" {
