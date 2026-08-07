@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * Tour Complete Page
  * 
@@ -18,7 +19,7 @@ const stepCount = tourSteps.length;
 >
   <article class="tour-complete-page">
     <header class="complete-header">
-      <div class="complete-icon">🎉</div>
+      <div class="complete-icon"><Icon name="party-popper" /></div>
       <h1 class="complete-title">Congratulations!</h1>
       <p class="complete-subtitle">You've completed the azd app guided tour</p>
     </header>
@@ -29,7 +30,7 @@ const stepCount = tourSteps.length;
         <div class="summary-grid">
           {tourSteps.map((step) => (
             <div class="summary-item">
-              <span class="summary-icon">{step.icon}</span>
+              <span class="summary-icon"><Icon name={step.icon} size={20} /></span>
               <span class="summary-text">{step.title}</span>
             </div>
           ))}
@@ -40,25 +41,25 @@ const stepCount = tourSteps.length;
         <h2>Next Steps</h2>
         <div class="next-steps-grid">
           <a href={`${import.meta.env.BASE_URL}examples/`} class="next-step-card">
-            <span class="next-step-icon">📚</span>
+            <span class="next-step-icon"><Icon name="book-open" /></span>
             <h3>Explore Examples</h3>
             <p>See real-world projects using azd app</p>
           </a>
           
           <a href={`${import.meta.env.BASE_URL}reference/cli/`} class="next-step-card">
-            <span class="next-step-icon">📖</span>
+            <span class="next-step-icon"><Icon name="book" /></span>
             <h3>CLI Reference</h3>
             <p>Dive deeper into all available commands</p>
           </a>
           
           <a href={`${import.meta.env.BASE_URL}mcp/`} class="next-step-card">
-            <span class="next-step-icon">🤖</span>
+            <span class="next-step-icon"><Icon name="bot" /></span>
             <h3>MCP Integration</h3>
             <p>Advanced AI-powered development features</p>
           </a>
           
           <a href="https://github.com/jongio/azd-app" target="_blank" rel="noopener noreferrer" class="next-step-card">
-            <span class="next-step-icon">⭐</span>
+            <span class="next-step-icon"><Icon name="star" /></span>
             <h3>Star on GitHub</h3>
             <p>Show your support and stay updated</p>
           </a>

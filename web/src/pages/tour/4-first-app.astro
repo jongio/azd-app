@@ -8,6 +8,7 @@ import TourNavigation from '../../components/tour/TourNavigation.astro';
 import LearnMoreSection from '../../components/tour/LearnMoreSection.astro';
 import TryItYourself from '../../components/tour/TryItYourself.astro';
 import CodeBlock from '../../components/CodeBlock.astro';
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 import { tourSteps, getStepByNumber, getPreviousStep, getNextStep } from '../../data/tour-steps';
 
 const step = getStepByNumber(4)!;
@@ -30,7 +31,7 @@ const nextStep = getNextStep(4);
       </nav>
       
       <div class="tour-step-meta">
-        <span class="tour-step-icon" aria-hidden="true">{step.icon}</span>
+        <span class="tour-step-icon"><Icon name={step.icon} size={28} /></span>
         <span class="tour-step-number">Step {step.number}</span>
       </div>
       
@@ -271,7 +272,7 @@ Press Ctrl+C to stop all services.`}
     background: var(--color-bg-tertiary);
     border: 1px solid var(--color-border-default);
     border-radius: 0.25rem;
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     font-size: 0.8125rem;
     box-shadow: 0 1px 0 var(--color-border-strong);
   }

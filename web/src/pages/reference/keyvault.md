@@ -6,7 +6,7 @@ description: "Automatically resolve Azure Key Vault secrets in environment varia
 
 # Azure Key Vault Integration
 
-Store secrets securely in Azure Key Vault and reference them in your environment variables. `azd app` automatically resolves these references when starting services—no code changes required.
+Store secrets securely in Azure Key Vault and reference them in your environment variables. `azd app` automatically resolves these references when starting services, with no code changes required.
 
 ## Quick Start
 
@@ -205,7 +205,7 @@ azd app run
 
 #### Best Practices
 
-**✅ DO:**
+**DO:**
 ```bash
 # Use azd env set-secret for sensitive data
 azd env set-secret DB_PASSWORD
@@ -219,7 +219,7 @@ azd env set MAX_CONNECTIONS 100
 azd env set API_URL https://api.example.com
 ```
 
-**❌ DON'T:**
+**DON'T:**
 ```bash
 # Don't use regular azd env set for secrets (stores in plain text!)
 azd env set DB_PASSWORD "super-secret-password"  # ❌ BAD - plain text in .env
@@ -259,7 +259,7 @@ azd env set-secret DB_PASSWORD
 
 ```bash
 # Authenticate (if not already)
-az login
+azd auth login
 
 # Start services - secrets are automatically resolved
 azd app run
@@ -272,15 +272,16 @@ Key Vault resolution uses [Azure DefaultAzureCredential](https://learn.microsoft
 1. **Environment variables** - Service principal credentials
 2. **Workload Identity** - Kubernetes pods
 3. **Managed Identity** - Azure VMs, App Service, Container Apps
-4. **Azure CLI** - `az login` (most common for local dev)
-5. **Azure PowerShell** - `Connect-AzAccount`
-6. **Interactive browser** - Fallback for desktop apps
+4. **Azure Developer CLI** - `azd auth login` (most common for local dev)
+5. **Azure CLI** - `az login`
+6. **Azure PowerShell** - `Connect-AzAccount`
+7. **Interactive browser** - Fallback for desktop apps
 
 ### Local Development
 
 ```bash
-# Just log in with Azure CLI
-az login
+# Just sign in with azd
+azd auth login
 
 # That's all you need!
 azd app run
@@ -307,7 +308,7 @@ Key Vault resolution works automatically in these commands:
 - **`azd app test`** - Test execution environment
 - **Lifecycle hooks** - prerun, postrun
 
-Your application code doesn't need any changes—just use normal environment variable access.
+Your application code doesn't need any changes. Just use normal environment variable access.
 
 ## Error Handling
 
@@ -359,7 +360,7 @@ Warning: failed to create Key Vault resolver:
   DefaultAzureCredential: failed to acquire a token
 ```
 
-**Fix:** Run `az login`
+**Fix:** Run `azd auth login`
 
 #### Vault Not Found
 
@@ -439,7 +440,7 @@ az keyvault secret purge --vault-name vault-abc123 --name DATABASE-PASSWORD
 
 ## Security Best Practices
 
-### ✅ DO
+### DO
 
 - **Store all secrets in Key Vault** - Never commit secrets to git
 - **Use RBAC** - Grant "Key Vault Secrets User" role (read-only)
@@ -447,7 +448,7 @@ az keyvault secret purge --vault-name vault-abc123 --name DATABASE-PASSWORD
 - **Separate vaults by environment** - dev-vault, staging-vault, prod-vault
 - **Use secret versions** - Reference specific versions for deployments
 
-### ❌ DON'T
+### DON'T
 
 - **Don't use access policies** - Use RBAC instead (modern approach)
 - **Don't share vaults across tenants** - One vault per Azure AD tenant

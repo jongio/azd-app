@@ -109,7 +109,7 @@ const HELP_CONTENT = {
       '  Run: azd auth login',
       '',
       '• Wrong subscription:',
-      '  Run: az account set --subscription <subscription-id>',
+      '  Run: azd env select <environment-name>',
       '',
       '• Permission denied:',
       '  Your account needs one of these roles on the workspace:',

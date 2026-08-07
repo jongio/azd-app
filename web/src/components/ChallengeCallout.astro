@@ -1,4 +1,5 @@
 ---
+import Icon, { type IconName } from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * ChallengeCallout Component
  * 
@@ -15,8 +16,8 @@ interface Props {
   description?: string;
   /** Copilot prompt to copy */
   prompt?: string;
-  /** Challenge icon/emoji */
-  icon?: string;
+  /** Challenge icon name from the shared Lucide registry */
+  icon?: IconName;
   /** Additional CSS classes */
   class?: string;
 }
@@ -25,7 +26,7 @@ const {
   title = "Your Challenge",
   description = "The demo template has an intentional bug! The API service is failing with a connection timeout. Use GitHub Copilot to diagnose and fix the issue.",
   prompt = "Why is my API service failing? Can you help me fix it?",
-  icon = "🎯",
+  icon = "target",
   class: className = '',
 } = Astro.props;
 ---
@@ -36,7 +37,7 @@ const {
   aria-label="Challenge"
 >
   <div class="challenge-header">
-    <span class="challenge-icon" aria-hidden="true">{icon}</span>
+    <span class="challenge-icon"><Icon name={icon} size={24} /></span>
     <h4 class="challenge-title">{title}</h4>
   </div>
 
@@ -151,7 +152,7 @@ const {
   }
 
   .challenge-prompt-text {
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     font-size: 0.9375rem;
     color: var(--color-text-primary);
     font-style: italic;

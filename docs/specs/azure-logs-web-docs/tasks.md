@@ -8,7 +8,7 @@
 **Description**: Modify `capture-screenshots.ts` to use `azure-logs-test` instead of `demo` project. Add Azure CLI authentication checks and increased wait times for Log Analytics polling. Include pre-flight checks for Azure resources.
 **Acceptance**:
 - DEMO_DIR points to `cli/tests/projects/integration/azure-logs-test`
-- Script checks `az account show` before starting
+- Script checks `azd auth login --check-status` before starting
 - Waits minimum 15s after dashboard loads for Azure logs to populate
 - Clear error message if Azure resources not available
 

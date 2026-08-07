@@ -137,7 +137,7 @@ const imageStyles = [
 
 <style>
   .screenshot {
-    margin: var(--spacing-6) 0;
+    margin: var(--space-6) 0;
     width: 100%;
   }
 
@@ -150,8 +150,8 @@ const imageStyles = [
     border: 1px solid var(--color-border-default);
     border-radius: var(--radius-lg);
     background-color: var(--color-bg-secondary);
-    transition: box-shadow var(--duration-normal) var(--ease-out),
-                border-color var(--duration-normal) var(--ease-out);
+    transition: box-shadow var(--transition-normal) var(--ease-out),
+                border-color var(--transition-normal) var(--ease-out);
   }
 
   .screenshot-button {
@@ -186,8 +186,8 @@ const imageStyles = [
     height: auto;
     object-fit: contain;
     opacity: 0;
-    transition: opacity var(--duration-slow) var(--ease-out),
-                transform var(--duration-normal) var(--ease-out);
+    transition: opacity var(--transition-slow) var(--ease-out),
+                transform var(--transition-normal) var(--ease-out);
   }
 
   .screenshot-image.screenshot-image--loaded {
@@ -235,11 +235,11 @@ const imageStyles = [
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--spacing-2);
+    gap: var(--space-2);
     background-color: rgba(0, 0, 0, 0.6);
     color: white;
     opacity: 0;
-    transition: opacity var(--duration-normal) var(--ease-out);
+    transition: opacity var(--transition-normal) var(--ease-out);
   }
 
   :global([data-theme="dark"]) .screenshot-overlay {
@@ -256,16 +256,16 @@ const imageStyles = [
   }
 
   .screenshot-expand-text {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
+    font-size: var(--azd-text-sm);
+    font-weight: var(--azd-font-weight-medium);
   }
 
   /* Caption */
   .screenshot-caption {
-    margin-top: var(--spacing-3);
+    margin-top: var(--space-3);
     padding: 0;
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
+    font-size: var(--azd-text-sm);
+    line-height: var(--azd-leading-base);
     color: var(--color-text-tertiary);
     text-align: center;
   }
@@ -273,8 +273,8 @@ const imageStyles = [
   /* Mobile */
   @media (max-width: 640px) {
     .screenshot {
-      margin-left: calc(-1 * var(--spacing-4));
-      margin-right: calc(-1 * var(--spacing-4));
+      margin-left: calc(-1 * var(--space-4));
+      margin-right: calc(-1 * var(--space-4));
     }
 
     .screenshot-wrapper,
@@ -310,8 +310,8 @@ const imageStyles = [
     }
 
     .screenshot-caption {
-      padding-left: var(--spacing-4);
-      padding-right: var(--spacing-4);
+      padding-left: var(--space-4);
+      padding-right: var(--space-4);
     }
   }
 

@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * AI Debugging Page
  * 
@@ -15,7 +16,7 @@ const workflows = [
   {
     id: "diagnose-errors",
     title: "Diagnose Errors",
-    icon: "🔍",
+    icon: "search",
     description: "When a service is failing or returning errors",
     steps: [
       "Ask: \"Which services are having issues?\"",
@@ -33,7 +34,7 @@ const workflows = [
   {
     id: "monitor-health",
     title: "Monitor Health",
-    icon: "💓",
+    icon: "heart-pulse",
     description: "Keep track of service status and performance",
     steps: [
       "Ask: \"What's the health status of all services?\"",
@@ -50,7 +51,7 @@ const workflows = [
   {
     id: "analyze-logs",
     title: "Analyze Logs",
-    icon: "📝",
+    icon: "file-pen",
     description: "Search and understand log output",
     steps: [
       "Ask: \"Show me logs from the last 5 minutes\"",
@@ -67,7 +68,7 @@ const workflows = [
   {
     id: "understand-config",
     title: "Understand Configuration",
-    icon: "⚙️",
+    icon: "settings",
     description: "Get help with project setup and configuration",
     steps: [
       "Ask: \"What services are configured in this project?\"",
@@ -131,7 +132,7 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
       <h2 id="how-heading" class="section-title">How It Works</h2>
       <div class="debug-flow">
         <div class="debug-flow-step">
-          <div class="debug-flow-icon" aria-hidden="true">💬</div>
+          <div class="debug-flow-icon" aria-hidden="true"><Icon name="message-circle" /></div>
           <div class="debug-flow-content">
             <h3>1. Ask a Question</h3>
             <p>Describe the issue in natural language</p>
@@ -139,7 +140,7 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
         </div>
         <div class="debug-flow-arrow" aria-hidden="true">→</div>
         <div class="debug-flow-step">
-          <div class="debug-flow-icon" aria-hidden="true">🔧</div>
+          <div class="debug-flow-icon" aria-hidden="true"><Icon name="wrench" /></div>
           <div class="debug-flow-content">
             <h3>2. MCP Gathers Data</h3>
             <p>AI uses MCP tools to check services</p>
@@ -147,7 +148,7 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
         </div>
         <div class="debug-flow-arrow" aria-hidden="true">→</div>
         <div class="debug-flow-step">
-          <div class="debug-flow-icon" aria-hidden="true">💡</div>
+          <div class="debug-flow-icon" aria-hidden="true"><Icon name="lightbulb" /></div>
           <div class="debug-flow-content">
             <h3>3. Get Insights</h3>
             <p>AI explains issues and suggests fixes</p>
@@ -171,7 +172,7 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
         {workflows.map((workflow) => (
           <article class="debug-workflow-card" id={workflow.id}>
             <header class="debug-workflow-header">
-              <span class="debug-workflow-icon" aria-hidden="true">{workflow.icon}</span>
+              <span class="debug-workflow-icon"><Icon name={workflow.icon} size={24} /></span>
               <h3 class="debug-workflow-title">{workflow.title}</h3>
             </header>
             <p class="debug-workflow-description">{workflow.description}</p>
@@ -207,7 +208,7 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
       <h2 id="tips-heading" class="section-title">Tips for Effective AI Debugging</h2>
       <div class="debug-tips-grid">
         <div class="debug-tip">
-          <span class="debug-tip-icon" aria-hidden="true">🎯</span>
+          <span class="debug-tip-icon" aria-hidden="true"><Icon name="target" /></span>
           <div class="debug-tip-content">
             <h3>Be Specific</h3>
             <p>
@@ -217,7 +218,7 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
           </div>
         </div>
         <div class="debug-tip">
-          <span class="debug-tip-icon" aria-hidden="true">📍</span>
+          <span class="debug-tip-icon" aria-hidden="true"><Icon name="map-pin" /></span>
           <div class="debug-tip-content">
             <h3>Name Your Services</h3>
             <p>
@@ -227,7 +228,7 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
           </div>
         </div>
         <div class="debug-tip">
-          <span class="debug-tip-icon" aria-hidden="true">⏰</span>
+          <span class="debug-tip-icon" aria-hidden="true"><Icon name="clock" /></span>
           <div class="debug-tip-content">
             <h3>Include Timeframes</h3>
             <p>
@@ -236,7 +237,7 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
           </div>
         </div>
         <div class="debug-tip">
-          <span class="debug-tip-icon" aria-hidden="true">🔄</span>
+          <span class="debug-tip-icon" aria-hidden="true"><Icon name="refresh-cw" /></span>
           <div class="debug-tip-content">
             <h3>Follow Up</h3>
             <p>
@@ -293,21 +294,21 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
       <h2 id="next-heading" class="section-title">Continue Learning</h2>
       <div class="debug-next-cards">
         <a href={`${baseUrl}mcp/prompts/`} class="debug-next-card">
-          <span class="debug-next-card-icon" aria-hidden="true">💬</span>
+          <span class="debug-next-card-icon" aria-hidden="true"><Icon name="message-circle" /></span>
           <div class="debug-next-card-content">
             <h3>Prompt Library</h3>
             <p>50+ ready-to-use prompts for debugging</p>
           </div>
         </a>
         <a href={`${baseUrl}mcp/tools/`} class="debug-next-card">
-          <span class="debug-next-card-icon" aria-hidden="true">🔧</span>
+          <span class="debug-next-card-icon" aria-hidden="true"><Icon name="wrench" /></span>
           <div class="debug-next-card-content">
             <h3>Tools Reference</h3>
             <p>Detailed docs for all MCP tools</p>
           </div>
         </a>
         <a href={`${baseUrl}tour/8-mcp/`} class="debug-next-card">
-          <span class="debug-next-card-icon" aria-hidden="true">🎓</span>
+          <span class="debug-next-card-icon" aria-hidden="true"><Icon name="graduation-cap" /></span>
           <div class="debug-next-card-content">
             <h3>MCP Tutorial</h3>
             <p>Step-by-step MCP setup guide</p>
@@ -639,7 +640,7 @@ The API is trying to connect to Redis for caching, but the Redis service isn't r
 
   .debug-tool-name {
     font-size: 0.875rem;
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     color: var(--color-azure-600);
     background: none;
     padding: 0;

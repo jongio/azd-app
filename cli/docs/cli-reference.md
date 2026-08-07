@@ -16,7 +16,7 @@ Supported formats:
 **Why it matters:**
 - ✅ Store secrets securely in Azure Key Vault, not in code
 - ✅ Works transparently - your code just uses `os.getenv()` / `process.env`
-- ✅ Uses Azure authentication you already have (`az login`, Managed Identity)
+- ✅ Uses Azure authentication you already have (`azd auth login`, Managed Identity)
 - ✅ Graceful degradation - services start even if resolution fails (with warnings)
 
 ## Global Information

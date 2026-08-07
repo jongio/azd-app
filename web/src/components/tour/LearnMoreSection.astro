@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * LearnMoreSection Component
  * 
@@ -39,7 +40,7 @@ const contentId = `learn-more-content-${id}`;
     data-learn-more-toggle
   >
     <span class="learn-more-title">
-      <span class="learn-more-icon" aria-hidden="true">📚</span>
+      <span class="learn-more-icon" aria-hidden="true"><Icon name="book-open" /></span>
       <span>{title}</span>
     </span>
     <svg 

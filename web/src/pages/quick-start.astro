@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * Quick Start Page
  * 
@@ -29,32 +30,32 @@ const progressSteps = [
 // Next steps configuration
 const nextSteps = [
   {
-    icon: "🎯",
+    icon: "target",
     title: "Guided Tour",
     description: "Walk through all azd-app features step by step",
     href: import.meta.env.BASE_URL + "tour/",
     isPrimary: true,
   },
   {
-    icon: "☁️",
+    icon: "cloud",
     title: "Azure Cloud Logs",
     description: "Stream logs from your deployed Azure services (1-5 min latency)",
     href: import.meta.env.BASE_URL + "reference/azure-logs/",
   },
   {
-    icon: "📘",
+    icon: "book-marked",
     title: "azure.yaml Reference",
     description: "Complete guide to configuring your services and apps",
     href: import.meta.env.BASE_URL + "reference/azure-yaml/",
   },
   {
-    icon: "🤖",
+    icon: "bot",
     title: "AI Features",
     description: "Learn about MCP server and AI-powered debugging",
     href: import.meta.env.BASE_URL + "mcp/",
   },
   {
-    icon: "📚",
+    icon: "book-open",
     title: "CLI Reference",
     description: "Explore all azd app commands and options",
     href: import.meta.env.BASE_URL + "reference/cli/",
@@ -112,7 +113,7 @@ azd app run`;
     </div>
 
     <div class="challenge-teaser">
-      🎯 Challenge: Can you fix the bug using AI?
+      <Icon name="target" size={18} /> Challenge: Can you fix the bug using AI?
     </div>
   </section>
 
@@ -132,7 +133,7 @@ azd app run`;
       <PlatformInstallTabs id="quickstart" />
 
       <div class="step-tip">
-        <span class="step-tip-icon">💡</span>
+        <span class="step-tip-icon"><Icon name="lightbulb" /></span>
         <span>After installation, restart your terminal for the changes to apply.</span>
       </div>
     </StepCard>
@@ -186,12 +187,12 @@ azd app run`;
           <div class="terminal-line terminal-success">✓ web started on http://localhost:3000</div>
           <div class="terminal-line terminal-error">✗ api: Connection timeout to database</div>
           <div class="terminal-line"></div>
-          <div class="terminal-line terminal-info">💡 There's a bug! Use AI to fix it!</div>
+          <div class="terminal-line terminal-info">Tip: There's a bug! Use AI to fix it!</div>
         </div>
       </div>
 
       <div class="step-tip">
-        <span class="step-tip-icon">💡</span>
+        <span class="step-tip-icon"><Icon name="lightbulb" /></span>
         <span>The dashboard will open automatically at <code>http://localhost:5050</code></span>
       </div>
     </StepCard>
@@ -210,7 +211,7 @@ azd app run`;
         title="Your Challenge"
         description="The demo template has an intentional bug! The API service is failing with a connection timeout. Use GitHub Copilot to diagnose and fix the issue."
         prompt="Why is my API service failing? Can you help me fix it?"
-        icon="🎯"
+        icon="target"
       />
     </StepCard>
   </section>
@@ -228,7 +229,7 @@ azd app run`;
           href={step.href} 
           class:list={['next-step-card', { 'next-step-card--primary': step.isPrimary }]}
         >
-          <span class="next-step-icon" aria-hidden="true">{step.icon}</span>
+          <span class="next-step-icon"><Icon name={step.icon} size={24} /></span>
           <span class="next-step-title">{step.title}</span>
           <span class="next-step-description">{step.description}</span>
           <span class="next-step-link">
@@ -364,7 +365,7 @@ azd app run`;
 
   .terminal-output-content {
     padding: 1rem;
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     font-size: 0.875rem;
     line-height: 1.6;
   }
@@ -455,7 +456,7 @@ azd app run`;
     background: var(--color-bg-tertiary);
     border: 1px solid var(--color-border-default);
     border-radius: 0.25rem;
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     font-size: 0.8125rem;
     box-shadow: 0 1px 0 var(--color-border-strong);
   }
