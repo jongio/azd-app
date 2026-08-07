@@ -61,16 +61,26 @@ function cleanup(): void {
 }
 
 async function checkAzureAuth(): Promise<boolean> {
-  console.log('🔐 Checking azd authentication...');
+  console.log('🔐 Checking Azure authentication...');
+  const { execSync } = await import('child_process');
+
+  // Mirror the runtime chain in NewLogAnalyticsCredential: azd first, then
+  // DefaultAzureCredential, which still accepts an Azure CLI login. Checking
+  // only azd here would reject credentials the app itself would have used.
   try {
-    const { execSync } = await import('child_process');
     execSync('azd auth login --check-status', { stdio: 'pipe' });
     console.log('  ✓ azd authenticated\n');
     return true;
-  } catch (error) {
-    console.error('  ❌ azd not authenticated');
-    console.error('  Please run: azd auth login');
-    return false;
+  } catch {
+    try {
+      execSync('az account show', { stdio: 'pipe' });
+      console.log('  ✓ Azure CLI authenticated\n');
+      return true;
+    } catch {
+      console.error('  ❌ Not authenticated');
+      console.error('  Please run: azd auth login');
+      return false;
+    }
   }
 }
 
