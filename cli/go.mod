@@ -152,11 +152,11 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260727163830-6c54dddc4772 // indirect
-	google.golang.org/grpc v1.82.1 // indirect
+	google.golang.org/grpc v1.83.0 // indirect
 	modernc.org/gc/v3 v3.1.5 // indirect
 	modernc.org/libc v1.74.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
 
-replace github.com/jongio/azd-core => github.com/jongio/azd-core v0.5.8-0.20260808151342-82ad2f45a3fc
+replace github.com/jongio/azd-core => github.com/jongio/azd-core v0.5.8-0.20260808190154-f1189c6e3eea

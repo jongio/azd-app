@@ -31,13 +31,20 @@ const (
 	defaultTestTimeout = "10m"
 	extensionID        = "jongio.azd.app"
 	goSrcPattern       = "./src/..."
-	goIntegrationTag   = "-tags=integration"
-	errBuildFailedFmt  = "build failed: %w"
-	errPnpmFailedFmt   = "pnpm install failed: %w"
-	fmtBulletItem      = "   • %s\n"
-	fmtTestingProject  = "   Testing %s (%s)...\n"
-	fmtProjectFailed   = "   ❌ %s failed: %v\n"
-	fmtProjectPassed   = "   ✅ %s passed\n"
+	// gosec walks the filesystem rather than resolving Go package patterns, so it
+	// descends into testdata fixtures that are separate modules with their own
+	// dependencies. Those never typecheck against the parent module, which yields
+	// a load error instead of a finding (and on Windows, gosec then fails to parse
+	// the drive letter in the error path and exits non-zero with no output).
+	// Fixtures are not shipped code, so skip them.
+	gosecExcludeTestdata = "-exclude-dir=testdata"
+	goIntegrationTag     = "-tags=integration"
+	errBuildFailedFmt    = "build failed: %w"
+	errPnpmFailedFmt     = "pnpm install failed: %w"
+	fmtBulletItem        = "   • %s\n"
+	fmtTestingProject    = "   Testing %s (%s)...\n"
+	fmtProjectFailed     = "   ❌ %s failed: %v\n"
+	fmtProjectPassed     = "   ✅ %s passed\n"
 )
 
 // Default target runs all checks and builds.
@@ -1568,7 +1575,15 @@ func preflightCrossGOOSLint() error {
 		return nil
 	}
 	cmd := exec.Command("golangci-lint", "run", "./...")
-	cmd.Env = append(os.Environ(), "GOOS=linux")
+	// CGO_ENABLED=0 is required, not merely tidy. Cross-compiling to Linux with
+	// cgo on needs a Linux C toolchain, which a Windows or macOS box does not
+	// have, so the standard library fails to typecheck at net/cgo_linux.go and
+	// the run exits 7. It still prints "0 issues" first, so the failure reads
+	// as unexplained. Developers hit this whenever CGO_ENABLED=1 is set in the
+	// environment, which is exactly what running the race detector or
+	// mage coverageRecord requires on Windows. Lint needs no cgo, so pin it off
+	// rather than inherit it.
+	cmd.Env = append(os.Environ(), "GOOS=linux", "CGO_ENABLED=0")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -1695,6 +1710,7 @@ func quietSecurity() error {
 		"-severity=high",
 		"-confidence=high",
 		"-quiet",
+		gosecExcludeTestdata,
 		"-include=G101,G102,G201,G202,G301,G305,G402,G403",
 		goSrcPattern,
 	)
@@ -2237,6 +2253,7 @@ func runQuickSecurity() error {
 		"-severity=high",
 		"-confidence=high",
 		"-quiet",
+		gosecExcludeTestdata,
 		"-include=G101,G102,G201,G202,G301,G305,G402,G403",
 		goSrcPattern,
 	); err != nil {
@@ -2263,7 +2280,8 @@ func runGosec() error {
 		"-fmt=text",
 		"-exclude=G304,G307", // Exclude file paths and deferred error checks (we handle these)
 		"-nosec",             // Respect #nosec comments
-		goSrcPattern,         // Only scan src directory
+		gosecExcludeTestdata,
+		goSrcPattern, // Only scan src directory
 	); err != nil {
 		fmt.Println("⚠️  Security scan failed. Ensure gosec is installed:")
 		fmt.Println("    go install github.com/securego/gosec/v2/cmd/gosec@latest")

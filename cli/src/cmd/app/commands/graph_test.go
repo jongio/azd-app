@@ -1,15 +1,15 @@
 package commands
 
 import (
-	"errors"
-
 	"bytes"
 	"encoding/json"
-	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
 )
