@@ -2,7 +2,7 @@
   "total": 65.2,
   "packages": {
     "github.com/jongio/azd-app/cli/src/cmd/app": 60,
-    "github.com/jongio/azd-app/cli/src/cmd/app/commands": 64.9,
+    "github.com/jongio/azd-app/cli/src/cmd/app/commands": 65,
     "github.com/jongio/azd-app/cli/src/cmd/docsgate": 90.4,
     "github.com/jongio/azd-app/cli/src/internal/azdconfig": 54.9,
     "github.com/jongio/azd-app/cli/src/internal/azure": 42.8,
@@ -28,7 +28,7 @@
     "github.com/jongio/azd-app/cli/src/internal/portmanager": 57.6,
     "github.com/jongio/azd-app/cli/src/internal/resourcealert": 96.3,
     "github.com/jongio/azd-app/cli/src/internal/resourcesampler": 95.2,
-    "github.com/jongio/azd-app/cli/src/internal/rpc": 81.8,
+    "github.com/jongio/azd-app/cli/src/internal/rpc": 80.9,
     "github.com/jongio/azd-app/cli/src/internal/runner": 56.4,
     "github.com/jongio/azd-app/cli/src/internal/runstate": 87.9,
     "github.com/jongio/azd-app/cli/src/internal/secretscan": 93.5,
@@ -49,5 +49,5 @@
     "**/src/gen/**"
   ],
   "mode": "atomic",
-  "note": "recorded by mage coverageRecord"
+  "note": "recorded by mage coverageRecord under -race, matching CI"
 }

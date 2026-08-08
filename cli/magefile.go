@@ -505,6 +505,27 @@ func ensureDashboardDist() error {
 
 // TestCoverage runs tests with coverage report.
 func TestCoverage() error {
+	return testCoverage(false)
+}
+
+// testCoverage runs the suite with coverage, optionally under the race
+// detector.
+//
+// The distinction matters because the race detector changes which tests run.
+// Tests that guard themselves with raceEnabled skip under -race, so a
+// race-enabled profile covers strictly less code than a plain one. CI gates a
+// race-enabled profile, so a baseline recorded from a plain run records
+// coverage that CI can never reach, and the gate fails on a drop nobody
+// introduced. That is exactly what was happening to src/internal/rpc, where
+// TestSendWithBackpressure_TimesOutOnSlowClient skips under -race and took
+// 0.9 points with it.
+//
+// So recording uses the race detector and ordinary local checking does not.
+// Recording is rare and deliberate, and it is worth requiring cgo for. Checking
+// happens constantly, and requiring a C toolchain for it would push people to
+// skip the check instead. A plain run covers at least as much as a race run, so
+// it still clears a baseline recorded under race.
+func testCoverage(race bool) error {
 	fmt.Println("Running tests with coverage...")
 
 	if err := ensureDashboardDist(); err != nil {
@@ -540,7 +561,7 @@ func TestCoverage() error {
 	if _, err := os.Stat("../go.work"); err == nil {
 		pkgPath = "github.com/jongio/azd-app/cli/src/..."
 	}
-	cmd := exec.Command("go", "test", "-short", "-covermode=atomic", "-coverprofile="+coverageOut, pkgPath)
+	cmd := exec.Command("go", coverageTestArgs(coverageOut, pkgPath, race)...)
 	output, testErr := cmd.CombinedOutput()
 	fmt.Print(string(output))
 
@@ -572,6 +593,16 @@ func TestCoverage() error {
 
 	fmt.Println("Coverage report:", coverageHTML)
 	return nil
+}
+
+// coverageTestArgs builds the go test invocation for a coverage run.
+func coverageTestArgs(coverageOut, pkgPath string, race bool) []string {
+	args := []string{"test", "-short", "-covermode=atomic", "-coverprofile=" + coverageOut}
+	if race {
+		args = append(args, "-race")
+	}
+
+	return append(args, pkgPath)
 }
 
 // Coverage runs the tests and fails if coverage dropped below the baseline.
@@ -614,12 +645,16 @@ func CoverageGate() error {
 // CoverageRecord re-records the coverage baseline from the current profile.
 // Run this only when a coverage change is deliberate, and say why in the
 // commit message.
+//
+// Runs under the race detector so the baseline matches the profile CI gates.
+// That needs cgo, so a C toolchain is required to re-record even though it is
+// not required to check.
 func CoverageRecord() error {
-	if err := TestCoverage(); err != nil {
+	if err := testCoverage(true); err != nil {
 		return err
 	}
 	fmt.Println("==> Recording a new coverage baseline...")
-	return covergate.Record(coverageConfig(), "recorded by mage coverageRecord")
+	return covergate.Record(coverageConfig(), "recorded by mage coverageRecord under -race, matching CI")
 }
 
 // coveragePreflight gates coverage during preflight. The profile has already
