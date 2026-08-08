@@ -663,9 +663,11 @@ func coveragePreflight() error {
 	return covergate.Gate(coverageConfig())
 }
 
-// VerifyNoLocalReplace fails if go.mod still points azd-core at a local path.
-// A local replace is fine during coordinated development, but shipping one
-// produces a module nobody else can build, so the release path must reject it.
+// VerifyNoLocalReplace fails if go.mod still replaces azd-core with anything.
+// A replace is fine during coordinated development, whether it points at a
+// local path or a pseudo-version built from an unmerged branch, but shipping
+// either produces a release pinned to something that is not a real version, so
+// the release path must reject it.
 func VerifyNoLocalReplace() error {
 	data, err := os.ReadFile("go.mod")
 	if err != nil {
@@ -680,7 +682,7 @@ func VerifyNoLocalReplace() error {
 			continue
 		}
 		return fmt.Errorf(
-			"go.mod still replaces azd-core with a local path:\n  %s\n"+
+			"go.mod still replaces azd-core:\n  %s\n"+
 				"Remove the replace and pin a released azd-core version before shipping", line)
 	}
 	return nil

@@ -2,8 +2,11 @@ module github.com/jongio/azd-app/cli
 
 go 1.26.5
 
-// Local development: use go.work to resolve azd-core, no local replace
-// CI: azd-core is pinned to a tagged version in go.mod
+// azd-core is temporarily replaced with a pseudo-version built from the
+// feat/azdext-alignment branch, because this branch needs changes that are not
+// in any released azd-core yet. A pseudo-version is used rather than a local
+// path so CI can resolve it. Replace it with the real v0.6.0 once that is
+// tagged; the release path refuses to ship while any replace is present.
 
 require (
 	connectrpc.com/connect v1.20.0
@@ -14,6 +17,7 @@ require (
 	github.com/azure/azure-dev/cli/azd v1.29.0
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/google/uuid v1.6.0
+	github.com/invopop/jsonschema v0.14.0
 	github.com/jongio/azd-core v0.5.7
 	github.com/magefile/mage v1.17.2
 	github.com/mark3labs/mcp-go v0.57.0
@@ -90,7 +94,6 @@ require (
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/hinshun/vt10x v0.0.0-20220301184237-5011da428d02 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/invopop/jsonschema v0.14.0 // indirect
 	github.com/jackmordaunt/icns/v3 v3.0.1 // indirect
 	github.com/jmespath-community/go-jmespath v1.1.1 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
@@ -156,4 +159,4 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 )
 
-replace github.com/jongio/azd-core => ../../../azd-core/feat-azdext-alignment
+replace github.com/jongio/azd-core => github.com/jongio/azd-core v0.5.8-0.20260808151342-82ad2f45a3fc
