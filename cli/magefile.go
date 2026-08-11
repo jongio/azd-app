@@ -674,9 +674,11 @@ func CoverageRecord() error {
 }
 
 // coveragePreflight gates coverage during preflight. The profile has already
-// been written by the preflight coverage step, so it does not re-run the tests.
+// been written by the preflight coverage step, so it does not re-run the
+// tests. It delegates rather than repeating the call so a guard added to the
+// gate later cannot apply to one path and silently skip the other.
 func coveragePreflight() error {
-	return covergate.Gate(coverageConfig())
+	return CoverageGate()
 }
 
 // VerifyNoLocalReplace fails if go.mod still replaces azd-core with anything.
