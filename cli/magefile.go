@@ -696,7 +696,14 @@ func VerifyNoLocalReplace() error {
 		if strings.HasPrefix(line, "//") || !strings.Contains(line, "jongio/azd-core") {
 			continue
 		}
-		if !strings.HasPrefix(line, "replace ") && !strings.HasPrefix(line, "github.com/jongio/azd-core =>") {
+		// The arrow is the only token common to all four legal spellings. Inside
+		// a replace ( ... ) block the grammar is
+		// <module-path> [version] => <replacement> [version], so a
+		// version-qualified left-hand side starts with neither "replace " nor
+		// the bare module path. Testing for the prefixes let
+		// "github.com/jongio/azd-core v0.6.0 => ..." through, and the release
+		// then shipped with azd-core still replaced.
+		if !strings.Contains(line, "=>") {
 			continue
 		}
 		return fmt.Errorf(
