@@ -113,11 +113,33 @@ func TestFocusGraphResult(t *testing.T) {
 		if !errors.As(err, &local) {
 			t.Fatalf("expected *azdext.LocalError, got %T: %v", err, err)
 		}
-		if local.Code != ErrCodeServiceNotFound {
-			t.Fatalf("Code = %q, want %q", local.Code, ErrCodeServiceNotFound)
+		if local.Code != ErrCodeInvalidFlagUsage {
+			t.Fatalf("Code = %q, want %q", local.Code, ErrCodeInvalidFlagUsage)
 		}
-		if !strings.Contains(local.Suggestion, "api") {
-			t.Fatalf("suggestion should list available nodes: %v", local.Suggestion)
+		// Graph nodes cover resources too, so the miss must not be reported as a
+		// missing service. "db" is a resource in the sample graph.
+		if local.Code == ErrCodeServiceNotFound || strings.HasPrefix(local.Message, "service ") {
+			t.Fatalf("focus miss must not be reported as a missing service: %q", local.Message)
+		}
+		if !strings.Contains(local.Message, "--focus") {
+			t.Fatalf("message should name the flag: %q", local.Message)
+		}
+		if !strings.Contains(local.Suggestion, "api") || !strings.Contains(local.Suggestion, "db") {
+			t.Fatalf("suggestion should list available nodes including resources: %v", local.Suggestion)
+		}
+	})
+
+	t.Run("empty graph focus miss does not list an empty set", func(t *testing.T) {
+		_, err := focusGraphResult(graphResult{}, "nope")
+		if err == nil {
+			t.Fatal("expected error for unknown focus")
+		}
+		var local *azdext.LocalError
+		if !errors.As(err, &local) {
+			t.Fatalf("expected *azdext.LocalError, got %T: %v", err, err)
+		}
+		if strings.Contains(local.Suggestion, "Available names:") {
+			t.Fatalf("empty graph should not offer an empty name list: %v", local.Suggestion)
 		}
 	})
 }
@@ -183,7 +205,7 @@ resources:
 	t.Chdir(dir)
 
 	var buf bytes.Buffer
-	err := runGraph(&graphOptions{output: graphOutputJSON, focus: "api", writer: &buf})
+	err := runGraph(&graphOptions{output: outputFormatJSON, focus: "api", writer: &buf})
 	if err != nil {
 		t.Fatalf("runGraph failed: %v", err)
 	}
@@ -232,7 +254,7 @@ resources:
 	t.Chdir(dir)
 
 	var buf bytes.Buffer
-	err := runGraph(&graphOptions{output: graphOutputJSON, servicesOnly: true, writer: &buf})
+	err := runGraph(&graphOptions{output: outputFormatJSON, servicesOnly: true, writer: &buf})
 	if err != nil {
 		t.Fatalf("runGraph failed: %v", err)
 	}
@@ -271,11 +293,11 @@ services:
 	t.Chdir(dir)
 
 	var buf bytes.Buffer
-	err := runGraph(&graphOptions{output: graphOutputText, focus: "missing", writer: &buf})
+	err := runGraph(&graphOptions{output: outputFormatText, focus: "missing", writer: &buf})
 	if err == nil {
 		t.Fatal("expected error for unknown focus service")
 	}
-	if !strings.Contains(err.Error(), "not found") {
+	if !strings.Contains(err.Error(), "--focus") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -352,7 +374,7 @@ resources:
 	t.Chdir(dir)
 
 	var buf bytes.Buffer
-	err := runGraph(&graphOptions{output: graphOutputJSON, writer: &buf})
+	err := runGraph(&graphOptions{output: outputFormatJSON, writer: &buf})
 	if err != nil {
 		t.Fatalf("runGraph failed: %v", err)
 	}
@@ -493,7 +515,7 @@ services:
 
 	outputFile := filepath.Join(dir, "graph.md")
 	var buf bytes.Buffer
-	err := runGraph(&graphOptions{output: graphOutputMarkdown, outputFile: outputFile, writer: &buf})
+	err := runGraph(&graphOptions{output: outputFormatMarkdown, outputFile: outputFile, writer: &buf})
 	if err != nil {
 		t.Fatalf("runGraph failed: %v", err)
 	}
@@ -570,7 +592,7 @@ func TestRenderGraphD2(t *testing.T) {
 
 func TestRenderGraphD2Dispatch(t *testing.T) {
 	var buf bytes.Buffer
-	if err := renderGraph(&buf, graphOutputD2, sampleGraphResult()); err != nil {
+	if err := renderGraph(&buf, outputFormatD2, sampleGraphResult()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !strings.Contains(buf.String(), "napi_0 -> ndb_1") {
@@ -646,7 +668,7 @@ resources:
 
 	outFile := filepath.Join(dir, "graph.mmd")
 	var buf bytes.Buffer
-	err := runGraph(&graphOptions{output: graphOutputMermaid, outputFile: outFile, writer: &buf})
+	err := runGraph(&graphOptions{output: outputFormatMermaid, outputFile: outFile, writer: &buf})
 	if err != nil {
 		t.Fatalf("runGraph failed: %v", err)
 	}

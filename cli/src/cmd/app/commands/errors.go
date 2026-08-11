@@ -53,6 +53,24 @@ func newCheckFailedError(message, suggestion string) error {
 	}
 }
 
+// newGraphNodeNotFoundError reports a --focus value that names no node in the
+// dependency graph. Graph nodes cover services and resources alike, so this
+// deliberately does not reuse newServiceNotFoundError, which would tell a user
+// who typed a resource name that their resource is not a service.
+func newGraphNodeNotFoundError(name string, available []string) error {
+	suggestion := "The graph has no nodes. Define services or resources in azure.yaml first."
+	if len(available) > 0 {
+		suggestion = fmt.Sprintf("Available names: %s.", strings.Join(available, ", "))
+	}
+
+	return &azdext.LocalError{
+		Message:    fmt.Sprintf("--focus value %q does not name a service or resource in the graph", name),
+		Code:       ErrCodeInvalidFlagUsage,
+		Category:   azdext.LocalErrorCategoryValidation,
+		Suggestion: suggestion,
+	}
+}
+
 // newInvalidFlagUsageError reports an unusable flag combination or value.
 func newInvalidFlagUsageError(message, suggestion string) error {
 	return &azdext.LocalError{
