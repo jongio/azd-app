@@ -2,12 +2,6 @@ module github.com/jongio/azd-app/cli
 
 go 1.26.5
 
-// azd-core is temporarily replaced with a pseudo-version built from the
-// feat/azdext-alignment branch, because this branch needs changes that are not
-// in any released azd-core yet. A pseudo-version is used rather than a local
-// path so CI can resolve it. Replace it with the real v0.6.0 once that is
-// tagged; the release path refuses to ship while any replace is present.
-
 require (
 	connectrpc.com/connect v1.20.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0
@@ -18,7 +12,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/google/uuid v1.6.0
 	github.com/invopop/jsonschema v0.14.0
-	github.com/jongio/azd-core v0.5.7
+	github.com/jongio/azd-core v0.6.0
 	github.com/magefile/mage v1.17.2
 	github.com/mark3labs/mcp-go v0.57.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -158,5 +152,3 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
-
-replace github.com/jongio/azd-core => github.com/jongio/azd-core v0.5.8-0.20260808190154-f1189c6e3eea
