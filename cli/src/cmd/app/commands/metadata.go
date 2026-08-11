@@ -52,13 +52,19 @@ func newConfigReflector() *jsonschema.Reflector {
 // numbers, so both forms are valid on disk and the schema has to say so.
 type portValue int
 
+// portStringPattern matches the decimal spelling of a TCP port, 1 through
+// 65535. The string branch of the port schema needs its own bound because JSON
+// Schema cannot apply minimum and maximum to a string, and a bare ^\d+$ would
+// accept "0" and "70000" while rejecting the same values written as numbers.
+const portStringPattern = `^([1-9]\d{0,3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$`
+
 // JSONSchema implements the invopop custom schema hook.
 func (portValue) JSONSchema() *jsonschema.Schema {
 	return &jsonschema.Schema{
 		Type:        "",
-		Description: "TCP port. Written as a string; numbers are also accepted when read.",
+		Description: "TCP port between 1 and 65535. Written as a string; numbers are also accepted when read.",
 		OneOf: []*jsonschema.Schema{
-			{Type: "string", Pattern: `^\d+$`},
+			{Type: "string", Pattern: portStringPattern},
 			{Type: "integer", Minimum: json.Number("1"), Maximum: json.Number("65535")},
 		},
 	}

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -346,5 +347,46 @@ func TestMetadataCommandReportsWriteFailure(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to write metadata") {
 		t.Errorf("error = %v, want it to mention the metadata write", err)
+	}
+}
+
+// TestPortStringPatternMatchesIntegerRange proves the string branch of the port
+// schema accepts exactly the values the integer branch accepts. A document is
+// valid if it matches either branch, so a looser string pattern would let "0"
+// and "70000" through while the same values written as numbers are rejected.
+func TestPortStringPatternMatchesIntegerRange(t *testing.T) {
+	schema := portValue(0).JSONSchema()
+	if len(schema.OneOf) != 2 {
+		t.Fatalf("port schema should offer a string and an integer branch, got %d", len(schema.OneOf))
+	}
+	stringBranch := schema.OneOf[0]
+	if stringBranch.Type != "string" {
+		t.Fatalf("first branch should be the string form, got %q", stringBranch.Type)
+	}
+	pattern := regexp.MustCompile(stringBranch.Pattern)
+
+	integerBranch := schema.OneOf[1]
+	if got := string(integerBranch.Minimum); got != "1" {
+		t.Fatalf("integer minimum = %q, want 1", got)
+	}
+	if got := string(integerBranch.Maximum); got != "65535" {
+		t.Fatalf("integer maximum = %q, want 65535", got)
+	}
+
+	// Exhaustive over the whole port space plus the values just outside it, so
+	// the two branches cannot disagree on any input.
+	for n := 0; n <= 70000; n++ {
+		want := n >= 1 && n <= 65535
+		if got := pattern.MatchString(strconv.Itoa(n)); got != want {
+			t.Fatalf("pattern.MatchString(%d) = %v, want %v", n, got, want)
+		}
+	}
+
+	// Spellings a numeric range check would reject but a naive digit pattern
+	// might not.
+	for _, bad := range []string{"", " 80", "80 ", "+80", "-80", "8.0", "0080", "08", "0x50", "80\n"} {
+		if pattern.MatchString(bad) {
+			t.Fatalf("pattern should reject %q", bad)
+		}
 	}
 }
