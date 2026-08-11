@@ -3,6 +3,8 @@ package commands
 import (
 	"errors"
 	"fmt"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -150,12 +152,68 @@ func TestNewCheckFailedError(t *testing.T) {
 
 // TestErrorsSurviveWrapping guards the contract that matters at the call site:
 // callers wrap these with %w on the way up, and the azd host still has to be
-// able to read the code back out.
+// able to read the code back out. Every constructor is covered, because call
+// sites across core.go, deps_check.go, doctor.go, add.go and graph.go wrap all
+// of them and the contract is worthless if it holds for only one.
 func TestErrorsSurviveWrapping(t *testing.T) {
-	wrapped := fmt.Errorf("loading project: %w", newProjectNotFoundError())
+	cases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{"check failed", newCheckFailedError("a check failed", "fix it"), ErrCodeCheckFailed},
+		{"graph node not found", newGraphNodeNotFoundError("api", []string{"web"}), ErrCodeInvalidFlagUsage},
+		{"invalid flag usage", newInvalidFlagUsageError("bad combination", "pick one"), ErrCodeInvalidFlagUsage},
+		{"invalid flag value", newInvalidFlagValueError("output", "svg", []string{"text"}), ErrCodeInvalidFlagUsage},
+		{"invalid project config", newInvalidProjectConfigError("bad azure.yaml", "fix it"), ErrCodeInvalidProjectConfig},
+		{"project not found", newProjectNotFoundError(), ErrCodeProjectNotFound},
+		{"service not found", newServiceNotFoundError("api", []string{"web"}), ErrCodeServiceNotFound},
+	}
 
-	local := asLocalError(t, wrapped)
-	if local.Code != ErrCodeProjectNotFound {
-		t.Errorf("Code = %q, want %q after wrapping", local.Code, ErrCodeProjectNotFound)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			wrapped := fmt.Errorf("loading project: %w", tc.err)
+
+			local := asLocalError(t, wrapped)
+			if local.Code != tc.want {
+				t.Errorf("Code = %q, want %q after wrapping", local.Code, tc.want)
+			}
+		})
+	}
+}
+
+// TestEveryErrorConstructorIsWrappingTested fails when a constructor is added
+// to errors.go without a matching case above, so the contract cannot quietly
+// fall behind the code.
+func TestEveryErrorConstructorIsWrappingTested(t *testing.T) {
+	source, err := os.ReadFile("errors.go")
+	if err != nil {
+		t.Fatalf("read errors.go: %v", err)
+	}
+
+	declared := regexp.MustCompile(`(?m)^func (new\w+Error)\(`).FindAllStringSubmatch(string(source), -1)
+	if len(declared) == 0 {
+		t.Fatal("found no error constructors in errors.go")
+	}
+
+	tested, err := os.ReadFile("errors_test.go")
+	if err != nil {
+		t.Fatalf("read errors_test.go: %v", err)
+	}
+	body := string(tested)
+	start := strings.Index(body, "func TestErrorsSurviveWrapping(")
+	if start < 0 {
+		t.Fatal("TestErrorsSurviveWrapping not found")
+	}
+	end := strings.Index(body[start:], "\n}\n")
+	if end < 0 {
+		t.Fatal("could not delimit TestErrorsSurviveWrapping")
+	}
+	table := body[start : start+end]
+
+	for _, match := range declared {
+		if !strings.Contains(table, match[1]+"(") {
+			t.Errorf("%s has no case in TestErrorsSurviveWrapping", match[1])
+		}
 	}
 }

@@ -45,6 +45,10 @@ type TestOptions struct {
 }
 
 // NewTestCommand creates the test command.
+// runTestsFn is the seam that lets tests execute this command's RunE without
+// running a real test suite. Production code never reassigns it.
+var runTestsFn = runTests
+
 func NewTestCommand() *cobra.Command {
 	// Create options for this command invocation
 	opts := &TestOptions{}
@@ -77,7 +81,7 @@ func NewTestCommand() *cobra.Command {
 			if flag := cmd.Flags().Lookup("environment"); flag != nil {
 				opts.Environment = flag.Value.String()
 			}
-			return runTests(commandOrchestrator, opts)
+			return runTestsFn(commandOrchestrator, opts)
 		},
 	}
 

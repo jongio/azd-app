@@ -1,11 +1,13 @@
 package commands
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
 	testrunner "github.com/jongio/azd-app/cli/src/internal/testing"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/spf13/cobra"
@@ -409,6 +411,53 @@ func TestEnvFlagNotShadowed(t *testing.T) {
 	}
 	if got := inherited.Value.String(); got != "staging" {
 		t.Errorf("inherited environment = %q, want %q", got, "staging")
+	}
+}
+
+// TestEnvFlagPropagatesToOptions pins the second half of the fix: reading the
+// inherited flag is only useful if the value reaches opts.Environment. Without
+// this, deleting the copy in RunE would leave TestEnvFlagNotShadowed green
+// while `azd app test -e staging` silently ran against the default environment.
+func TestEnvFlagPropagatesToOptions(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"long form", []string{"--environment", "staging"}, "staging"},
+		{"shorthand", []string{"-e", "prod"}, "prod"},
+		{"omitted", nil, ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var captured *TestOptions
+			original := runTestsFn
+			runTestsFn = func(_ *orchestrator.Orchestrator, opts *TestOptions) error {
+				captured = opts
+				return nil
+			}
+			t.Cleanup(func() { runTestsFn = original })
+
+			root := &cobra.Command{Use: "app"}
+			root.PersistentFlags().StringP("environment", "e", "", "azd environment name")
+			cmd := NewTestCommand()
+			root.AddCommand(cmd)
+
+			root.SetArgs(append([]string{"test"}, tc.args...))
+			root.SetOut(io.Discard)
+			root.SetErr(io.Discard)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+
+			if captured == nil {
+				t.Fatal("RunE did not reach the test runner")
+			}
+			if captured.Environment != tc.want {
+				t.Errorf("opts.Environment = %q, want %q", captured.Environment, tc.want)
+			}
+		})
 	}
 }
 
