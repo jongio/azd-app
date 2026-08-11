@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"bytes"
 	"context"
 	"log/slog"
 	"path/filepath"
@@ -75,8 +74,37 @@ var benignToolArgs = map[string]any{
 
 // pathShapedParams lists the parameters whose values are interpreted as
 // filesystem paths. Every one of them must be validated by its handler.
+//
+// Membership here is what puts a tool in scope for
+// TestEveryToolValidatesProjectDir. A path parameter missing from this map is
+// therefore not merely undocumented, it is unaudited, which is why
+// TestEveryToolParameterIsClassified refuses to accept a path-shaped name that
+// is absent from both this map and knownNonPathParams.
 var pathShapedParams = map[string]bool{
 	"projectDir": true,
+}
+
+// pathShapedNameFragments are the substrings that make a parameter name look
+// like it carries a filesystem path. The heuristic exists because the audit
+// cannot tell what a handler does with a value it has never seen; it can only
+// insist that a human decide. It mirrors the URL-shape heuristic in
+// TestNoToolAcceptsAURL.
+var pathShapedNameFragments = []string{"dir", "path", "file", "folder", "cwd"}
+
+// knownNonPathParams records parameters whose names match a path-shaped
+// fragment but whose values never reach the filesystem. Adding a name here is
+// a deliberate statement, and the reason belongs beside it.
+var knownNonPathParams = map[string]string{}
+
+// looksPathShaped reports whether a parameter name suggests a filesystem path.
+func looksPathShaped(param string) bool {
+	lower := strings.ToLower(param)
+	for _, fragment := range pathShapedNameFragments {
+		if strings.Contains(lower, fragment) {
+			return true
+		}
+	}
+	return false
 }
 
 // toolParamNames returns the declared input parameter names for a tool.
@@ -131,27 +159,47 @@ func toolResultTexts(t *testing.T, result *mcp.CallToolResult) []string {
 }
 
 // TestEveryToolParameterIsClassified fails when a tool declares a parameter
-// that benignToolArgs does not cover. Without this, a new parameter would
-// silently make TestEveryToolValidatesProjectDir stop exercising the handler
-// it was meant to cover, because the handler would reject the call on the
-// missing argument before reaching its path check.
+// that benignToolArgs does not cover, or a path-shaped parameter that nobody
+// has classified as validated or exempt.
+//
+// The first check keeps TestEveryToolValidatesProjectDir honest: without it a
+// new parameter would make a handler reject the call on a missing argument
+// before reaching its path check, so the audit would pass while covering
+// nothing.
+//
+// The second check closes the gap the first leaves open. Membership in
+// benignToolArgs alone is enough to satisfy the first check, so a new path
+// parameter added there and nowhere else would leave its handler outside the
+// audit entirely, since declaresPathParam consults pathShapedParams.
 func TestEveryToolParameterIsClassified(t *testing.T) {
 	s := testBuildServer(t)
 
-	var unclassified []string
+	var unclassified, unaudited []string
 	for toolName, tool := range s.ListTools() {
 		for _, param := range toolParamNames(t, tool) {
 			if _, ok := benignToolArgs[param]; !ok {
 				unclassified = append(unclassified, toolName+"."+param)
 			}
+			if looksPathShaped(param) && !pathShapedParams[param] {
+				if _, exempt := knownNonPathParams[param]; !exempt {
+					unaudited = append(unaudited, toolName+"."+param)
+				}
+			}
 		}
 	}
 	sort.Strings(unclassified)
+	sort.Strings(unaudited)
 
 	require.Empty(t, unclassified,
 		"new MCP tool parameters are not covered by the security audit. "+
 			"Add each to benignToolArgs, and to pathShapedParams if the value is used as a filesystem path: %v",
 		unclassified)
+
+	require.Empty(t, unaudited,
+		"these parameters are named like filesystem paths but are not audited. "+
+			"Add each to pathShapedParams so TestEveryToolValidatesProjectDir drives it, "+
+			"or to knownNonPathParams with the reason it never reaches the filesystem: %v",
+		unaudited)
 }
 
 // TestEveryToolValidatesProjectDir drives every registered handler with a
@@ -276,48 +324,139 @@ func declaresPathParam(params []string) bool {
 	return false
 }
 
+// auditRecorder captures slog attribute values before a handler formats them.
+//
+// The built-in handlers quote a value containing control characters, so a
+// test that inspects formatted output passes whether or not this code
+// sanitizes the field. That tests slog, not us. Recording the raw attribute
+// pins the property this code actually controls: what it hands to the logger.
+// It also matches the threat, since the handler is configurable and a
+// guarantee that holds only under the default configuration is not one.
+type auditRecorder struct {
+	records []map[string]string
+}
+
+func (r *auditRecorder) Enabled(context.Context, slog.Level) bool { return true }
+
+func (r *auditRecorder) Handle(_ context.Context, rec slog.Record) error {
+	fields := map[string]string{"msg": rec.Message}
+	rec.Attrs(func(a slog.Attr) bool {
+		fields[a.Key] = a.Value.String()
+		return true
+	})
+	r.records = append(r.records, fields)
+	return nil
+}
+
+func (r *auditRecorder) WithAttrs([]slog.Attr) slog.Handler { return r }
+func (r *auditRecorder) WithGroup(string) slog.Handler      { return r }
+
+// installAuditRecorder redirects the default logger for the duration of a test.
+func installAuditRecorder(t *testing.T) *auditRecorder {
+	t.Helper()
+
+	recorder := &auditRecorder{}
+	previous := slog.Default()
+	slog.SetDefault(slog.New(recorder))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
+	return recorder
+}
+
 // TestRejectedProjectDirIsAudited pins that a refusal leaves a server-side
 // trace. Without it the only record of a model probing the filesystem is the
 // error string handed back to that same model.
 func TestRejectedProjectDirIsAudited(t *testing.T) {
-	var buf bytes.Buffer
-	previous := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
-	t.Cleanup(func() { slog.SetDefault(previous) })
+	recorder := installAuditRecorder(t)
 
 	_, err := validateProjectDir("-rf")
 	require.Error(t, err)
 
-	logged := buf.String()
-	require.Contains(t, logged, "rejected project directory")
-	require.Contains(t, logged, "-rf")
+	require.Len(t, recorder.records, 1)
+	require.Equal(t, "rejected project directory", recorder.records[0]["msg"])
+	require.Contains(t, recorder.records[0]["path"], "-rf")
+	require.NotEmpty(t, recorder.records[0]["reason"])
 }
 
 // TestAcceptedProjectDirIsNotAudited keeps the audit log signal-bearing. If
 // every successful call logged, the warnings would be worthless.
 func TestAcceptedProjectDirIsNotAudited(t *testing.T) {
-	var buf bytes.Buffer
-	previous := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
-	t.Cleanup(func() { slog.SetDefault(previous) })
+	recorder := installAuditRecorder(t)
 
 	dir := t.TempDir()
 	if _, err := validateProjectDir(dir); err != nil {
 		t.Skipf("temp dir %s is outside the allowed roots on this machine: %v", dir, err)
 	}
 
-	require.Empty(t, buf.String(), "an accepted project directory must not produce an audit warning")
+	require.Empty(t, recorder.records, "an accepted project directory must not produce an audit warning")
 }
 
-// TestAuditedProjectDirIsSanitized pins that a hostile path cannot inject
-// terminal escapes or line breaks into the log stream (CWE-117).
+// TestAuditedProjectDirIsSanitized pins that no attacker-supplied control
+// character reaches the logger through any field of the audit record
+// (CWE-117).
+//
+// The cases exit validateProjectDirCore through different branches. A leading
+// dash is rejected before the path is resolved, and that branch formats the
+// segment with %q, which escapes control characters on its own. The remaining
+// cases survive the dash check and fail later, where the path is formatted
+// verbatim. Only those exercise the sanitizer.
 func TestAuditedProjectDirIsSanitized(t *testing.T) {
-	var buf bytes.Buffer
-	previous := slog.Default()
-	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
-	t.Cleanup(func() { slog.SetDefault(previous) })
+	tests := []struct {
+		name string
+		dir  string
+	}{
+		{name: "rejected at the leading dash check", dir: "-\x1b[2K\x1b[1Aevil"},
+		{name: "rejected after path resolution", dir: "safe\x1b[2K\x1b[1Aevil"},
+		{name: "newline forging a second record", dir: "safe\nlevel=WARN msg=\"forged\""},
+		{name: "carriage return overwriting the record", dir: "safe\rlevel=WARN msg=\"forged\""},
+		{name: "bell and backspace", dir: "safe\x07\x08evil"},
+	}
 
-	_, err := validateProjectDir("-\x1b[2K\x1b[1Aevil")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := installAuditRecorder(t)
+
+			_, err := validateProjectDir(tc.dir)
+			require.Error(t, err)
+			require.Len(t, recorder.records, 1, "a rejection must be audited exactly once")
+
+			for field, value := range recorder.records[0] {
+				require.False(t, containsControlChar(value),
+					"audit field %q carried a control character: %q", field, value)
+			}
+		})
+	}
+}
+
+// TestAuditedReasonIsSanitized pins the field that is easiest to overlook. The
+// path is obviously caller-controlled, so it gets sanitized; the reason reads
+// like server-side text, but several rejection branches format the caller's
+// path straight into it, and neither filepath.Clean nor filepath.Abs strips
+// control characters. Sanitizing one field and not the other protects nothing.
+func TestAuditedReasonIsSanitized(t *testing.T) {
+	recorder := installAuditRecorder(t)
+
+	// Survives the dash check, so the failure is reported by a branch that
+	// formats the resolved path verbatim into the error text.
+	_, err := validateProjectDir("safe\x1b[2Kevil")
 	require.Error(t, err)
-	require.NotContains(t, buf.String(), "\x1b", "ANSI escape reached the audit log")
+	require.Contains(t, err.Error(), "\x1b",
+		"this case is only meaningful while the raw error still carries the escape")
+
+	require.Len(t, recorder.records, 1)
+	require.False(t, containsControlChar(recorder.records[0]["reason"]),
+		"the audit reason carried a control character: %q", recorder.records[0]["reason"])
+}
+
+// containsControlChar reports whether s holds any character that must not
+// reach an audit record: the C0 range, DEL, and the C1 range. Tab, newline and
+// carriage return are included deliberately, because an audit record is a
+// single line and those are how a forged record gets appended to it.
+func containsControlChar(s string) bool {
+	for _, r := range s {
+		if r <= 0x1F || r == 0x7F || (r >= 0x80 && r <= 0x9F) {
+			return true
+		}
+	}
+	return false
 }

@@ -73,6 +73,25 @@ func isSafeRune(r rune) bool {
 	}
 }
 
+// sanitizeForAudit prepares s for inclusion in a single-line audit record.
+//
+// It strips everything sanitizeForLLM strips, then collapses the whitespace
+// sanitizeForLLM deliberately preserves. A tool response may legitimately span
+// several lines; an audit record may not, because a newline in an attacker
+// controlled field is how a forged record gets appended to the log.
+//
+// The default slog handlers quote a value that needs it, which escapes these
+// characters today. This does not rely on that: the handler is configurable,
+// and a guarantee that holds only under the default configuration is not a
+// guarantee.
+func sanitizeForAudit(s string) string {
+	return auditWhitespace.ReplaceAllString(sanitizeForLLM(s), " ")
+}
+
+// auditWhitespace matches the whitespace sanitizeForLLM preserves, which must
+// not survive into a single-line audit record.
+var auditWhitespace = regexp.MustCompile(`[\t\n\r]+`)
+
 // sanitizeAny recursively sanitizes all string values in a JSON-decoded value.
 //
 // json.Unmarshal into any produces a fixed set of Go types: nil, bool,
