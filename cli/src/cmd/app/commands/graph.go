@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -14,15 +15,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	graphOutputText     = "text"
-	graphOutputJSON     = "json"
-	graphOutputMarkdown = "markdown"
-	graphOutputMermaid  = "mermaid"
-	graphOutputDOT      = "dot"
-	graphOutputD2       = "d2"
-	graphOutputPlantUML = "plantuml"
-)
+// graphOutputFormats are the formats graph renders, in the order help text
+// lists them. One list drives registration, validation, and the message shown
+// when a value is rejected, so those three cannot disagree.
+var graphOutputFormats = []string{
+	outputFormatText, outputFormatJSON, outputFormatMarkdown,
+	outputFormatMermaid, outputFormatDOT, outputFormatD2, outputFormatPlantUML,
+}
 
 type graphOptions struct {
 	output       string
@@ -99,14 +98,11 @@ Examples:
   azd app graph --services-only --output mermaid`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			opts.output = inheritedOutputFormat(cmd, graphOutputText)
+			opts.output = inheritedOutputFormat(cmd, outputFormatText)
 			return runGraph(opts)
 		},
 	}
-	registerOutputFormats(cmd, graphOutputText,
-		graphOutputText, graphOutputJSON, graphOutputMarkdown,
-		graphOutputMermaid, graphOutputDOT, graphOutputD2, graphOutputPlantUML,
-	)
+	registerOutputFormats(cmd, outputFormatText, graphOutputFormats...)
 	cmd.Flags().StringVar(&opts.outputFile, "output-file", "", "Write output to this file instead of stdout")
 	cmd.Flags().StringVar(&opts.focus, "focus", "", "Limit the graph to a service, its dependencies, and its dependents")
 	cmd.Flags().BoolVar(&opts.servicesOnly, "services-only", false, "Show only services and service-to-service edges")
@@ -121,12 +117,10 @@ func runGraph(opts *graphOptions) error {
 		opts.writer = os.Stdout
 	}
 	if opts.output == "" {
-		opts.output = graphOutputText
+		opts.output = outputFormatText
 	}
-	switch opts.output {
-	case graphOutputText, graphOutputJSON, graphOutputMarkdown, graphOutputMermaid, graphOutputDOT, graphOutputD2, graphOutputPlantUML:
-	default:
-		return newInvalidFlagValueError("output", opts.output, []string{graphOutputText, "json", "markdown", "mermaid", "dot", "d2", "plantuml"})
+	if !slices.Contains(graphOutputFormats, opts.output) {
+		return newInvalidFlagValueError("output", opts.output, graphOutputFormats)
 	}
 
 	azureYamlPath, err := findAzureYaml()
@@ -222,19 +216,19 @@ func filterGraphServicesOnly(result graphResult) graphResult {
 
 func renderGraph(w io.Writer, format string, result graphResult) error {
 	switch format {
-	case graphOutputJSON:
+	case outputFormatJSON:
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		return enc.Encode(result)
-	case graphOutputMarkdown:
+	case outputFormatMarkdown:
 		renderGraphMarkdown(w, result)
-	case graphOutputMermaid:
+	case outputFormatMermaid:
 		renderGraphMermaid(w, result)
-	case graphOutputDOT:
+	case outputFormatDOT:
 		renderGraphDOT(w, result)
-	case graphOutputD2:
+	case outputFormatD2:
 		renderGraphD2(w, result)
-	case graphOutputPlantUML:
+	case outputFormatPlantUML:
 		renderGraphPlantUML(w, result)
 	default:
 		printGraphText(w, result)
@@ -257,7 +251,7 @@ func focusGraphResult(result graphResult, focus string) (graphResult, error) {
 			names = append(names, n.Name)
 		}
 		sort.Strings(names)
-		return graphResult{}, newServiceNotFoundError(focus, names)
+		return graphResult{}, newGraphNodeNotFoundError(focus, names)
 	}
 
 	// deps maps a node to the nodes it depends on; dependents is the reverse.

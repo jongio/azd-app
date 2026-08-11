@@ -31,7 +31,7 @@ func TestValidateLogsOptions(t *testing.T) {
 		{"valid source all", 100, "text", "all", "", "all", 0, false, ""},
 		{"summary with follow", 100, "text", "all", "", "local", 0, true, "--summary cannot be combined with --follow"},
 		{"negative tail", -1, "text", "all", "", "local", 0, true, "--tail must be a positive"},
-		{"invalid format", 100, "xml", "all", "", "local", 0, true, "--output must be"},
+		{"invalid format", 100, "xml", "all", "", "local", 0, true, "invalid --output value"},
 		{"invalid level", 100, "text", "trace", "", "local", 0, true, "--level must be one of"},
 		{"invalid since", 100, "text", "all", "5x", "local", 0, true, "--since must be a valid duration"},
 		{"invalid source", 100, "text", "all", "", "remote", 0, true, "--source must be"},

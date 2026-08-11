@@ -11,6 +11,22 @@ import (
 // specific format requested", not a format the extension renders.
 const outputFormatDefault = "default"
 
+// The formats this extension renders. They live here, not beside the command
+// that happens to use each one, because the same value was previously spelled
+// three ways: a graph-local constant, a logs-local constant, and a bare
+// literal. A switch that cases on a constant and an error message that lists a
+// literal drift apart silently, and the compiler cannot help.
+const (
+	outputFormatText     = "text"
+	outputFormatJSON     = "json"
+	outputFormatTable    = "table"
+	outputFormatMarkdown = "markdown"
+	outputFormatMermaid  = "mermaid"
+	outputFormatDOT      = "dot"
+	outputFormatD2       = "d2"
+	outputFormatPlantUML = "plantuml"
+)
+
 // outputFormatsAnnotation records the rich formats a command renders beyond
 // azd's own default and json.
 //
@@ -34,21 +50,32 @@ const outputFormatsAnnotation = "azd-app.output-formats"
 //
 // "default" is always accepted. The SDK seeds the flag with it and a user can
 // pass it explicitly, and in both cases it means the command's own default.
+//
+// defaultFormat is folded into the accepted set, so a caller passes it once.
+// Requiring it in both positions invited the failure where a command declared
+// a default that its own AllowedValues did not contain, which azd would then
+// reject at parse time.
 func registerOutputFormats(cmd *cobra.Command, defaultFormat string, formats ...string) *cobra.Command {
-	allowed := make([]string, 0, len(formats)+1)
-	allowed = append(allowed, outputFormatDefault)
-	allowed = append(allowed, formats...)
+	declared := make([]string, 0, len(formats)+1)
+	seen := map[string]bool{}
+	for _, format := range append([]string{defaultFormat}, formats...) {
+		if format == "" || seen[format] {
+			continue
+		}
+		seen[format] = true
+		declared = append(declared, format)
+	}
 
 	azdext.RegisterFlagOptions(cmd, azdext.FlagOptions{
 		Name:          "output",
-		AllowedValues: allowed,
+		AllowedValues: append([]string{outputFormatDefault}, declared...),
 		Default:       defaultFormat,
 	})
 
 	if cmd.Annotations == nil {
 		cmd.Annotations = map[string]string{}
 	}
-	cmd.Annotations[outputFormatsAnnotation] = strings.Join(formats, ",")
+	cmd.Annotations[outputFormatsAnnotation] = strings.Join(declared, ",")
 	return cmd
 }
 
@@ -88,7 +115,7 @@ func inheritedOutputFormat(cmd *cobra.Command, fallback string) string {
 // Only formats the invoked command actually declared are translated. Anything
 // else passes through untouched so cliout still reports it as invalid.
 func CliOutFormatFor(cmd *cobra.Command, format string) string {
-	if format == "" || format == outputFormatDefault || format == jsonOutputVal {
+	if format == "" || format == outputFormatDefault || format == outputFormatJSON {
 		return format
 	}
 	for c := cmd; c != nil; c = c.Parent() {

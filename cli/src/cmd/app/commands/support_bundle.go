@@ -377,7 +377,7 @@ func writeLogSnapshot(ctx context.Context, path, projectDir string, opts *suppor
 	logOpts := &logsOptions{
 		tail:    opts.tail,
 		level:   "all",
-		output:  jsonOutputVal,
+		output:  outputFormatJSON,
 		source:  string(LogSourceLocal),
 		service: opts.service,
 	}
@@ -439,7 +439,7 @@ func effectiveSupportBundleReqs(azureYaml *AzureYaml) []Prerequisite {
 
 func checkSupportBundleReqs(reqs []Prerequisite) ([]ReqResult, bool) {
 	originalFormat := cliout.GetFormat()
-	_ = cliout.SetFormat("json")
+	_ = cliout.SetFormat(outputFormatJSON)
 	defer func() {
 		_ = cliout.SetFormat(string(originalFormat))
 	}()

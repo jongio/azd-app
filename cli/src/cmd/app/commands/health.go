@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"sort"
 	"strings"
 	"syscall"
@@ -37,6 +38,11 @@ const (
 	// defaultHealthEndpoint is the default health check endpoint path
 	defaultHealthEndpoint = "/health"
 )
+
+// healthOutputFormats are the formats health renders, in the order help text
+// lists them. One list drives registration, validation, and the message shown
+// when a value is rejected.
+var healthOutputFormats = []string{outputFormatText, outputFormatJSON, outputFormatTable}
 
 var (
 	healthService           string
@@ -96,11 +102,11 @@ Examples:
   azd app health --stream --interval 10s --metrics --metrics-port 9090`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			healthOutput = inheritedOutputFormat(cmd, "text")
+			healthOutput = inheritedOutputFormat(cmd, outputFormatText)
 			return runHealth(cmd, args)
 		},
 	}
-	registerOutputFormats(cmd, "text", "text", "json", "table")
+	registerOutputFormats(cmd, outputFormatText, healthOutputFormats...)
 
 	// Basic flags
 	cmd.Flags().StringVarP(&healthService, "service", "s", "", "Monitor specific service(s) only (comma-separated)")
@@ -297,8 +303,8 @@ func validateHealthFlags() error {
 	if healthStream && healthInterval <= healthTimeout {
 		return fmt.Errorf("interval (%v) must be greater than timeout (%v) in streaming mode", healthInterval, healthTimeout)
 	}
-	if healthOutput != "text" && healthOutput != jsonOutputVal && healthOutput != "table" {
-		return newInvalidFlagValueError("output", healthOutput, []string{"text", "json", "table"})
+	if !slices.Contains(healthOutputFormats, healthOutput) {
+		return newInvalidFlagValueError("output", healthOutput, healthOutputFormats)
 	}
 	// Validate metrics port is in valid range
 	if healthEnableMetrics && (healthMetricsPort < 1 || healthMetricsPort > 65535) {
@@ -452,14 +458,14 @@ func performStreamCheck(ctx context.Context, monitor *healthcheck.HealthMonitor,
 }
 
 func displayHealthReport(report *healthcheck.HealthReport) error {
-	if healthSummaryOnly && healthOutput != jsonOutputVal {
+	if healthSummaryOnly && healthOutput != outputFormatJSON {
 		return displaySummaryOnlyReport(report)
 	}
 
 	switch healthOutput {
-	case jsonOutputVal:
+	case outputFormatJSON:
 		return displayJSONReport(report)
-	case "table":
+	case outputFormatTable:
 		return displayTableReport(report)
 	default: // text
 		return displayTextReport(report)

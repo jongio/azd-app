@@ -141,7 +141,7 @@ func TestDisplayHealthReportSummaryOnly(t *testing.T) {
 	}{
 		{"text output prints summary only", "text", true},
 		{"table output prints summary only", "table", true},
-		{"json output is unaffected", jsonOutputVal, false},
+		{"json output is unaffected", outputFormatJSON, false},
 	}
 
 	for _, tt := range tests {
