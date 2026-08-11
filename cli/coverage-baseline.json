@@ -1,10 +1,10 @@
 {
-  "total": 65.2,
+  "total": 65.4,
   "packages": {
     "github.com/jongio/azd-app/cli/src/cmd/app": 60,
-    "github.com/jongio/azd-app/cli/src/cmd/app/commands": 64.7,
+    "github.com/jongio/azd-app/cli/src/cmd/app/commands": 65.1,
     "github.com/jongio/azd-app/cli/src/cmd/docsgate": 90.4,
-    "github.com/jongio/azd-app/cli/src/internal/azdconfig": 54.9,
+    "github.com/jongio/azd-app/cli/src/internal/azdconfig": 62.3,
     "github.com/jongio/azd-app/cli/src/internal/azure": 42.8,
     "github.com/jongio/azd-app/cli/src/internal/cache": 88.5,
     "github.com/jongio/azd-app/cli/src/internal/certs": 91.9,
@@ -50,5 +50,5 @@
   ],
   "mode": "atomic",
   "os": "linux",
-  "note": "recorded on ubuntu under -race, the platform and mode the CI gate uses"
+  "note": "recorded by mage coverageRecord under -race, matching CI"
 }
