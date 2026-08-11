@@ -295,27 +295,39 @@ func runHealth(cmd *cobra.Command, args []string) error {
 // validateHealthFlags validates the health command flags
 func validateHealthFlags() error {
 	if healthInterval < minHealthInterval {
-		return fmt.Errorf("interval must be at least %v", minHealthInterval)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("interval must be at least %v", minHealthInterval),
+			fmt.Sprintf("Pass --interval with a duration of %v or more.", minHealthInterval))
 	}
 	if healthTimeout < minHealthTimeout || healthTimeout > maxHealthTimeout {
-		return fmt.Errorf("timeout must be between %v and %v", minHealthTimeout, maxHealthTimeout)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("timeout must be between %v and %v", minHealthTimeout, maxHealthTimeout),
+			fmt.Sprintf("Pass --timeout with a duration between %v and %v.", minHealthTimeout, maxHealthTimeout))
 	}
 	if healthStream && healthInterval <= healthTimeout {
-		return fmt.Errorf("interval (%v) must be greater than timeout (%v) in streaming mode", healthInterval, healthTimeout)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("interval (%v) must be greater than timeout (%v) in streaming mode", healthInterval, healthTimeout),
+			"Raise --interval or lower --timeout so a check can finish before the next one starts.")
 	}
 	if !slices.Contains(healthOutputFormats, healthOutput) {
 		return newInvalidFlagValueError("output", healthOutput, healthOutputFormats)
 	}
 	// Validate metrics port is in valid range
 	if healthEnableMetrics && (healthMetricsPort < 1 || healthMetricsPort > 65535) {
-		return fmt.Errorf("metrics port must be between 1 and 65535, got %d", healthMetricsPort)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("metrics port must be between 1 and 65535, got %d", healthMetricsPort),
+			"Pass --metrics-port with a TCP port between 1 and 65535.")
 	}
 	// Validate circuit breaker settings
 	if healthCircuitBreaker && healthCircuitBreakCount < 1 {
-		return fmt.Errorf("circuit breaker count must be at least 1, got %d", healthCircuitBreakCount)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("circuit breaker count must be at least 1, got %d", healthCircuitBreakCount),
+			"Pass --circuit-break-count with a value of 1 or more, or drop --circuit-breaker.")
 	}
 	if healthCircuitBreaker && healthCircuitBreakTime < time.Second {
-		return fmt.Errorf("circuit breaker timeout must be at least 1s, got %v", healthCircuitBreakTime)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("circuit breaker timeout must be at least 1s, got %v", healthCircuitBreakTime),
+			"Pass --circuit-break-timeout with a duration of 1s or more, or drop --circuit-breaker.")
 	}
 	return nil
 }
