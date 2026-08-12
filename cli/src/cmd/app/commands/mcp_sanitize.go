@@ -66,6 +66,10 @@ func isSafeRune(r rune) bool {
 	switch {
 	case r <= 0x1F: // C0 control chars not allowed above (includes ESC 0x1B)
 		return false
+	case r == 0x7F: // DEL, which is neither C0 nor C1 but suppresses the
+		// preceding character in some terminal emulators, so it belongs to the
+		// same class the C0 and C1 cases close.
+		return false
 	case r >= 0x80 && r <= 0x9F: // C1 control chars
 		return false
 	default:

@@ -76,6 +76,14 @@ func TestSanitizeForLLM_CSISequences(t *testing.T) {
 			input: "\x1b[38;5;196mcolored\x1b[0m",
 			want:  "colored",
 		},
+		{
+			// DEL is neither C0 nor C1, so it reached the permissive default
+			// and survived into the audit record while containsControlChar
+			// already listed it as forbidden.
+			name:  "DEL stripped",
+			input: "safe\x7Fevil",
+			want:  "safeevil",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
