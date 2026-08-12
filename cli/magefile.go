@@ -618,7 +618,7 @@ func Coverage() error {
 		return err
 	}
 	fmt.Println("==> Checking coverage against the baseline...")
-	return covergate.Gate(coverageConfig())
+	return CoverageGate()
 }
 
 // coverageConfig is the repository's coverage ratchet. Coverage may rise

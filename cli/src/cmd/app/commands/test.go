@@ -44,11 +44,11 @@ type TestOptions struct {
 	ChangedBase     string
 }
 
-// NewTestCommand creates the test command.
 // runTestsFn is the seam that lets tests execute this command's RunE without
 // running a real test suite. Production code never reassigns it.
 var runTestsFn = runTests
 
+// NewTestCommand creates the test command.
 func NewTestCommand() *cobra.Command {
 	// Create options for this command invocation
 	opts := &TestOptions{}
