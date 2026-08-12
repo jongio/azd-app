@@ -174,21 +174,29 @@ func toolResultTexts(t *testing.T, result *mcp.CallToolResult) []string {
 func TestEveryToolParameterIsClassified(t *testing.T) {
 	s := testBuildServer(t)
 
-	var unclassified, unaudited []string
+	var unclassified, unaudited, unjustified []string
 	for toolName, tool := range s.ListTools() {
 		for _, param := range toolParamNames(t, tool) {
 			if _, ok := benignToolArgs[param]; !ok {
 				unclassified = append(unclassified, toolName+"."+param)
 			}
 			if looksPathShaped(param) && !pathShapedParams[param] {
-				if _, exempt := knownNonPathParams[param]; !exempt {
+				reason, exempt := knownNonPathParams[param]
+				switch {
+				case !exempt:
 					unaudited = append(unaudited, toolName+"."+param)
+				case strings.TrimSpace(reason) == "":
+					// The map is typed to carry a reason precisely so the
+					// exemption is a documented decision. An empty value
+					// exempts the parameter while recording nothing.
+					unjustified = append(unjustified, toolName+"."+param)
 				}
 			}
 		}
 	}
 	sort.Strings(unclassified)
 	sort.Strings(unaudited)
+	sort.Strings(unjustified)
 
 	require.Empty(t, unclassified,
 		"new MCP tool parameters are not covered by the security audit. "+
@@ -200,6 +208,12 @@ func TestEveryToolParameterIsClassified(t *testing.T) {
 			"Add each to pathShapedParams so TestEveryToolValidatesProjectDir drives it, "+
 			"or to knownNonPathParams with the reason it never reaches the filesystem: %v",
 		unaudited)
+
+	require.Empty(t, unjustified,
+		"these parameters are exempted from the path audit with an empty reason. "+
+			"knownNonPathParams carries a reason so the exemption is a decision on the record, "+
+			"not an omission: %v",
+		unjustified)
 }
 
 // TestEveryToolValidatesProjectDir drives every registered handler with a
@@ -218,26 +232,31 @@ func TestEveryToolValidatesProjectDir(t *testing.T) {
 		covered++
 
 		for _, hostile := range hostileProjectDirs() {
-			t.Run(toolName+"/"+hostile, func(t *testing.T) {
-				args := map[string]any{}
-				for _, p := range params {
-					args[p] = benignToolArgs[p]
+			for _, target := range params {
+				if !pathShapedParams[target] {
+					continue
 				}
-				for _, p := range params {
-					if pathShapedParams[p] {
-						args[p] = hostile
+				// One hostile parameter per run. Setting every path-shaped
+				// parameter at once lets a single rejection satisfy the whole
+				// tool, so a second path parameter that no handler validates
+				// would still pass on the strength of the first one's check.
+				t.Run(toolName+"/"+target+"/"+hostile, func(t *testing.T) {
+					args := map[string]any{}
+					for _, p := range params {
+						args[p] = benignToolArgs[p]
 					}
-				}
+					args[target] = hostile
 
-				result, err := tool.Handler(context.Background(), callToolRequest(toolName, args))
-				require.NoError(t, err, "handler must return a tool result, not a transport error")
-				require.NotNil(t, result)
-				require.True(t, result.IsError,
-					"tool %s accepted hostile project directory %q", toolName, hostile)
-				require.Contains(t, strings.ToLower(resultText(result)), "project directory",
-					"tool %s rejected %q for an unrelated reason, so the path check was never reached",
-					toolName, hostile)
-			})
+					result, err := tool.Handler(context.Background(), callToolRequest(toolName, args))
+					require.NoError(t, err, "handler must return a tool result, not a transport error")
+					require.NotNil(t, result)
+					require.True(t, result.IsError,
+						"tool %s accepted hostile value %q for parameter %s", toolName, hostile, target)
+					require.Contains(t, strings.ToLower(resultText(result)), "project directory",
+						"tool %s rejected %q on %s for an unrelated reason, so the path check was never reached",
+						toolName, hostile, target)
+				})
+			}
 		}
 	}
 
