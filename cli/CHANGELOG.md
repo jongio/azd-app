@@ -1,3 +1,19 @@
+## [Unreleased]
+
+### Breaking Changes
+
+- **azd >= 1.29.0 is now required.** `extension.yaml` declares `requiredAzdVersion: ">= 1.29.0"`, because the gRPC services and `azdext` APIs this extension consumes ship with that release. An azd host older than 1.29.0 refuses to load the extension, so upgrade azd before upgrading this extension. `azd x publish` carries the floor into the registry entry, so azd rejects the install up front rather than failing at load.
+- **`azd app support-bundle --output` is now `--output-dir`.** `-o`/`--output` is a reserved azd global flag, and this command was using it for a directory path rather than a format. Scripts passing `--output <dir>` or `-o <dir>` must switch to `--output-dir <dir>`.
+- **`azd app logs --format` is removed.** It was a hidden alias for `--output`, kept for backward compatibility. Use `azd app logs --output json` (or `-o json`). The alias was removed rather than deprecated because `-o`/`--output` is now inherited from azd itself, so the extension no longer owns the flag it would be aliasing.
+
+`azd app env --format` and `azd app outdated --format` are unaffected. They name their own value vocabularies rather than azd's `--output` set, so they keep their existing flag.
+
+### Fixed
+
+- fix(flags)!: stop shadowing azd's global flags. azd reserves `--output`/`-o` and `--environment`/`-e`, and the extension SDK now refuses to start when a subcommand defines a conflicting local flag. `azd app graph`, `azd app health`, and `azd app logs` keep `-o`/`--output` and now declare their accepted values through the SDK, so `azd app graph -o mermaid` works, `--help` lists the supported formats, shell completion offers them, and an unsupported value is rejected before the command runs. The flag-name changes this forced are recorded under Breaking Changes above.
+- fix(test): read `--environment`/`-e` from azd's global flag instead of defining a local copy. The local flag shadowed azd's own, so `azd app test -e prod` set the subcommand value but left azd's environment unset. The command line doesn't change.
+- fix(flags): read `--output` from azd's global flag so `azd app graph`, `health`, and `logs` see the format azd resolved. Previously a local flag of the same name won and azd's value never reached these commands.
+
 ## [0.20.0] - 2026-07-24
 
 - feat: add local container orchestration for azd app run (#549) (dd47eb39)

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+- **azd >= 1.29.0 is now required.** `cli/extension.yaml` declares `requiredAzdVersion: ">= 1.29.0"`, because every gRPC service and `azdext` API this extension consumes ships with that release. An older azd host refuses to load the extension. Upgrade azd before upgrading this extension. `azd x publish` carries the floor into the registry entry, so azd rejects the install up front rather than failing at load.
+- **`azd app support-bundle --output` is now `--output-dir`.** `-o/--output` is a reserved azd global flag, and this command was using it for a folder path rather than a format. Scripts passing `--output <dir>` or `-o <dir>` to `support-bundle` must switch to `--output-dir <dir>`.
+- **`azd app logs --format` is removed.** It was a hidden alias for `--output`, kept for backward compatibility. Use `azd app logs --output json` (or `-o json`). The alias was removed rather than deprecated because `-o/--output` is now inherited from azd itself, so the extension no longer owns the flag it would be aliasing.
+- `azd app env --format` and `azd app outdated --format` are unaffected. They name their own value vocabularies (`dotenv/shell/powershell/json/github-actions` and similar), not the azd `--output` set, so they keep their existing flag.
+
+### Fixed (breaking-adjacent)
+- Dotted service names no longer lose their assigned port. Ports were keyed by a name that a dot silently split, so `api.worker` and `api` collided.
+
 ### Added
 - **`azd app init` Command** — Project initialization and azure.yaml generation
   - Scans project structure to detect services (Node.js, Python, .NET, Go, Azure Functions)

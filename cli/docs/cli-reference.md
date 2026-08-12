@@ -1026,7 +1026,7 @@ azd app health --save-profiles
 | `--service` | `-s` | string | | Monitor specific service(s) only (comma-separated) |
 | `--stream` | | bool | `false` | Enable streaming mode for real-time updates |
 | `--interval` | `-i` | duration | `5s` | Interval between health checks in streaming mode |
-| `--output` | `-o` | string | `text` | Output format: 'text', 'json', 'table' |
+| `--output` | `-o` | string | `text` | Output format: `text`, `json`, or `table`. This is azd's global output flag. |
 | `--endpoint` | | string | `/health` | Default health endpoint path to check |
 | `--timeout` | | duration | `5s` | Timeout for each health check |
 | `--all` | | bool | `false` | Show health for all projects on this machine |
@@ -1213,7 +1213,7 @@ azd app logs --level error
 azd app logs --level error --context 3
 
 # Output as JSON
-azd app logs --format json
+azd app logs --output json
 
 # Write logs to file
 azd app logs --file debug.log
@@ -1241,7 +1241,7 @@ azd app logs --no-color
 | `--min-level` | | string | | Show entries at this severity or higher (`debug` < `info` < `warn` < `error`); cannot be combined with an explicit `--level` or `--context` |
 | `--summary` | | bool | `false` | Show counts by service and level instead of raw log entries |
 | `--context` | | int | `0` | Number of context lines before/after matching entries (0-10, requires --level) |
-| `--format` | | string | `text` | Output format (text, json) |
+| `--output` | `-o` | string | `text` | Output format: `text` or `json`. This is azd's global output flag. |
 | `--file` | | string | | Write logs to file instead of stdout |
 | `--exclude` | | string | | Regex patterns to exclude (comma-separated) |
 | `--grep` | | string | | Only show log lines matching this regex (applied after `--exclude`) |
@@ -1405,7 +1405,7 @@ azd app graph --services-only --output mermaid
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--output` | `-o` | string | `text` | Output format: `text`, `json`, `markdown`, `mermaid`, `dot`, or `d2` |
+| `--output` | `-o` | string | `text` | Output format: `text`, `json`, `markdown`, `mermaid`, `dot`, `d2`, or `plantuml`. This is azd's global output flag. |
 | `--output-file` | | string | | Write output to this file instead of stdout |
 | `--focus` | | string | | Limit the graph to a service, its dependencies, and its dependents |
 | `--services-only` | | bool | `false` | Show only services and service-to-service edges |
@@ -1648,7 +1648,7 @@ azd app support-bundle --tail 1000
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--output` | `-o` | string | | Output folder path |
+| `--output-dir` | | string | | Output folder path |
 | `--service` | `-s` | string | | Include logs and health for specific service(s), comma-separated |
 | `--tail` | | int | `200` | Recent log lines per service to include |
 | `--zip` | | bool | `false` | Create a zip archive after writing the support bundle |

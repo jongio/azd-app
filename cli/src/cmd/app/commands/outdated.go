@@ -129,8 +129,8 @@ Examples:
 					return err
 				}
 			}
-			if strings.EqualFold(opts.format, "json") {
-				return cliout.SetFormat("json")
+			if strings.EqualFold(opts.format, outputFormatJSON) {
+				return cliout.SetFormat(outputFormatJSON)
 			}
 			return nil
 		},

@@ -14,14 +14,24 @@ import (
 // NewListenCommand creates the listen command using the azdext SDK helper.
 // It registers a local service target provider and post-provision event handler.
 func NewListenCommand() *cobra.Command {
-	return azdext.NewListenCommand(func(host *azdext.ExtensionHost) {
-		client := host.Client()
-		host.
-			WithServiceTarget("local", func() azdext.ServiceTargetProvider {
-				return servicetarget.NewLocalServiceTargetProvider(client)
-			}).
-			WithServiceEventHandler("postprovision", handlePostProvision, &azdext.ServiceEventOptions{})
-	})
+	return azdext.NewListenCommand(ConfigureExtensionHost)
+}
+
+// ConfigureExtensionHost registers everything this extension contributes to the
+// azd host: service target providers and service event handlers.
+//
+// It is a named function rather than a closure inside NewListenCommand so
+// providers_manifest_test.go can hand it to azdext.VerifyProvidersMatchManifest
+// and prove the registrations still match extension.yaml. Registration must
+// stay lazy for that to work: the verifier runs this against a host with no azd
+// connection and never invokes the provider factories.
+func ConfigureExtensionHost(host *azdext.ExtensionHost) {
+	client := host.Client()
+	host.
+		WithServiceTarget("local", func() azdext.ServiceTargetProvider {
+			return servicetarget.NewLocalServiceTargetProvider(client)
+		}).
+		WithServiceEventHandler("postprovision", handlePostProvision, &azdext.ServiceEventOptions{})
 }
 
 // handlePostProvision is called after azd provision completes for each service.

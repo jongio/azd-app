@@ -17,7 +17,24 @@ import (
 
 var structuredLogs bool
 
+// isDetachedChild reports whether this process is the background run spawned by
+// `azd app run --detach`. It is a variable rather than a direct call so tests
+// can exercise both sides of the environment-loading guard below. The real
+// detection caches under sync.Once and consumes its marker, so it cannot be
+// toggled more than once within a single process.
+var isDetachedChild = commands.IsDetachedChild
+
 func main() {
+	// azdext.Run owns the lifecycle: FORCE_COLOR handling, cobra SilenceErrors,
+	// context creation with tracing propagation, gRPC access token injection,
+	// reserved-flag validation, structured error reporting back to the azd host,
+	// error and suggestion display, and the exit status.
+	azdext.Run(newRootCmd())
+}
+
+// newRootCmd builds the full command tree. It is a function rather than inline
+// setup in main so tests can construct the same tree the binary runs.
+func newRootCmd() *cobra.Command {
 	// Use the standard extension root command which provides:
 	// - Standard azd flags (--debug, --no-prompt, --cwd, -e, --output)
 	// - AZD_* environment variable fallback for all flags
@@ -51,7 +68,13 @@ func main() {
 		// that served the parent exits as soon as the parent returns. That left
 		// the detached child blocked and completely silent for seconds, which is
 		// why its run.log was empty before it died.
-		if extCtx.Environment != "" && !commands.IsDetachedChild() {
+		//
+		// The azdext SDK does not remove the need for this guard. Neither
+		// NewExtensionRootCommand nor azdext.LoadAzdEnvironment changes the fact
+		// that reading environment values requires a live azd host, and the SDK
+		// loader shells out to the same `azd env get-values` (without even an -e
+		// flag). See TestDetachedChildSkipsEnvironmentLoad.
+		if extCtx.Environment != "" && !isDetachedChild() {
 			if err := env.LoadAzdEnvironment(cmd.Context(), extCtx.Environment); err != nil {
 				return fmt.Errorf("failed to load environment '%s': %w", extCtx.Environment, err)
 			}
@@ -84,7 +107,7 @@ func main() {
 			}
 		}
 
-		return cliout.SetFormat(extCtx.OutputFormat)
+		return cliout.SetFormat(commands.CliOutFormatFor(cmd, extCtx.OutputFormat))
 	}
 
 	// Register all commands
@@ -123,8 +146,5 @@ func main() {
 		commands.NewMetadataCommand(func() *cobra.Command { return rootCmd }),
 	)
 
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+	return rootCmd
 }

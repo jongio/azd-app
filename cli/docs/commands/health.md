@@ -28,7 +28,7 @@ azd app health [flags]
 | `--service` | `-s` | string | | Monitor specific service(s) only (comma-separated) |
 | `--stream` | | bool | `false` | Enable streaming mode for real-time updates |
 | `--interval` | `-i` | duration | `5s` | Interval between health checks in streaming mode |
-| `--output` | `-o` | string | `text` | Output format: 'text', 'json', 'table' |
+| `--output` | `-o` | string | `text` | Output format: `text`, `json`, or `table`. This is azd's global output flag. |
 | `--endpoint` | | string | `/health` | Default health endpoint path to check |
 | `--timeout` | | duration | `5s` | Timeout for each health check |
 | `--all` | | bool | `false` | Show health for all projects on this machine |
@@ -1050,8 +1050,11 @@ services:
 ### Health Metrics Export
 
 ```bash
-# Export health metrics to Prometheus
-azd app health --export prometheus --output metrics.txt
+# Serve health metrics on the Prometheus endpoint
+azd app health --metrics --metrics-port 9090
+
+# Scrape them
+curl http://localhost:9090/metrics
 
 # Output (Prometheus format):
 # azd_service_health{service="web"} 1

@@ -64,7 +64,7 @@ func runDoctor() error {
 		renderDoctorChecks(checks)
 	}
 	if fails := countDoctorSeverity(checks, doctorFail); fails > 0 {
-		return fmt.Errorf("doctor found %d failing check(s)", fails)
+		return newCheckFailedError(fmt.Sprintf("doctor found %d failing check(s)", fails), "Review the failing checks above and fix each one, then run `azd app doctor` again.")
 	}
 	return nil
 }

@@ -14,6 +14,22 @@ var _ azdext.ServiceTargetProvider = &LocalServiceTargetProvider{}
 // LocalServiceTargetProvider handles services with host: local
 // These are local-only containers (like azurite, cosmos emulator, redis, postgres)
 // that should be started during `azd app run` but skipped during `azd deploy`.
+//
+// # Why this does not embed azdext.BaseServiceTargetProvider
+//
+// The base provider answers every method with a nil result. None of the methods
+// below are no-ops, despite reading like it: each returns a non-nil success
+// sentinel so the azd host records the service as handled and carries on with
+// the rest of the deployment. GetTargetResource in particular returns a
+// synthetic "local" resource rather than nil. Swapping in the base defaults
+// would turn "skipped cleanly" into "produced no result", which is exactly the
+// failure this provider exists to avoid.
+//
+// Embedding purely for forward compatibility is also the wrong trade here. It
+// would silently give any method added to ServiceTargetProvider in a future SDK
+// the nil-returning default, which is the wrong answer for a local-only target.
+// Leaving the interface satisfied explicitly means a new method breaks the
+// build and forces a deliberate decision. See TestBaseProviderIsNotASubstitute.
 type LocalServiceTargetProvider struct {
 	azdClient     *azdext.AzdClient
 	serviceConfig *azdext.ServiceConfig

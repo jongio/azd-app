@@ -245,7 +245,7 @@ func findAzureYamlForAdd() (string, error) {
 		dir = parent
 	}
 
-	return "", fmt.Errorf("no azure.yaml found - run from a project directory")
+	return "", newProjectNotFoundError()
 }
 
 func serviceExistsInYaml(path string, serviceName string) (bool, error) {
@@ -305,12 +305,12 @@ func addServiceToYaml(path string, serviceName string, def *wellknown.ServiceDef
 
 	// Ensure document structure
 	if doc.Kind != yaml.DocumentNode || len(doc.Content) == 0 {
-		return fmt.Errorf("invalid azure.yaml structure")
+		return newInvalidProjectConfigError("invalid azure.yaml structure", "Check that azure.yaml is valid YAML and has a top-level mapping.")
 	}
 
 	root := doc.Content[0]
 	if root.Kind != yaml.MappingNode {
-		return fmt.Errorf("azure.yaml root must be a mapping")
+		return newInvalidProjectConfigError("azure.yaml root must be a mapping", "The top level of azure.yaml must be a set of key/value pairs, not a list or a scalar.")
 	}
 
 	// Find or create services section

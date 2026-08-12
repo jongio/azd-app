@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"sort"
 	"strings"
 	"syscall"
@@ -37,6 +38,11 @@ const (
 	// defaultHealthEndpoint is the default health check endpoint path
 	defaultHealthEndpoint = "/health"
 )
+
+// healthOutputFormats are the formats health renders, in the order help text
+// lists them. One list drives registration, validation, and the message shown
+// when a value is rejected.
+var healthOutputFormats = []string{outputFormatText, outputFormatJSON, outputFormatTable}
 
 var (
 	healthService           string
@@ -95,14 +101,17 @@ Examples:
   # Stream with metrics
   azd app health --stream --interval 10s --metrics --metrics-port 9090`,
 		SilenceUsage: true,
-		RunE:         runHealth,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			healthOutput = inheritedOutputFormat(cmd, outputFormatText)
+			return runHealth(cmd, args)
+		},
 	}
+	registerOutputFormats(cmd, outputFormatText, healthOutputFormats...)
 
 	// Basic flags
 	cmd.Flags().StringVarP(&healthService, "service", "s", "", "Monitor specific service(s) only (comma-separated)")
 	cmd.Flags().BoolVar(&healthStream, "stream", false, "Enable streaming mode for real-time updates")
 	cmd.Flags().DurationVarP(&healthInterval, "interval", "i", defaultHealthInterval, "Interval between health checks in streaming mode")
-	cmd.Flags().StringVarP(&healthOutput, "output", "o", "text", "Output format: 'text', 'json', 'table'")
 	cmd.Flags().StringVar(&healthEndpoint, "endpoint", defaultHealthEndpoint, "Default health endpoint path to check")
 	cmd.Flags().DurationVar(&healthTimeout, "timeout", defaultHealthTimeout, "Timeout for each health check")
 	cmd.Flags().BoolVar(&healthAll, "all", false, "Show health for all projects on this machine")
@@ -286,27 +295,39 @@ func runHealth(cmd *cobra.Command, args []string) error {
 // validateHealthFlags validates the health command flags
 func validateHealthFlags() error {
 	if healthInterval < minHealthInterval {
-		return fmt.Errorf("interval must be at least %v", minHealthInterval)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("interval must be at least %v", minHealthInterval),
+			fmt.Sprintf("Pass --interval with a duration of %v or more.", minHealthInterval))
 	}
 	if healthTimeout < minHealthTimeout || healthTimeout > maxHealthTimeout {
-		return fmt.Errorf("timeout must be between %v and %v", minHealthTimeout, maxHealthTimeout)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("timeout must be between %v and %v", minHealthTimeout, maxHealthTimeout),
+			fmt.Sprintf("Pass --timeout with a duration between %v and %v.", minHealthTimeout, maxHealthTimeout))
 	}
 	if healthStream && healthInterval <= healthTimeout {
-		return fmt.Errorf("interval (%v) must be greater than timeout (%v) in streaming mode", healthInterval, healthTimeout)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("interval (%v) must be greater than timeout (%v) in streaming mode", healthInterval, healthTimeout),
+			"Raise --interval or lower --timeout so a check can finish before the next one starts.")
 	}
-	if healthOutput != "text" && healthOutput != jsonOutputVal && healthOutput != "table" {
-		return fmt.Errorf("invalid output format: must be 'text', 'json', or 'table'")
+	if !slices.Contains(healthOutputFormats, healthOutput) {
+		return newInvalidFlagValueError("output", healthOutput, healthOutputFormats)
 	}
 	// Validate metrics port is in valid range
 	if healthEnableMetrics && (healthMetricsPort < 1 || healthMetricsPort > 65535) {
-		return fmt.Errorf("metrics port must be between 1 and 65535, got %d", healthMetricsPort)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("metrics port must be between 1 and 65535, got %d", healthMetricsPort),
+			"Pass --metrics-port with a TCP port between 1 and 65535.")
 	}
 	// Validate circuit breaker settings
 	if healthCircuitBreaker && healthCircuitBreakCount < 1 {
-		return fmt.Errorf("circuit breaker count must be at least 1, got %d", healthCircuitBreakCount)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("circuit breaker count must be at least 1, got %d", healthCircuitBreakCount),
+			"Pass --circuit-break-count with a value of 1 or more, or drop --circuit-breaker.")
 	}
 	if healthCircuitBreaker && healthCircuitBreakTime < time.Second {
-		return fmt.Errorf("circuit breaker timeout must be at least 1s, got %v", healthCircuitBreakTime)
+		return newInvalidFlagUsageError(
+			fmt.Sprintf("circuit breaker timeout must be at least 1s, got %v", healthCircuitBreakTime),
+			"Pass --circuit-break-timeout with a duration of 1s or more, or drop --circuit-breaker.")
 	}
 	return nil
 }
@@ -364,10 +385,10 @@ func runStaticMode(ctx context.Context, monitor *healthcheck.HealthMonitor, serv
 
 func healthReportExitError(report *healthcheck.HealthReport) error {
 	if report.Summary.Unhealthy > 0 {
-		return fmt.Errorf("%d service(s) unhealthy", report.Summary.Unhealthy)
+		return newCheckFailedError(fmt.Sprintf("%d service(s) unhealthy", report.Summary.Unhealthy), "Run `azd app logs` to see why, or `azd app restart` to bring the services back up.")
 	}
 	if healthFailOnDegraded && report.Summary.Degraded > 0 {
-		return fmt.Errorf("%d service(s) degraded", report.Summary.Degraded)
+		return newCheckFailedError(fmt.Sprintf("%d service(s) degraded", report.Summary.Degraded), "Run `azd app logs` to see why. Drop --fail-on-degraded to treat degraded services as passing.")
 	}
 	return nil
 }
@@ -449,14 +470,14 @@ func performStreamCheck(ctx context.Context, monitor *healthcheck.HealthMonitor,
 }
 
 func displayHealthReport(report *healthcheck.HealthReport) error {
-	if healthSummaryOnly && healthOutput != jsonOutputVal {
+	if healthSummaryOnly && healthOutput != outputFormatJSON {
 		return displaySummaryOnlyReport(report)
 	}
 
 	switch healthOutput {
-	case jsonOutputVal:
+	case outputFormatJSON:
 		return displayJSONReport(report)
-	case "table":
+	case outputFormatTable:
 		return displayTableReport(report)
 	default: // text
 		return displayTextReport(report)

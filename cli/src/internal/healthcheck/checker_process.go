@@ -11,7 +11,7 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
 
-	"github.com/jongio/azd-core/procutil"
+	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 )
 
 func (c *HealthChecker) buildResultFromHTTPCheck(result HealthCheckResult, httpResult *httpHealthCheckResult, port int, isInStartupGracePeriod bool) HealthCheckResult {
@@ -261,9 +261,9 @@ func suggestProcessErrorAction(pid int, isRunning bool, _ string) string {
 	return ""
 }
 
-// isProcessRunning delegates to procutil.IsProcessRunning for cross-platform process detection.
+// isProcessRunning delegates to azdext.IsProcessRunning for cross-platform process detection.
 func isProcessRunning(pid int) bool {
-	return procutil.IsProcessRunning(pid)
+	return azdext.IsProcessRunning(pid)
 }
 
 // suggestHTTPErrorAction provides actionable suggestions based on HTTP status code.

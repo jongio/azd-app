@@ -176,9 +176,16 @@ jobs:
           mkdir -p ../coverage
           # Exclude tests/test-tool (it's a standalone main package with no tests)
           PACKAGES=$(go list ./... | grep -v '/tests/test-tool')
-          go test -short -v -race -coverprofile=../coverage/coverage.out $PACKAGES
+          go test -short -v -race -covermode=atomic -coverprofile=../coverage/coverage.out $PACKAGES
         env:
           CGO_ENABLED: '1'
+
+      - name: Enforce coverage ratchet
+        if: matrix.os == 'ubuntu-latest'
+        run: >
+          go run github.com/jongio/azd-core/covergate/cmd/covergate
+          -profile ../coverage/coverage.out
+          -exclude '**/src/gen/**'
 
       - name: Upload coverage to Codecov
         if: github.repository == 'jongio/azd-app'

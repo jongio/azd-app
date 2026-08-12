@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jongio/azd-core/covergate"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 )
@@ -30,13 +31,20 @@ const (
 	defaultTestTimeout = "10m"
 	extensionID        = "jongio.azd.app"
 	goSrcPattern       = "./src/..."
-	goIntegrationTag   = "-tags=integration"
-	errBuildFailedFmt  = "build failed: %w"
-	errPnpmFailedFmt   = "pnpm install failed: %w"
-	fmtBulletItem      = "   • %s\n"
-	fmtTestingProject  = "   Testing %s (%s)...\n"
-	fmtProjectFailed   = "   ❌ %s failed: %v\n"
-	fmtProjectPassed   = "   ✅ %s passed\n"
+	// gosec walks the filesystem rather than resolving Go package patterns, so it
+	// descends into testdata fixtures that are separate modules with their own
+	// dependencies. Those never typecheck against the parent module, which yields
+	// a load error instead of a finding (and on Windows, gosec then fails to parse
+	// the drive letter in the error path and exits non-zero with no output).
+	// Fixtures are not shipped code, so skip them.
+	gosecExcludeTestdata = "-exclude-dir=testdata"
+	goIntegrationTag     = "-tags=integration"
+	errBuildFailedFmt    = "build failed: %w"
+	errPnpmFailedFmt     = "pnpm install failed: %w"
+	fmtBulletItem        = "   • %s\n"
+	fmtTestingProject    = "   Testing %s (%s)...\n"
+	fmtProjectFailed     = "   ❌ %s failed: %v\n"
+	fmtProjectPassed     = "   ✅ %s passed\n"
 )
 
 // Default target runs all checks and builds.
@@ -203,6 +211,89 @@ func Build() error {
 
 	fmt.Printf("✅ Build complete! Version: %s\n", version)
 	fmt.Println("   Run 'azd app version' to verify")
+	return nil
+}
+
+// Pack packages the extension into archives using azd x pack.
+//
+// This is the artifact CI actually ships. mage build installs a bare binary,
+// which skips packaging entirely, so a developer who only ever runs it never
+// exercises the path a user installs through.
+func Pack() error {
+	if err := ensureAzdExtensions(); err != nil {
+		return err
+	}
+
+	version, err := getVersion()
+	if err != nil {
+		return err
+	}
+
+	// azd x pack reads the version from extension.yaml, so the dev version has
+	// to be written there or the archive name and the version compiled into the
+	// binary disagree.
+	restore, err := patchExtensionVersion(version)
+	if err != nil {
+		return err
+	}
+	defer restore()
+
+	fmt.Println("Building binary...")
+
+	env := map[string]string{
+		"EXTENSION_ID":      extensionID,
+		"EXTENSION_VERSION": version,
+	}
+
+	// --skip-install because packing is about producing the artifact, not
+	// replacing the installed extension.
+	if err := runWithEnvRetry(env, "azd", "x", "build", "--skip-install"); err != nil {
+		return fmt.Errorf(errBuildFailedFmt, err)
+	}
+
+	fmt.Println("Packaging extension...")
+	if err := sh.RunV("azd", "x", "pack"); err != nil {
+		return fmt.Errorf("azd x pack failed: %w", err)
+	}
+
+	fmt.Printf("✅ Package complete! Version: %s\n", version)
+	return nil
+}
+
+// Publish adds the packed extension to the repository's local registry.json.
+//
+// The registry path is fixed to the local file on purpose. This target exists
+// for the install-testing loop and must never be able to reach a real
+// registry; releasing is the release workflow's job.
+func Publish() error {
+	version, err := getVersion()
+	if err != nil {
+		return err
+	}
+
+	restore, err := patchExtensionVersion(version)
+	if err != nil {
+		return err
+	}
+	defer restore()
+
+	fmt.Println("Publishing to local registry...")
+	if err := sh.RunV("azd", "x", "publish", "--registry", "../registry.json", "--version", version); err != nil {
+		return fmt.Errorf("azd x publish failed: %w", err)
+	}
+
+	fmt.Println("✅ Published to local registry!")
+	return nil
+}
+
+// Setup runs Pack and Publish in sequence so the extension can be installed
+// the way a user installs it.
+func Setup() error {
+	fmt.Println("Setting up extension for local development...")
+	mg.SerialDeps(Pack, Publish)
+
+	fmt.Println("\n✅ Setup complete!")
+	fmt.Println("   Install with: azd extension install " + extensionID + " --source local")
 	return nil
 }
 
@@ -397,9 +488,56 @@ func TestE2E() error {
 	return sh.RunV("go", args...)
 }
 
+// dashboardDistDir is the directory src/internal/dashboard embeds. Without it
+// the package fails to compile with "pattern dist: no matching files found",
+// which takes down every test in the module, not just the dashboard's.
+const dashboardDistDir = "src/internal/dashboard/dist"
+
+// ensureDashboardDist builds the dashboard if its embedded output is missing.
+// A fresh clone or worktree has no dist directory, so any test run there fails
+// to build until this runs.
+func ensureDashboardDist() error {
+	if entries, err := os.ReadDir(dashboardDistDir); err == nil && len(entries) > 0 {
+		return nil
+	}
+	fmt.Println("Dashboard bundle missing, building it first...")
+	if err := dashboardInstall(); err != nil {
+		return fmt.Errorf("failed to install dashboard dependencies: %w", err)
+	}
+	if err := dashboardBuildOnly(); err != nil {
+		return fmt.Errorf("failed to build dashboard bundle: %w", err)
+	}
+	return nil
+}
+
 // TestCoverage runs tests with coverage report.
 func TestCoverage() error {
+	return testCoverage(false)
+}
+
+// testCoverage runs the suite with coverage, optionally under the race
+// detector.
+//
+// The distinction matters because the race detector changes which tests run.
+// Tests that guard themselves with raceEnabled skip under -race, so a
+// race-enabled profile covers strictly less code than a plain one. CI gates a
+// race-enabled profile, so a baseline recorded from a plain run records
+// coverage that CI can never reach, and the gate fails on a drop nobody
+// introduced. That is exactly what was happening to src/internal/rpc, where
+// TestSendWithBackpressure_TimesOutOnSlowClient skips under -race and took
+// 0.9 points with it.
+//
+// So recording uses the race detector and ordinary local checking does not.
+// Recording is rare and deliberate, and it is worth requiring cgo for. Checking
+// happens constantly, and requiring a C toolchain for it would push people to
+// skip the check instead. A plain run covers at least as much as a race run, so
+// it still clears a baseline recorded under race.
+func testCoverage(race bool) error {
 	fmt.Println("Running tests with coverage...")
+
+	if err := ensureDashboardDist(); err != nil {
+		return err
+	}
 
 	// Get current working directory
 	cwd, err := os.Getwd()
@@ -430,7 +568,7 @@ func TestCoverage() error {
 	if _, err := os.Stat("../go.work"); err == nil {
 		pkgPath = "github.com/jongio/azd-app/cli/src/..."
 	}
-	cmd := exec.Command("go", "test", "-short", "-coverprofile="+coverageOut, pkgPath)
+	cmd := exec.Command("go", coverageTestArgs(coverageOut, pkgPath, race)...)
 	output, testErr := cmd.CombinedOutput()
 	fmt.Print(string(output))
 
@@ -464,9 +602,115 @@ func TestCoverage() error {
 	return nil
 }
 
-// Coverage is an alias for TestCoverage for easier access.
+// coverageTestArgs builds the go test invocation for a coverage run.
+func coverageTestArgs(coverageOut, pkgPath string, race bool) []string {
+	args := []string{"test", "-short", "-covermode=atomic", "-coverprofile=" + coverageOut}
+	if race {
+		args = append(args, "-race")
+	}
+
+	return append(args, pkgPath)
+}
+
+// Coverage runs the tests and fails if coverage dropped below the baseline.
 func Coverage() error {
-	return TestCoverage()
+	if err := TestCoverage(); err != nil {
+		return err
+	}
+	fmt.Println("==> Checking coverage against the baseline...")
+	return CoverageGate()
+}
+
+// coverageConfig is the repository's coverage ratchet. Coverage may rise
+// freely but may not fall below the recorded baseline.
+//
+// Generated protobuf code under src/gen is excluded. It is roughly 950
+// functions at zero coverage that nobody will ever hand-test, and leaving it
+// in drags the total down far enough to mask real regressions elsewhere.
+//
+// COVERAGE_PROFILE overrides the profile path so CI can gate the profile it
+// already produced instead of running the suite a second time.
+//
+// SkipOnForeignOS keeps local development usable off the recording platform.
+// Coverage is a per-platform measurement: code behind a GOOS branch is
+// unreachable elsewhere, so it reports as uncovered rather than absent. The
+// baseline is recorded on linux because that is where CI gates, which leaves
+// packages like portmanager and notifications unreachable from Windows. The
+// skip prints a visible notice and drops enforcement only, never the report,
+// and CI keeps enforcement on because it runs on the recording platform.
+func coverageConfig() covergate.Config {
+	profile := os.Getenv("COVERAGE_PROFILE")
+	if profile == "" {
+		profile = filepath.Join(coverageDir, "coverage.out")
+	}
+	return covergate.Config{
+		Profile:         profile,
+		BaselineFile:    "coverage-baseline.json",
+		Exclude:         []string{"**/src/gen/**"},
+		SkipOnForeignOS: true,
+		Check:           covergate.CheckOptions{Tolerance: 0.5},
+	}
+}
+
+// CoverageGate checks an existing coverage profile against the baseline without
+// running the tests. CI uses this after its own test step.
+func CoverageGate() error {
+	return covergate.Gate(coverageConfig())
+}
+
+// CoverageRecord re-records the coverage baseline from the current profile.
+// Run this only when a coverage change is deliberate, and say why in the
+// commit message.
+//
+// Runs under the race detector so the baseline matches the profile CI gates.
+// That needs cgo, so a C toolchain is required to re-record even though it is
+// not required to check.
+func CoverageRecord() error {
+	if err := testCoverage(true); err != nil {
+		return err
+	}
+	fmt.Println("==> Recording a new coverage baseline...")
+	return covergate.Record(coverageConfig(), "recorded by mage coverageRecord under -race, matching CI")
+}
+
+// coveragePreflight gates coverage during preflight. The profile has already
+// been written by the preflight coverage step, so it does not re-run the
+// tests. It delegates rather than repeating the call so a guard added to the
+// gate later cannot apply to one path and silently skip the other.
+func coveragePreflight() error {
+	return CoverageGate()
+}
+
+// VerifyNoLocalReplace fails if go.mod still replaces azd-core with anything.
+// A replace is fine during coordinated development, whether it points at a
+// local path or a pseudo-version built from an unmerged branch, but shipping
+// either produces a release pinned to something that is not a real version, so
+// the release path must reject it.
+func VerifyNoLocalReplace() error {
+	data, err := os.ReadFile("go.mod")
+	if err != nil {
+		return fmt.Errorf("failed to read go.mod: %w", err)
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "//") || !strings.Contains(line, "jongio/azd-core") {
+			continue
+		}
+		// The arrow is the only token common to all four legal spellings. Inside
+		// a replace ( ... ) block the grammar is
+		// <module-path> [version] => <replacement> [version], so a
+		// version-qualified left-hand side starts with neither "replace " nor
+		// the bare module path. Testing for the prefixes let
+		// "github.com/jongio/azd-core v0.6.0 => ..." through, and the release
+		// then shipped with azd-core still replaced.
+		if !strings.Contains(line, "=>") {
+			continue
+		}
+		return fmt.Errorf(
+			"go.mod still replaces azd-core:\n  %s\n"+
+				"Remove the replace and pin a released azd-core version before shipping", line)
+	}
+	return nil
 }
 
 // Lint runs golangci-lint on the codebase.
@@ -1349,7 +1593,15 @@ func preflightCrossGOOSLint() error {
 		return nil
 	}
 	cmd := exec.Command("golangci-lint", "run", "./...")
-	cmd.Env = append(os.Environ(), "GOOS=linux")
+	// CGO_ENABLED=0 is required, not merely tidy. Cross-compiling to Linux with
+	// cgo on needs a Linux C toolchain, which a Windows or macOS box does not
+	// have, so the standard library fails to typecheck at net/cgo_linux.go and
+	// the run exits 7. It still prints "0 issues" first, so the failure reads
+	// as unexplained. Developers hit this whenever CGO_ENABLED=1 is set in the
+	// environment, which is exactly what running the race detector or
+	// mage coverageRecord requires on Windows. Lint needs no cgo, so pin it off
+	// rather than inherit it.
+	cmd.Env = append(os.Environ(), "GOOS=linux", "CGO_ENABLED=0")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -1419,7 +1671,7 @@ func quietTestCoverage() error {
 	if _, err := os.Stat("../go.work"); err == nil {
 		pkgPath = "github.com/jongio/azd-app/cli/src/..."
 	}
-	cmd := exec.Command("go", "test", "-short", "-coverprofile="+coverageOut, pkgPath)
+	cmd := exec.Command("go", "test", "-short", "-covermode=atomic", "-coverprofile="+coverageOut, pkgPath)
 	output, testErr := cmd.CombinedOutput()
 	if testErr != nil {
 		outputStr := string(output)
@@ -1429,7 +1681,7 @@ func quietTestCoverage() error {
 			return fmt.Errorf("tests failed: %w\n%s", testErr, outputStr)
 		}
 	}
-	return nil
+	return coveragePreflight()
 }
 
 // quietTestOnly runs tests without coverage profiling for maximum speed.
@@ -1476,6 +1728,7 @@ func quietSecurity() error {
 		"-severity=high",
 		"-confidence=high",
 		"-quiet",
+		gosecExcludeTestdata,
 		"-include=G101,G102,G201,G202,G301,G305,G402,G403",
 		goSrcPattern,
 	)
@@ -1976,7 +2229,7 @@ func PreflightSequential() error {
 		{"Cross-OS lint (GOOS=linux)", preflightCrossGOOSLint},
 		{"Running quick security scan", runQuickSecurity},
 		{"Checking for known vulnerabilities", runVulncheck},
-		{"Running all tests with coverage", TestCoverage},
+		{"Running all tests with coverage", Coverage},
 	}
 
 	for i, check := range checks {
@@ -2018,6 +2271,7 @@ func runQuickSecurity() error {
 		"-severity=high",
 		"-confidence=high",
 		"-quiet",
+		gosecExcludeTestdata,
 		"-include=G101,G102,G201,G202,G301,G305,G402,G403",
 		goSrcPattern,
 	); err != nil {
@@ -2044,7 +2298,8 @@ func runGosec() error {
 		"-fmt=text",
 		"-exclude=G304,G307", // Exclude file paths and deferred error checks (we handle these)
 		"-nosec",             // Respect #nosec comments
-		goSrcPattern,         // Only scan src directory
+		gosecExcludeTestdata,
+		goSrcPattern, // Only scan src directory
 	); err != nil {
 		fmt.Println("⚠️  Security scan failed. Ensure gosec is installed:")
 		fmt.Println("    go install github.com/securego/gosec/v2/cmd/gosec@latest")

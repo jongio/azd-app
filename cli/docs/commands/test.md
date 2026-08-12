@@ -72,7 +72,6 @@ azd app test --environment production
 | `--type` | `-t` | string | `all` | Test type to run: `unit`, `integration`, `e2e`, or `all` |
 | `--coverage` | `-c` | bool | `false` | Generate code coverage reports |
 | `--service` | `-s` | string | `""` | Run tests for specific service(s) (comma-separated) |
-| `--environment` | `-e` | string | `""` | Target azd environment name (loads vars from `.azure/<env>/.env`) |
 | `--watch` | `-w` | bool | `false` | Watch mode - re-run tests on file changes |
 | `--update-snapshots` | `-u` | bool | `false` | Update test snapshots (for snapshot testing) |
 | `--fail-fast` | | bool | `false` | Stop on first test failure |
@@ -82,6 +81,8 @@ azd app test --environment production
 | `--dry-run` | | bool | `false` | Show what would be tested without running tests |
 | `--output-format` | | string | `default` | Output format: `default`, `json`, `junit`, `github` |
 | `--output-dir` | | string | `./test-results` | Directory for test reports and coverage |
+
+The `--environment` / `-e` flag is inherited from azd and determines which `.azure/<env>/.env` file is used to load environment variables for tests.
 
 ## Execution Flow
 

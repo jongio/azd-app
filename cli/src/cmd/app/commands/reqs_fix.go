@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/azure/azure-dev/cli/azd/pkg/azdext"
 	"github.com/jongio/azd-app/cli/src/internal/cache"
 	"github.com/jongio/azd-core/cliout"
 	"github.com/jongio/azd-core/pathutil"
@@ -77,7 +78,10 @@ func (r *reqsFixRunner) checkPrerequisite(prereq Prerequisite) FixResult {
 	config := r.checker.getToolConfig(prereq)
 	toolCommand := config.Command
 
-	toolPath := pathutil.FindToolInPath(toolCommand)
+	// azdext.LookupTool honors PATHEXT on Windows, so it resolves .cmd shims such
+	// as npm, pnpm, az, and func. The previous helper appended .exe and therefore
+	// reported those tools as missing even when they were installed.
+	toolPath := azdext.LookupTool(toolCommand).Path
 	if toolPath != "" {
 		fixResult.Found = true
 		fixResult.Path = toolPath

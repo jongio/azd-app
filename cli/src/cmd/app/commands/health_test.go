@@ -33,7 +33,6 @@ func TestHealthCommandFlags(t *testing.T) {
 		{"service flag", "service", "string"},
 		{"stream flag", "stream", "bool"},
 		{"interval flag", "interval", "duration"},
-		{"output flag", "output", "string"},
 		{"endpoint flag", "endpoint", "string"},
 		{"timeout flag", "timeout", "duration"},
 		{"all flag", "all", "bool"},
@@ -142,7 +141,7 @@ func TestDisplayHealthReportSummaryOnly(t *testing.T) {
 	}{
 		{"text output prints summary only", "text", true},
 		{"table output prints summary only", "table", true},
-		{"json output is unaffected", jsonOutputVal, false},
+		{"json output is unaffected", outputFormatJSON, false},
 	}
 
 	for _, tt := range tests {

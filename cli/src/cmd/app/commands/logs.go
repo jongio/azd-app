@@ -22,6 +22,11 @@ import (
 )
 
 // Constants for log streaming configuration.
+// logsOutputFormats are the formats logs renders, in the order help text lists
+// them. One list drives registration, validation, and the message shown when a
+// value is rejected.
+var logsOutputFormats = []string{outputFormatText, outputFormatJSON}
+
 const (
 	// logChannelBufferSize is the buffer size for log streaming channels.
 	// Set to 100 to balance memory usage with preventing blocking when logs arrive
@@ -294,11 +299,13 @@ Examples:
   azd app logs --source azure --follow`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.output = inheritedOutputFormat(cmd, outputFormatText)
 			return runLogsWithOptions(opts, args)
 		},
 		ValidArgsFunction: completeServiceArgs,
 	}
 
+	registerOutputFormats(cmd, outputFormatText, logsOutputFormats...)
 	cmd.Flags().BoolVarP(&opts.follow, "follow", "f", false, "Follow log output (tail -f behavior)")
 	cmd.Flags().StringVarP(&opts.service, "service", "s", "", "Filter by service name(s) (comma-separated)")
 	cmd.Flags().IntVarP(&opts.tail, "tail", "n", defaultTailLines, "Number of lines to show from the end")
@@ -308,11 +315,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.noColor, "no-color", false, "Disable colored output")
 	cmd.Flags().StringVar(&opts.level, "level", "all", "Filter by log level (info, warn, error, debug, all)")
 	cmd.Flags().StringVar(&opts.minLevel, "min-level", "", "Show entries at this severity or higher (debug < info < warn < error); cannot be combined with an explicit --level (info/warn/error/debug) or --context")
-	cmd.Flags().StringVarP(&opts.output, "output", "o", "text", "Output format (text, json)")
 
-	// Keep --format as hidden alias for backward compatibility
-	cmd.Flags().StringVar(&opts.output, "format", "text", "Output format (text, json)")
-	_ = cmd.Flags().MarkHidden("format")
 	cmd.Flags().StringVar(&opts.file, "file", "", "Write logs to file instead of stdout")
 	cmd.Flags().StringVar(&opts.exclude, "exclude", "", "Regex patterns to exclude (comma-separated)")
 	cmd.Flags().StringVar(&opts.grep, "grep", "", "Only show log lines matching this regex (applied after --exclude)")
@@ -410,22 +413,22 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 
 	if e.opts.summary {
 		if collected.HasContext {
-			displayLogSummary(buildLogSummaryFromContextLogs(collected.EntriesWithContext), outputWriter, e.opts.output == jsonOutputVal)
+			displayLogSummary(buildLogSummaryFromContextLogs(collected.EntriesWithContext), outputWriter, e.opts.output == outputFormatJSON)
 		} else {
-			displayLogSummary(buildLogSummaryFromEntries(collected.Entries), outputWriter, e.opts.output == jsonOutputVal)
+			displayLogSummary(buildLogSummaryFromEntries(collected.Entries), outputWriter, e.opts.output == outputFormatJSON)
 		}
 		return nil
 	}
 
 	// Display logs
 	if collected.HasContext {
-		if e.opts.output == jsonOutputVal {
+		if e.opts.output == outputFormatJSON {
 			displayLogsWithContextJSON(collected.EntriesWithContext, outputWriter)
 		} else {
 			displayLogsWithContextText(collected.EntriesWithContext, outputWriter, e.opts.timestamps, e.opts.noColor)
 		}
 	} else {
-		if e.opts.output == jsonOutputVal {
+		if e.opts.output == outputFormatJSON {
 			displayLogsJSON(collected.Entries, outputWriter)
 		} else {
 			displayLogsText(collected.Entries, outputWriter, e.opts.timestamps, e.opts.noColor)
