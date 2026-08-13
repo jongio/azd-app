@@ -746,7 +746,7 @@ func handleInstallDependencies(ctx context.Context, args azdext.ToolArgs) (*mcp.
 		return mcpErrorResult("Error searching for azure.yaml: %v", err), nil
 	}
 	if azureYamlPath == "" {
-		return mcpErrorResult("install_dependencies requires an azure.yaml project — run from a project directory"), nil
+		return mcpErrorResult("install_dependencies requires an azure.yaml project, run from a project directory"), nil
 	}
 
 	if ctxErr := ctx.Err(); ctxErr != nil {
@@ -885,7 +885,7 @@ func addSetEnvironmentVariableTool(b *azdext.MCPServerBuilder) {
 		azdext.MCPToolOptions{
 			Title: "Set Environment Variable",
 			Description: "Provides guidance on how to set an environment variable for services. " +
-				"This tool does NOT modify any files or system state — it returns instructions " +
+				"This tool does NOT modify any files or system state; it returns instructions " +
 				"for configuring the variable in azure.yaml, .env files, or the shell. " +
 				"Secret-pattern values (keys containing TOKEN, SECRET, KEY, PASSWORD, CREDENTIAL, " +
 				"CONNECTION_STRING) are redacted in the response.",

@@ -336,7 +336,7 @@ azd app run --service frontend
 
 | Issue | Solution |
 |-------|----------|
-| Port conflict | Use `{port}` placeholder in command — azd app manages ports automatically |
+| Port conflict | Use `{port}` placeholder in command, azd app manages ports automatically |
 | Service not detected | Ensure service has a recognizable entry point (package.json, main.py, go.mod, etc.) |
 | Health check failing | Verify the endpoint returns HTTP 200 and the path matches `healthcheck.path` |
 | Docker service won't start | Check `docker` is running with `azd app reqs` |

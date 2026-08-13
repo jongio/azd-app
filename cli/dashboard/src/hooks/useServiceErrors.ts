@@ -1,5 +1,5 @@
 /**
- * useServiceErrors — fan out N parallel Connect log streams (one per
+ * useServiceErrors: fan out N parallel Connect log streams (one per
  * service) and surface a boolean for whether ANY service has produced
  * an error-level entry in the last 30 seconds.
  *

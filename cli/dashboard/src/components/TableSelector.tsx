@@ -95,7 +95,7 @@ export function TableSelector({
     new Set<string>()
   )
 
-  // Initialize expanded categories once categories are available — render-time reset
+  // Initialize expanded categories once categories are available, render-time reset
   const [prevSafeCategories, setPrevSafeCategories] = React.useState(safeCategories)
   if (safeCategories !== prevSafeCategories) {
     setPrevSafeCategories(safeCategories)

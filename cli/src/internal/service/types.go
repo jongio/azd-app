@@ -463,7 +463,7 @@ func (s *Service) GetContainerImage() string {
 // container (a prebuilt image/emulator, whose `command` is a container command
 // override). A service that only builds an image for deployment (`docker.*`)
 // runs locally as a process when an explicit local `command` or `type: process`
-// is configured — its `docker.*`/image is then used only by `azd deploy`.
+// is configured, its `docker.*`/image is then used only by `azd deploy`.
 func (s *Service) RunsAsLocalProcess() bool {
 	if s.Image != "" {
 		return false

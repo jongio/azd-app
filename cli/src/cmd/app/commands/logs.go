@@ -374,7 +374,7 @@ func (e *logsExecutor) execute(ctx context.Context, args []string) error {
 	}
 
 	// CLI-specific: emit informational messages based on collected status.
-	// In follow mode, skip this gate — follow mode creates its own dashboard
+	// In follow mode, skip this gate, follow mode creates its own dashboard
 	// connection and can wait for services to produce logs.
 	if e.opts.source == string(LogSourceLocal) && !e.opts.follow {
 		if !collected.DashboardAvailable || collected.ServiceCount == 0 {

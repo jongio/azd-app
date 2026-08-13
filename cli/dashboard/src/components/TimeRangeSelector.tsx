@@ -96,7 +96,7 @@ export function TimeRangeSelector({
     formatDateTimeLocal(value.end ?? getDefaultEnd())
   )
 
-  // Update local state when value changes externally — render-time reset
+  // Update local state when value changes externally, render-time reset
   const [prevValue, setPrevValue] = React.useState(value)
   if (value !== prevValue) {
     setPrevValue(value)

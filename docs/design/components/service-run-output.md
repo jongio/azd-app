@@ -5,10 +5,10 @@
 - Show run context (profile, service count, optional elapsed), phase header, services list, ready/footer line.
 
 **Components**
-- Header line: `azd app run — profile: {name} — services: {count} — elapsed: {time}` (elapsed optional if available).
+- Header line: `azd app run: profile: {name}, services: {count}, elapsed: {time}` (elapsed optional if available).
 - Phase line: `Starting services…` before listing services.
 - Service block: status symbol and service name on first line; subsequent lines for endpoints (indented two spaces) labeled `local:`, `custom:`, `azure:`, `domain:`; blank line between services.
-- Footer: `Ready — all services healthy — logs: azd app logs --follow` (or error variant when failures exist).
+- Footer: `Ready: all services healthy, logs: azd app logs --follow` (or error variant when failures exist).
 
 **States**
 - Service status: ok (healthy), warn (degraded/unknown), err (failed). Use ✓/⚠/✗ with color when available; ASCII fallback [OK]/[WARN]/[ERR] when not.
@@ -16,7 +16,7 @@
 
 **Interactions**
 - Non-interactive output; no columns. Natural wrapping handled by terminal.
-- On warn/err, append a short reason on the status line (e.g., `✗ api — port 8080 in use`). Still list any known endpoints below.
+- On warn/err, append a short reason on the status line (e.g., `✗ api: port 8080 in use`). Still list any known endpoints below.
 - Verbose mode may add extra lines per service (e.g., health details) beneath existing labels without changing the base layout.
 
 **A11y**

@@ -115,7 +115,7 @@ func getVersion() (string, error) {
 	// For dev builds, append git metadata.
 	sha, err := sh.Output("git", "rev-parse", "--short", "HEAD")
 	if err != nil {
-		// No git available — fall back to base version with +dev suffix.
+		// No git available, fall back to base version with +dev suffix.
 		return base + "+dev", nil
 	}
 
@@ -801,7 +801,7 @@ func ModTidy() error {
 	// In workspace mode, use GOWORK=off so tidy resolves against the module proxy
 	env := os.Environ()
 	if _, err := os.Stat("../go.work"); err == nil {
-		fmt.Println("   (workspace detected — running with GOWORK=off)")
+		fmt.Println("   (workspace detected, running with GOWORK=off)")
 		env = append(env, "GOWORK=off")
 	}
 
@@ -1512,7 +1512,7 @@ func fmtCheck() error {
 // preflightGofumpt checks that all Go files are formatted with gofumpt (stricter than gofmt).
 func preflightGofumpt() error {
 	if _, err := exec.LookPath("gofumpt"); err != nil {
-		fmt.Println("   ⚠️  gofumpt not installed — skipping strict format check")
+		fmt.Println("   ⚠️  gofumpt not installed, skipping strict format check")
 		fmt.Println("      Install with: go install mvdan.cc/gofumpt@latest")
 		return nil
 	}
@@ -1534,7 +1534,7 @@ func preflightGofumpt() error {
 // preflightDeadcode checks for unreachable functions using golang.org/x/tools deadcode analyzer.
 func preflightDeadcode() error {
 	if _, err := exec.LookPath("deadcode"); err != nil {
-		fmt.Println("   ⚠️  deadcode not installed — skipping dead code check")
+		fmt.Println("   ⚠️  deadcode not installed, skipping dead code check")
 		fmt.Println("      Install with: go install golang.org/x/tools/cmd/deadcode@latest")
 		return nil
 	}
@@ -1542,7 +1542,7 @@ func preflightDeadcode() error {
 	if err != nil {
 		fmt.Println("   ⚠️  Dead code found:")
 		fmt.Println(output)
-		// Non-fatal for now — report but don't fail
+		// Non-fatal for now: report but don't fail
 		fmt.Println("   ⚠️  Dead code check completed with findings (non-fatal)")
 		return nil
 	}
@@ -1589,7 +1589,7 @@ func quietLint() error {
 // preflightCrossGOOSLint runs golangci-lint with GOOS=linux to catch cross-platform issues.
 func preflightCrossGOOSLint() error {
 	if runtime.GOOS == "linux" {
-		fmt.Println("   ⏭️  Already on Linux — skipping cross-OS lint")
+		fmt.Println("   ⏭️  Already on Linux, skipping cross-OS lint")
 		return nil
 	}
 	cmd := exec.Command("golangci-lint", "run", "./...")
@@ -1687,7 +1687,7 @@ func quietTestCoverage() error {
 // quietTestOnly runs tests without coverage profiling for maximum speed.
 // Skipping -coverprofile eliminates code instrumentation overhead.
 // Uses -vet=off because golangci-lint (which includes vet) runs as a separate
-// parallel step — no need to run vet twice.
+// parallel step, no need to run vet twice.
 // Use 'mage testCoverage' when you need coverage reports.
 func quietTestOnly() error {
 	pkgPath := goSrcPattern
@@ -1770,7 +1770,7 @@ func playwrightInstallBrowsers() error {
 		return fmt.Errorf("failed to get absolute website path: %w", err)
 	}
 
-	// Install from both dirs concurrently — they may pin different Playwright versions.
+	// Install from both dirs concurrently; they may pin different Playwright versions.
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var errs []error
@@ -1919,7 +1919,7 @@ func websiteTestE2EDevServer() error {
 	// Clean up stale dev servers from interrupted runs.
 	killProcessOnPort(4321)
 
-	// Use dev server — avoids the full Astro production build.
+	// Use dev server, avoids the full Astro production build.
 	// Pages compile on first request; startup is faster than build+preview under contention.
 	serverCmd := exec.Command("npx", "astro", "dev", "--host", "127.0.0.1", "--port", "4321")
 	serverCmd.Dir = absWebsiteDir

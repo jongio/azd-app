@@ -127,7 +127,7 @@ func getServiceNameMap(_ string) map[string]string {
 		// Reject compound suffixes like IMAGE_NAME or RESOURCE_NAME by ensuring
 		// the captured group does not itself end with a known qualifier.
 		svcPart := m[1]
-		// Only exclude _IMAGE suffix – this is the only known compound property
+		// Only exclude _IMAGE suffix; this is the only known compound property
 		// that produces a SERVICE_*_NAME env var (SERVICE_<svc>_IMAGE_NAME).
 		// Broader filtering would reject legitimate service names like "my-resource".
 		// See: serviceinfo/serviceinfo.go, dashboard/azure_logs_config.go for consistency.

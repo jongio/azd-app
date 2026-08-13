@@ -783,7 +783,7 @@ export function ServiceDetailPanel({
 
   useEscapeKey(onClose, isOpen)
 
-  // Reset tab when service changes — render-time reset
+  // Reset tab when service changes, render-time reset
   const [prevService, setPrevService] = React.useState(service)
   if (service !== prevService) {
     setPrevService(service)

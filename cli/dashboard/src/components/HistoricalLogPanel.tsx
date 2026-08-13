@@ -274,7 +274,7 @@ export function HistoricalLogPanel({
     }
   }, [isOpen])
 
-  // Reset state when panel opens with new service — render-time reset
+  // Reset state when panel opens with new service, render-time reset
   const [prevOpenKey, setPrevOpenKey] = React.useState(() => `${isOpen}:${serviceName}:${defaultTimeRange}`)
   const openKey = `${isOpen}:${serviceName}:${defaultTimeRange}`
   if (openKey !== prevOpenKey) {

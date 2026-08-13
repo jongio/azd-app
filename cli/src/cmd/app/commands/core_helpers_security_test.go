@@ -33,7 +33,7 @@ func TestValidatePathContainment_TraversalRejected(t *testing.T) {
 // TestValidatePathContainment_AbsoluteOutsideRejected mirrors acceptance criterion 5.
 func TestValidatePathContainment_AbsoluteOutsideRejected(t *testing.T) {
 	root := t.TempDir()
-	outside := filepath.Dir(root) // parent directory — always exists
+	outside := filepath.Dir(root) // parent directory, always exists
 
 	_, err := internalsec.ValidatePathContainment(outside, root)
 	if err == nil {

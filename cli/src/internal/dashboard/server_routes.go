@@ -31,7 +31,7 @@ const sessionTokenPlaceholder = `<meta name="azd-session-token" content="">`
 //
 // Safety: rpc.GenerateSessionToken returns a hex-encoded random string
 // (characters 0-9 and a-f only). Those characters are unconditionally safe
-// inside an HTML attribute value — no further encoding is needed. If the
+// inside an HTML attribute value, no further encoding is needed. If the
 // placeholder is absent the original slice is returned unchanged; the client
 // will read an empty string and every RPC call will be rejected by the
 // server-side auth interceptor, which is the safe failure mode (CWE-306).
@@ -61,7 +61,7 @@ func (s *Server) shutdownOriginAllowed(r *http.Request) bool {
 	if fetchSite := r.Header.Get("Sec-Fetch-Site"); fetchSite != "" {
 		return fetchSite == "same-origin"
 	}
-	// Sec-Fetch-Site absent — fall back to the Origin header.
+	// Sec-Fetch-Site absent, fall back to the Origin header.
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		return false
@@ -133,7 +133,7 @@ func (s *Server) setupRoutes() {
 		// azure.yaml writes with the parallel REST handlers.
 		Azure: newAzureStoreFuncs(s),
 	}); err != nil {
-		// An empty SessionToken is a programming error — the server always
+		// An empty SessionToken is a programming error; the server always
 		// generates one at startup. Panicking here surfaces the misconfiguration
 		// immediately rather than serving every request unauthenticated.
 		panic("rpc.Mount: " + err.Error())
@@ -143,12 +143,12 @@ func (s *Server) setupRoutes() {
 	// Used by `azd app stop` from a separate terminal.
 	//
 	// Two-factor check (CWE-352):
-	//   1. Origin proof  — shutdownOriginAllowed rejects cross-origin callers.
-	//   2. Session token — ConstantTimeCompare rejects unauthenticated callers.
+	//   1. Origin proof, shutdownOriginAllowed rejects cross-origin callers.
+	//   2. Session token, ConstantTimeCompare rejects unauthenticated callers.
 	//
 	// Origin proof is evaluated first so that cross-origin requests are rejected
 	// even if the attacker somehow obtains a valid token (e.g. via MITM on the
-	// loopback — mitigated by hostAllow, but defence-in-depth applies).
+	// loopback, mitigated by hostAllow, but defence-in-depth applies).
 	s.mux.HandleFunc("POST /api/shutdown", func(w http.ResponseWriter, r *http.Request) {
 		if !s.shutdownOriginAllowed(r) {
 			http.Error(w, "forbidden", http.StatusForbidden)
@@ -206,7 +206,7 @@ func (s *Server) setupRoutes() {
 		// Try to open the file from the embedded FS.
 		f, err := distFS.Open(strings.TrimPrefix(path, "/"))
 		if err != nil {
-			// File doesn't exist — serve index.html for client-side routing.
+			// File doesn't exist, serve index.html for client-side routing.
 			// This handles routes like /console, /services, /environment, /metrics.
 			if indexReadErr != nil {
 				http.NotFound(w, r)

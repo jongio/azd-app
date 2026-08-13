@@ -38,7 +38,7 @@ function App() {
 
   // Update document title whenever the project name resolves. Keeping
   // this side-effect in App.tsx (vs. inside useProject) preserves the
-  // hook's purity — useProject is reused-safe and shouldn't mutate the
+  // hook's purity: useProject is reused-safe and shouldn't mutate the
   // browser document just by being called.
   useEffect(() => {
     if (projectName) {

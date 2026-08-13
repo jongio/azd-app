@@ -18,7 +18,7 @@ azd app init [flags]
 Creates a complete `azure.yaml` from scratch based on detected project structure, including services, ports, commands, prerequisites, and infrastructure dependencies.
 
 ### Existing Project (azure.yaml exists)
-Non-destructively enriches the existing file — adds missing `ports`, `command`, `language`, and `uses` fields to services without overwriting anything already configured.
+Non-destructively enriches the existing file, adds missing `ports`, `command`, `language`, and `uses` fields to services without overwriting anything already configured.
 
 ## Examples
 
@@ -178,7 +178,7 @@ azd app run
 ## See Also
 
 - [azure.yaml Schema Reference](../schema/azure.yaml.md)
-- [`azd app reqs`](reqs.md) — Check prerequisites
-- [`azd app deps`](deps.md) — Install dependencies
-- [`azd app run`](run.md) — Start services
-- [`azd app add`](add.md) — Add container services
+- [`azd app reqs`](reqs.md): Check prerequisites
+- [`azd app deps`](deps.md): Install dependencies
+- [`azd app run`](run.md): Start services
+- [`azd app add`](add.md): Add container services

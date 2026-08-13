@@ -15,13 +15,13 @@ import (
 // without faking the whole Azure stack.
 //
 // Sub-store rationale (per ADR-0001 commit-B-1 plan):
-//   - AzureConfigStore   — azure.yaml read / write helpers, all guarded by
+//   - AzureConfigStore:   azure.yaml read / write helpers, all guarded by
 //     dashboard's azureYamlMu in production.
-//   - AzureCatalog       — read-only metadata about workspaces, tables, default
+//   - AzureCatalog:       read-only metadata about workspaces, tables, default
 //     queries; no I/O against Azure.
-//   - AzureLogsClient    — Azure-side reads (fetch logs, verify workspace,
+//   - AzureLogsClient:    Azure-side reads (fetch logs, verify workspace,
 //     create realtime streamer / credentials).
-//   - AzureDiagnostics   — multi-step diagnostics + setup probes that return
+//   - AzureDiagnostics:   multi-step diagnostics + setup probes that return
 //     opaque JSON (passed through *structpb.Struct on the wire).
 type AzureService interface {
 	AzureConfigStore

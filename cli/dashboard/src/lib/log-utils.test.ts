@@ -30,7 +30,7 @@ describe('log-utils', () => {
     })
 
     // -----------------------------------------------------------------------
-    // SEC-016: XSS bypass vectors — verify the upstream security boundary
+    // SEC-016: XSS bypass vectors, verify the upstream security boundary
     //
     // The previous sanitizeHtml() regex blocklist was bypassable (CWE-184).
     // Security now relies solely on ansi-to-html's escapeXML:true option,
@@ -42,11 +42,11 @@ describe('log-utils', () => {
     it('SEC-016 bypass: whitespace-in-handler (on\\tmouseover=) is not injected as an HTML attribute', () => {
       // The old regex `on\w+=` would not match on<TAB>mouseover= because \t is not \w.
       // With escapeXML:true there are no < > to form new tags, so the text stays
-      // as inert text content inside a span — event handlers in text content never fire.
+      // as inert text content inside a span; event handlers in text content never fire.
       const result = convertAnsiToHtml('click on\tmouseover=alert(1)')
       // Must not appear as an attribute inside any HTML element
       expect(result).not.toMatch(/<[^>]+on[\s\t]+mouseover\s*=/i)
-      // The text itself appears as content — that is safe
+      // The text itself appears as content; that is safe
       expect(result).toContain('on\tmouseover=alert(1)')
     })
 
@@ -154,7 +154,7 @@ describe('log-utils', () => {
     })
 
     it('should produce an href value that contains no raw double-quotes (CWE-79 regression)', () => {
-      // Normal localhost URL — verify the attribute value itself is quote-free
+      // Normal localhost URL, verify the attribute value itself is quote-free
       const result = convertAnsiToHtml('Server at http://localhost:3000/')
       const hrefMatch = result.match(/href="([^"]*)"/)
       expect(hrefMatch).toBeTruthy()

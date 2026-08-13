@@ -151,7 +151,7 @@ export function useConsoleFilters(services: Service[]): UseConsoleFiltersResult 
     () => new Set(savedFilters?.healthFilter?.length ? savedFilters.healthFilter : ['healthy', 'degraded', 'unhealthy', 'unknown'])
   )
 
-  // Sync selected services with available services — render-time reset
+  // Sync selected services with available services, render-time reset
   const [prevSyncKey, setPrevSyncKey] = React.useState(() => `${services.map(s => s.name).join(',')}:${serviceSelectionMode}`)
   const syncKey = `${services.map(s => s.name).join(',')}:${serviceSelectionMode}`
   if (syncKey !== prevSyncKey) {

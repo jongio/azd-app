@@ -1,11 +1,11 @@
-# azd-app — Local View Architecture Spec
+# azd-app: Local View Architecture Spec
 
 > **Context**: Response to [Azure/azure-dev-pr#1779](https://github.com/Azure/azure-dev-pr/discussions/1779)
-> ([EPIC Azure/azure-dev#7681](https://github.com/Azure/azure-dev/issues/7681) — "Local View of Your App and Resources").
+> ([EPIC Azure/azure-dev#7681](https://github.com/Azure/azure-dev/issues/7681), "Local View of Your App and Resources").
 >
 > The discussion evaluates four options for building a local view after `azd up`. It characterises
 > "Jon's existing azd app dashboard" as a **browser-only UI** and scores it against a new TUI option.
-> That characterisation is incomplete. **azd-app is not a browser dashboard — it is a local
+> That characterisation is incomplete. **azd-app is not a browser dashboard; it is a local
 > observability platform for azd projects**, and the browser UI is only one of its three
 > first-class presentation surfaces (CLI snapshot, web dashboard, MCP for agents). The TUI option
 > in the discussion is a fourth surface that can be added on top of the same data layer without a
@@ -26,7 +26,7 @@
 | Dashboard components | **92 React components**, **45 hooks**, **4 contexts**, **33 lib modules** |
 | HTTP API surface | 8 Connect-RPC services (proto-defined) with 30+ RPC methods across `proto/azdapp/v1/*.proto` |
 | Streaming surfaces | 5 server-streaming RPCs (local logs, azure logs, health, state transitions, broadcast) + WebSocket fallback |
-| MCP tools | **12 agent-consumable tools** — observability, operations, configuration |
+| MCP tools | **12 agent-consumable tools**: observability, operations, configuration |
 | Shipping vehicle | Single `azd` extension binary (`jongio.azd.app`) with embedded dashboard, no external deps |
 | Transport | **Connect-RPC v2** (proto-defined services over HTTP/1.1 JSON + HTTP/2 binary). Single `.proto` schema drives Go server, TS dashboard client, MCP tools, and future TUI. |
 | Azure integration | Log Analytics (KQL, time range, tables), diagnostic settings discovery, Bicep template generation, App Service / Container Apps / Functions validators |
@@ -46,9 +46,9 @@ fulfils all six priorities.
 |---|---|---|
 | **P1 Terminal-native** | Primary experience runs in terminal | ✅ `azd app info`, `azd app logs -f`, `azd app health`, `azd app reqs`, `azd app start/stop/restart` are pure CLI. Dashboard is optional (`azd app run --web`). |
 | **P2 No external deps** | No Docker/containers/external services | ✅ Pure Go binary. Dashboard is a Vite/React SPA **embedded via `//go:embed dist`** and served by the built-in HTTP server. No runtime deps. |
-| **P3 Reuses existing investment** | Reuses Jon's 9-month dashboard | ✅ ALL of it — detector, orchestrator, runner, health, Azure Log Analytics pipeline, classifications, streaming. |
+| **P3 Reuses existing investment** | Reuses Jon's 9-month dashboard | ✅ ALL of it: detector, orchestrator, runner, health, Azure Log Analytics pipeline, classifications, streaming. |
 | **P4 Real-time streaming** | Live logs + health updates | ✅ WebSocket streaming for local logs, Azure logs, and service health. Log buffer, backpressure handling, and flood tests already exist. |
-| **P5 Agent-consumable** | Structured output for AI agents | ✅ 12 MCP tools already shipped; `azd app info --output json`, `azd app logs --format json`, NDJSON streaming endpoints. Primary consumer is not the browser — it's also Copilot/Claude via MCP. |
+| **P5 Agent-consumable** | Structured output for AI agents | ✅ 12 MCP tools already shipped; `azd app info --output json`, `azd app logs --format json`, NDJSON streaming endpoints. Primary consumer is not the browser; it is also Copilot/Claude via MCP. |
 | **P6 Extensible observability** | Grow to tracing/metrics/extension views | ✅ Clean layering (data → API → consumers). Adding tracing or a TUI panel is an additive change to the API, not a rewrite. The `monitor` package already emits structured `StateTransition` events that any surface can subscribe to. |
 
 ---
@@ -137,19 +137,19 @@ full local view of an azd project from the terminal alone.
 | Command | Purpose | Streaming? | JSON? |
 |---|---|---|---|
 | `azd app reqs` | Verify all tool prerequisites (node, python, dotnet, docker, …) | No | Yes |
-| `azd app deps` | Install deps across detected languages / package managers | No | — |
-| `azd app run [--web] [-s svc] [--runtime azd\|aspire]` | Start all services; with `--web` also opens dashboard | Yes (stdout multiplex) | — |
-| `azd app start <svc>` / `stop` / `restart` | Per-service lifecycle | — | — |
+| `azd app deps` | Install deps across detected languages / package managers | No | n/a |
+| `azd app run [--web] [-s svc] [--runtime azd\|aspire]` | Start all services; with `--web` also opens dashboard | Yes (stdout multiplex) | n/a |
+| `azd app start <svc>` / `stop` / `restart` | Per-service lifecycle | n/a | n/a |
 | `azd app info` | Snapshot of all services: status, URLs, ports, Azure deployment info, env vars | No | Yes |
 | `azd app logs [svc] -f -n N --since 5m --level error --source local\|azure\|all --format text\|json` | Unified local + Azure logs, filterable, streaming | Yes | Yes (NDJSON) |
 | `azd app health` | Continuous or point-in-time health monitoring | Yes | Yes |
-| `azd app test [--coverage]` | Run tests across all services with unified coverage | No | — |
-| `azd app add <svc>` | Add a well-known service to `azure.yaml` | — | — |
-| `azd app notifications` | Show OS-native state transition notifications | — | — |
+| `azd app test [--coverage]` | Run tests across all services with unified coverage | No | n/a |
+| `azd app add <svc>` | Add a well-known service to `azure.yaml` | n/a | n/a |
+| `azd app notifications` | Show OS-native state transition notifications | n/a | n/a |
 | `azd app mcp serve` | Start MCP server on stdio for AI agents | N/A | Structured tool calls |
-| `azd app metadata` | Emit extension metadata | — | Yes |
-| `azd app listen` | Internal lifecycle-events endpoint required by azd extension framework | — | — |
-| `azd app version` | Version, build time, commit | — | Yes |
+| `azd app metadata` | Emit extension metadata | n/a | Yes |
+| `azd app listen` | Internal lifecycle-events endpoint required by azd extension framework | n/a | n/a |
+| `azd app version` | Version, build time, commit | n/a | Yes |
 
 **Observation**: Options 2 and 4 in the discussion (Enhanced `azd show` + TUI) are already
 ~80% implemented as `azd app info` + `azd app logs -f` + `azd app health`. The only thing missing
@@ -162,43 +162,43 @@ is a Bubble-Tea-style interactive multi-panel view, which can be added as a 17th
 
 ### 5.1 Detection & Orchestration
 
-- `internal/detector` — language/framework detection for Node, Python, .NET, plus HTTP-triggered
+- `internal/detector`: language/framework detection for Node, Python, .NET, plus HTTP-triggered
   detection for Azure Functions. Input: `azure.yaml` + filesystem. Output: a typed service graph.
-- `internal/service` — service graph, config, executor, environment, hooks, port allocation,
+- `internal/service`: service graph, config, executor, environment, hooks, port allocation,
   health probes, log buffer + filter + manager, container integration, `docker-compose` compat.
-- `internal/orchestrator` — dependency-aware lifecycle (start order, timeouts, errors,
+- `internal/orchestrator`: dependency-aware lifecycle (start order, timeouts, errors,
   graceful shutdown).
-- `internal/runner` — process spawning, Aspire runtime, log multiplexing.
+- `internal/runner`: process spawning, Aspire runtime, log multiplexing.
 
 ### 5.2 Health & State
 
-- `internal/healthcheck` — HTTP and process-based health probes with configurable profiles and
+- `internal/healthcheck`: HTTP and process-based health probes with configurable profiles and
   metrics.
-- `internal/monitor` — `StateMonitor` polls the service registry, detects transitions
+- `internal/monitor`: `StateMonitor` polls the service registry, detects transitions
   (process crashed, port unbound, healthy→unhealthy, slow start, degraded), classifies severity
   (`Critical` / `Warning` / `Info`), rate-limits, and exposes a listener API. Already wired to
   dashboard WebSocket broadcast and OS notifications. This is the eventing spine that any
-  surface — CLI, dashboard, TUI, MCP — can subscribe to.
+  surface, CLI, dashboard, TUI, MCP, can subscribe to.
 
 ### 5.3 Azure Integration
 
 All under `internal/azure`:
 
-- `discovery` — resolve resources from `AZURE_RESOURCE_GROUP` / `azure.yaml` outputs.
-- `credentials` + `token_cache` — DefaultAzureCredential with cached tokens.
-- `loganalytics` + `tables` + `query_builder` — KQL query construction and execution against
+- `discovery`: resolve resources from `AZURE_RESOURCE_GROUP` / `azure.yaml` outputs.
+- `credentials` + `token_cache`: DefaultAzureCredential with cached tokens.
+- `loganalytics` + `tables` + `query_builder`: KQL query construction and execution against
   Log Analytics workspaces.
-- `realtime` — polling-based streaming of Azure logs with configurable time range.
-- `diagnostics` + `diagnostic_engine` — fetches diagnostic settings for each resource, detects
+- `realtime`: polling-based streaming of Azure logs with configurable time range.
+- `diagnostics` + `diagnostic_engine`: fetches diagnostic settings for each resource, detects
   misconfigurations, reports gaps.
-- `validator_appservice`, `validator_containerapp`, `validator_function` — per-resource-type
+- `validator_appservice`, `validator_containerapp`, `validator_function`: per-resource-type
   validation of logging setup.
-- `bicep` — **generates a consolidated Bicep template** to fix missing diagnostic settings
+- `bicep`: **generates a consolidated Bicep template** to fix missing diagnostic settings
   across all detected services. Returned by `GET /api/azure/bicep-template`.
 
 ### 5.4 Dashboard Server
 
-`internal/dashboard` — HTTP server hosting 8 Connect-RPC services + WebSocket streams, port
+`internal/dashboard`: HTTP server hosting 8 Connect-RPC services + WebSocket streams, port
 manager, embedded static assets. The API is defined in `proto/azdapp/v1/*.proto`:
 
 ```
@@ -249,16 +249,16 @@ the same `.proto` files that define the server.
 
 **Structure** (`cli/dashboard/src/`):
 
-- 92 components — `ServiceCard`, `ServiceTable`, `ConsoleView`, `LogsPane` (+ 8 sub-components),
+- 92 components: `ServiceCard`, `ServiceTable`, `ConsoleView`, `LogsPane` (+ 8 sub-components),
   `HealthTooltip`, `DiagnosticsModal`, `AzureSetupGuide`, `BicepTemplateModal`,
   `ClassificationsManager`, `KqlQueryInput`, `TableSelector`, `TimeRangeSelector`,
   `EnvironmentPanel`, `NotificationCenter`, `SettingsDialog`, `ThemeToggle`, …
-- 45 hooks — `useServices`, `useLogsStream`, `useHealthStream`, `useBackendConnection`,
+- 45 hooks: `useServices`, `useLogsStream`, `useHealthStream`, `useBackendConnection`,
   `useAzureTimeRange`, `useLogClassifications`, `useLogFiltering`, `useSmoothedLoadingIndicator`,
   `useBicepTemplate`, `useDiagnosticSettings`, `useWorkspaceVerification`, `useCodespaceEnv`, …
-- 4 contexts — `ServicesContext`, `ServiceOperationsContext`, `PreferencesContext`,
+- 4 contexts: `ServicesContext`, `ServiceOperationsContext`, `PreferencesContext`,
   `CodespaceContext`.
-- 33 lib modules — service formatters, health diagnostics, log utils, search highlighting,
+- 33 lib modules: service formatters, health diagnostics, log utils, search highlighting,
   storage utils, panel utils, provenance, shortcut handling.
 
 The dashboard is **not required**. It consumes the same HTTP API that a TUI, a CLI command, or
@@ -266,31 +266,31 @@ an agent would. Treating it as the "experience" conflates the UI with the system
 
 ---
 
-## 7. MCP Server (Agent-Consumable Surface — Already Shipping)
+## 7. MCP Server (Agent-Consumable Surface: Already Shipping)
 
 `extension.yaml` declares the `mcp-server` capability. `azd app mcp serve` starts a Model Context
 Protocol server on stdio. Registered tools (`cli/src/cmd/app/commands/mcp_tools.go`):
 
 **Observability**
-- `get_services` — full service info (status, URLs, ports, Azure info, env vars)
-- `get_service_logs` — filtered logs (service, level, time range, local/azure/both)
-- `get_service_errors` — errors with surrounding context, optimised for AI triage
-- `get_project_info` — project metadata and service definitions
+- `get_services`: full service info (status, URLs, ports, Azure info, env vars)
+- `get_service_logs`: filtered logs (service, level, time range, local/azure/both)
+- `get_service_errors`: errors with surrounding context, optimised for AI triage
+- `get_project_info`: project metadata and service definitions
 
 **Operations**
-- `run_services` — start all services
-- `stop_services` — stop all or named service
+- `run_services`: start all services
+- `stop_services`: stop all or named service
 - `start_service` / `restart_service`
 - `install_dependencies`
 - `check_requirements`
 
 **Configuration**
-- `get_environment_variables` — per-service or all
+- `get_environment_variables`: per-service or all
 - `set_environment_variable`
 
 Each tool has a typed output schema, rate limiting, `ReadOnly`/`Idempotent` hints, and
 JSON-schema-validated args. This means **azd-app already fulfils the agent-consumable priority
-(P5) at 100%** — the dashboard is not the only consumer, and never was.
+(P5) at 100%**: the dashboard is not the only consumer, and never was.
 
 ---
 
@@ -334,9 +334,9 @@ and Bicep-generation work that none of the four options in the discussion would 
 ## 10. Recommended Path Forward
 
 1. **Adopt azd-app as the data layer** for EPIC #7681's local view.
-2. **Keep the CLI snapshots** (`info`, `logs`, `health`) as the default terminal-native experience —
+2. **Keep the CLI snapshots** (`info`, `logs`, `health`) as the default terminal-native experience;
    they already satisfy the P1/P2 design goals for Option 2.
-3. **Keep the MCP server** as the agent-consumable surface — it already satisfies P5 and is
+3. **Keep the MCP server** as the agent-consumable surface; it already satisfies P5 and is
    ahead of the discussion's assessment of every option.
 4. **Keep the browser dashboard** as an opt-in (`--web`) surface for developers who want the rich
    UI. Nobody is forced into a browser.
@@ -366,7 +366,7 @@ cli/
 │       ├── mcp.go, mcp_tools.go, mcp_resources.go
 │       ├── notifications.go, listen.go, metadata.go, version.go
 │       └── core.go, service_control.go, generate.go
-└── src/internal/                      # 22 packages — see §5
+└── src/internal/                      # 22 packages, see §5
     ├── detector/       orchestrator/  runner/        service/
     ├── healthcheck/    monitor/       notifications/ portmanager/
     ├── dashboard/      azure/         logging/       executor/

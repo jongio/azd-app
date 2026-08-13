@@ -403,7 +403,7 @@ func TestRedactEnvVarForMCP_NonSensitiveKeys(t *testing.T) {
 }
 
 // TestRedactEnvVarForMCP_CaseInsensitive verifies that matching is
-// case-insensitive (AC1 — lowercase and mixed-case keys are caught).
+// case-insensitive (AC1, lowercase and mixed-case keys are caught).
 func TestRedactEnvVarForMCP_CaseInsensitive(t *testing.T) {
 	cases := []struct {
 		key   string

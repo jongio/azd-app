@@ -125,12 +125,12 @@ func resolveVolumeSpec(spec, projectDir string) (string, error) {
 
 	source, rest, found := splitVolumeSource(trimmed)
 	if !found {
-		// Anonymous volume (container path only) — pass through.
+		// Anonymous volume (container path only), pass through.
 		return trimmed, nil
 	}
 
 	if isNamedVolume(source) {
-		// Docker-managed named volume — pass through.
+		// Docker-managed named volume, pass through.
 		return trimmed, nil
 	}
 

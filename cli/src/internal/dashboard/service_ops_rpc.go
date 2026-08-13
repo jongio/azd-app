@@ -130,7 +130,7 @@ func (s *Server) RunServiceOperation(ctx context.Context, op serviceOperation, n
 // one broadcast update afterward (matching legacy behavior). Per-service
 // failures are folded into the return string; the Go error return is
 // reserved for catastrophic failures that prevented the run from happening
-// at all (currently none — the bulk runner cannot itself fail).
+// at all (currently none; the bulk runner cannot itself fail).
 func (s *Server) runBulk(
 	ctx context.Context,
 	handler *serviceOperationHandler,

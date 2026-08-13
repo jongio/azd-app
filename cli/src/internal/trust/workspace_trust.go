@@ -27,7 +27,7 @@ const (
 	storeFileName = "trusted-workspaces.json"
 
 	// storeFileMode is the permission bits applied to the trust-store file.
-	// Owner-read/write only — trust records contain local paths that should
+	// Owner-read/write only, trust records contain local paths that should
 	// not be world-readable.
 	storeFileMode = 0o600
 
@@ -79,10 +79,10 @@ func newTrustStoreAt(storePath string) *TrustStore {
 // azure.yaml content matches the stored hash.
 //
 // Return semantics:
-//   - (true,  nil)            — trusted and azure.yaml unchanged
-//   - (false, nil)            — workspace not in the store (never trusted)
-//   - (false, ErrHashChanged) — in the store but azure.yaml has changed
-//   - (false, other)          — I/O or parse error
+//   - (true,  nil):           trusted and azure.yaml unchanged
+//   - (false, nil):           workspace not in the store (never trusted)
+//   - (false, ErrHashChanged): in the store but azure.yaml has changed
+//   - (false, other):         I/O or parse error
 func (ts *TrustStore) IsWorkspaceTrusted(projectRoot string) (bool, error) {
 	root, err := normalizePath(projectRoot)
 	if err != nil {
