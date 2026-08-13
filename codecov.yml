@@ -32,6 +32,7 @@ comment:
 # Ignore files that are hard to test (e.g., CLI entry points, generated code)
 ignore:
   - "cli/src/cmd/app/main.go"  # Entry point
+  - "cli/magefile.go"  # mage-tagged build script, never compiled into the test binary
   - "**/generated/**"
   - "cli/src/gen/**"  # protoc/buf-generated Connect stubs
   - "**/*.pb.go"  # protoc-generated Go files
