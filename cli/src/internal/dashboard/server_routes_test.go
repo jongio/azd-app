@@ -157,7 +157,7 @@ func TestShutdownOriginCheck(t *testing.T) {
 	})
 
 	t.Run("AC4_OriginFallback_Localhost_Returns200", func(t *testing.T) {
-		// Criterion 4: Origin fallback — http://localhost:<port> accepted
+		// Criterion 4: Origin fallback, http://localhost:<port> accepted
 		s := newSrv()
 		req := httptest.NewRequest(http.MethodPost, "/api/shutdown", nil)
 		req.Header.Set("X-Session-Token", validToken)
@@ -170,7 +170,7 @@ func TestShutdownOriginCheck(t *testing.T) {
 	})
 
 	t.Run("AC5_OriginFallback_127001_Returns200", func(t *testing.T) {
-		// Criterion 5: Origin fallback — http://127.0.0.1:<port> accepted
+		// Criterion 5: Origin fallback, http://127.0.0.1:<port> accepted
 		s := newSrv()
 		req := httptest.NewRequest(http.MethodPost, "/api/shutdown", nil)
 		req.Header.Set("X-Session-Token", validToken)
@@ -183,7 +183,7 @@ func TestShutdownOriginCheck(t *testing.T) {
 	})
 
 	t.Run("AC6_OriginFallback_CrossSite_Returns403", func(t *testing.T) {
-		// Criterion 6: Origin fallback — cross-site Origin rejected
+		// Criterion 6: Origin fallback, cross-site Origin rejected
 		s := newSrv()
 		req := httptest.NewRequest(http.MethodPost, "/api/shutdown", nil)
 		req.Header.Set("X-Session-Token", validToken)
@@ -274,7 +274,7 @@ func TestShutdownOriginCheck(t *testing.T) {
 func TestIndexHTMLInjectsSessionToken(t *testing.T) {
 	const token = "cafebabe12345678cafebabe12345678"
 
-	// Minimal index.html with the placeholder — mirrors the real template.
+	// Minimal index.html with the placeholder, mirrors the real template.
 	indexHTML := []byte(`<!DOCTYPE html><html><head><meta name="azd-session-token" content=""></head><body></body></html>`)
 	tokenized := injectSessionToken(indexHTML, token)
 

@@ -27,8 +27,8 @@ func dockerInspectField(t *testing.T, id, format string) string {
 // TestStartContainerService_WebsiteStyleTopology is the AC8 goal-challenge: it
 // runs an azurite-like container through the FULL runtime path
 // (DetectServiceRuntime -> StartContainerService -> docker run) exercising the
-// website's mechanisms together — a string command, THREE published ports, a
-// named volume, and attachment to the shared project network — and verifies via
+// website's mechanisms together, a string command, THREE published ports, a
+// named volume, and attachment to the shared project network, and verifies via
 // `docker inspect` that they all took effect.
 func TestStartContainerService_WebsiteStyleTopology(t *testing.T) {
 	checkDockerAvailable(t)

@@ -28,7 +28,7 @@ function localInfo(overrides: Partial<LocalServiceInfo> = {}): LocalServiceInfo 
 }
 
 // =============================================================================
-// isValidUrl — scheme allowlist (CWE-79 regression suite)
+// isValidUrl: scheme allowlist (CWE-79 regression suite)
 // =============================================================================
 
 describe('isValidUrl', () => {
@@ -59,7 +59,7 @@ describe('isValidUrl', () => {
       expect(isValidUrl('javascript:alert(document.cookie)')).toBe(false)
     })
 
-    it('rejects javascript: URLs with encoded colon (%3A) — URL constructor normalises it', () => {
+    it('rejects javascript: URLs with encoded colon (%3A), URL constructor normalises it', () => {
       // new URL('javascript%3Aalert(1)') throws → returns false, which is also correct
       expect(isValidUrl('javascript%3Aalert(1)')).toBe(false)
     })
@@ -116,7 +116,7 @@ describe('isValidUrl', () => {
 
     it('rejects URLs with unbound port 0', () => {
       // port :0 is technically a valid URL but not a reachable endpoint;
-      // isValidUrl only validates scheme — unbound-port filtering is
+      // isValidUrl only validates scheme; unbound-port filtering is
       // done separately by hasUnboundPort() in getEffectiveLocalUrl
       expect(isValidUrl('http://localhost:0')).toBe(true)
     })
@@ -124,7 +124,7 @@ describe('isValidUrl', () => {
 })
 
 // =============================================================================
-// getEffectiveLocalUrl — precedence + scheme filtering
+// getEffectiveLocalUrl: precedence + scheme filtering
 // =============================================================================
 
 describe('getEffectiveLocalUrl', () => {
@@ -147,7 +147,7 @@ describe('getEffectiveLocalUrl', () => {
       expect(result.defaultUrl).toBe('http://localhost:3000')
     })
 
-    it('blocks javascript: customUrl — falls back to url', () => {
+    it('blocks javascript: customUrl, falls back to url', () => {
       const result = getEffectiveLocalUrl(localInfo({
         url: 'http://localhost:3000',
         customUrl: 'javascript:alert(document.cookie)',
@@ -156,7 +156,7 @@ describe('getEffectiveLocalUrl', () => {
       expect(result.source).toBe('url')
     })
 
-    it('blocks data: customUrl — falls back to url', () => {
+    it('blocks data: customUrl, falls back to url', () => {
       const result = getEffectiveLocalUrl(localInfo({
         url: 'http://localhost:3000',
         customUrl: 'data:text/html,<script>alert(1)</script>',
@@ -165,7 +165,7 @@ describe('getEffectiveLocalUrl', () => {
       expect(result.source).toBe('url')
     })
 
-    it('blocks javascript: customUrl and invalid url — returns null', () => {
+    it('blocks javascript: customUrl and invalid url, returns null', () => {
       const result = getEffectiveLocalUrl(localInfo({
         customUrl: 'javascript:alert(1)',
       }))
@@ -196,7 +196,7 @@ describe('getEffectiveLocalUrl', () => {
 })
 
 // =============================================================================
-// getEffectiveAzureUrl — precedence + scheme filtering
+// getEffectiveAzureUrl: precedence + scheme filtering
 // =============================================================================
 
 describe('getEffectiveAzureUrl', () => {

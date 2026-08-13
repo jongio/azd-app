@@ -10,16 +10,16 @@ deciders: jongio
 
 ## Status
 
-Implemented. All four PRs have landed: PR 1 (foundation/proto), PR 2 (Connect handlers mounted in parallel), Stage 3 (CLI/MCP converged on typed Connect client), Stage 3.5 (dashboard TS migrated to Connect-ES), and PR 4 (REST + WebSocket surface deleted). The dashboard, CLI cobra commands, and MCP tools all talk to the same Connect handlers. `handleCheckRequirements` remains a subprocess path — no `RequirementsService` exists in the proto yet, so the MCP `reqs` tool still shells out to `azd app reqs`; adding that service is a follow-up ADR.
+Implemented. All four PRs have landed: PR 1 (foundation/proto), PR 2 (Connect handlers mounted in parallel), Stage 3 (CLI/MCP converged on typed Connect client), Stage 3.5 (dashboard TS migrated to Connect-ES), and PR 4 (REST + WebSocket surface deleted). The dashboard, CLI cobra commands, and MCP tools all talk to the same Connect handlers. `handleCheckRequirements` remains a subprocess path, no `RequirementsService` exists in the proto yet, so the MCP `reqs` tool still shells out to `azd app reqs`; adding that service is a follow-up ADR.
 
 ## Context
 
 `azd-app` exposes the same domain operations to four consumers:
 
-1. **Dashboard SPA** (`cli/dashboard/`) — browser, fetches via REST + EventSource.
-2. **CLI (cobra commands)** — in-process Go calls today, but the inventory of "what can the dashboard do that the CLI can't" keeps growing.
-3. **MCP server** — re-implements business logic to expose tools, drifting from the dashboard surface.
-4. **Future TUI / external automation** — would require a third hand-rolled client.
+1. **Dashboard SPA** (`cli/dashboard/`): browser, fetches via REST + EventSource.
+2. **CLI (cobra commands)**: in-process Go calls today, but the inventory of "what can the dashboard do that the CLI can't" keeps growing.
+3. **MCP server**: re-implements business logic to expose tools, drifting from the dashboard surface.
+4. **Future TUI / external automation**: would require a third hand-rolled client.
 
 The current REST + WebSocket layer in `cli/src/internal/dashboard/` (28 endpoints + 5 streams) is hand-marshalled JSON with no shared schema. Each new endpoint requires:
 
@@ -70,14 +70,14 @@ Each method becomes a distinct RPC with its own request/response types. This is 
 
 Service split (8 services):
 
-- `LifecycleService` — Ping, GetEnvironment, StreamBroadcast
-- `ProjectService` — GetProject
-- `ServicesService` — GetServices, Start/Stop/RestartService
-- `LogsService` — GetLogs, StreamLocalLogs, classifications CRUD, preferences GET/SAVE
-- `HealthService` — GetHealth, StreamHealth, StreamStateTransitions
-- `ModeService` — GetMode, SetMode
-- `AzureService` — 14 unary + 1 streaming RPC (`StreamAzureLogs`); the stream takes a `bool realtime` flag and the server picks polling or realtime transparently. Responses are framed in a `oneof { LogEntry entry; StreamStatus status; AzureDroppedNotice dropped; }` envelope so clients see entries, mode/health transitions, and overflow notices on a single wire stream.
-- `BicepService` — GetBicepTemplate
+- `LifecycleService`: Ping, GetEnvironment, StreamBroadcast
+- `ProjectService`: GetProject
+- `ServicesService`: GetServices, Start/Stop/RestartService
+- `LogsService`: GetLogs, StreamLocalLogs, classifications CRUD, preferences GET/SAVE
+- `HealthService`: GetHealth, StreamHealth, StreamStateTransitions
+- `ModeService`: GetMode, SetMode
+- `AzureService`: 14 unary + 1 streaming RPC (`StreamAzureLogs`); the stream takes a `bool realtime` flag and the server picks polling or realtime transparently. Responses are framed in a `oneof { LogEntry entry; StreamStatus status; AzureDroppedNotice dropped; }` envelope so clients see entries, mode/health transitions, and overflow notices on a single wire stream.
+- `BicepService`: GetBicepTemplate
 
 ### Stream back-pressure (locked in proto comments)
 
@@ -92,14 +92,14 @@ The five server-streaming RPCs each codify a back-pressure policy. These match w
 | `LifecycleService.StreamBroadcast` | Drop-oldest, disconnect slow consumer | UI hints are best-effort. Slow consumers shed load. |
 | `HealthService.StreamStateTransitions` | Block producer, 256-event bounded buffer | CRITICAL state changes cannot drop. Producer is rate-limited at source. |
 
-### Service interface extraction — deferred
+### Service interface extraction: deferred
 
 PR 2 will wire Connect handlers in parallel with the existing REST handlers. The handlers will call the same underlying types the REST handlers call today:
 
 - `azdconfig.ConfigClient` is already an interface ✓
 - `service.LogManager`, `monitor.StateMonitor`, `azure.LogAnalyticsClient`, `azure.DiagnosticSettingsChecker` are concrete structs
 
-Extracting interfaces around the concrete types is an orthogonal testability concern. It is **not required** for the transport swap. PR 2 calls concrete types directly (mirroring REST). A later PR (3 or post-4) extracts interfaces if the MCP/cobra clients need them — PR 3 adds a typed Connect client that talks to the dashboard over localhost HTTP, so interface extraction only matters for unit tests that want to stand in a fake handler.
+Extracting interfaces around the concrete types is an orthogonal testability concern. It is **not required** for the transport swap. PR 2 calls concrete types directly (mirroring REST). A later PR (3 or post-4) extracts interfaces if the MCP/cobra clients need them; PR 3 adds a typed Connect client that talks to the dashboard over localhost HTTP, so interface extraction only matters for unit tests that want to stand in a fake handler.
 
 ### Struct usage inventory
 
@@ -133,7 +133,7 @@ Every RPC in the rewritten proto is doc-commented with a citation to the legacy 
 
 **Raw gRPC.** Browser-hostile. gRPC-Web requires a proxy, no native fetch path, no streaming-from-server without trailers. Connect speaks gRPC + gRPC-Web + Connect protocol on the same handler, so we keep gRPC compatibility for free and add a browser-friendly path.
 
-**tRPC.** TypeScript-only. Forces us to keep a separate Go contract or generate Go from TS — the wrong direction for a Go-rooted project.
+**tRPC.** TypeScript-only. Forces us to keep a separate Go contract or generate Go from TS; the wrong direction for a Go-rooted project.
 
 **OpenAPI + generated clients.** More codegen surface, weaker streaming story (SSE is a bolt-on, not first-class), and the typed contract lives in YAML/JSON instead of a real schema language. proto + buf gives us breaking-change detection, lint, and a single source of truth across four consumers.
 
@@ -143,9 +143,9 @@ Every RPC in the rewritten proto is doc-commented with a citation to the legacy 
 
 | PR | Scope | Behavior change? |
 |---|---|---|
-| **PR 1** ✅ | proto schema, codegen, generated stubs, ADR | None — no handlers wired |
+| **PR 1** ✅ | proto schema, codegen, generated stubs, ADR | None, no handlers wired |
 | PR 2 (Stage 2) ✅ | Connect handlers mounted in parallel with existing REST. Dashboard reads via Connect-ES client. REST handlers untouched. AzureService proto rewrite + handler + 4 sub-store decomposition + dashboard migration land in a 3-commit batch. | Dashboard reads via Connect; REST still works for legacy callers |
-| PR 3 (Stage 3) ✅ | CLI cobra commands (`app info`, `app logs`) and MCP tool handlers call a typed Connect client over localhost HTTP against the running dashboard process. (The CLI and dashboard are separate processes — "in-process" calls are not possible; the Connect client talks to the same Connect handlers the browser uses.) MCP `info`-shaped tools stop spawning `azd app info` subprocesses; `reqs` remains a subprocess until a dedicated RequirementsService exists. No authentication interceptor is added — the dashboard continues to bind to localhost only, matching the trust posture of the REST surface it replaces. | MCP/CLI converge on the proto contract; subprocess round-trip eliminated for info; legacy REST still available. |
+| PR 3 (Stage 3) ✅ | CLI cobra commands (`app info`, `app logs`) and MCP tool handlers call a typed Connect client over localhost HTTP against the running dashboard process. (The CLI and dashboard are separate processes, so "in-process" calls are not possible; the Connect client talks to the same Connect handlers the browser uses.) MCP `info`-shaped tools stop spawning `azd app info` subprocesses; `reqs` remains a subprocess until a dedicated RequirementsService exists. No authentication interceptor is added; the dashboard continues to bind to localhost only, matching the trust posture of the REST surface it replaces. | MCP/CLI converge on the proto contract; subprocess round-trip eliminated for info; legacy REST still available. |
 | Stage 3.5 ✅ | Remaining TS dashboard REST fetchers cut over to Connect-ES; WebSocket client replaced by Connect `StreamBroadcast` consumer. Landed between Stage 3 and PR 4 so PR 4 could remove the server with no live callers. | Dashboard fully on Connect; zero REST/WS callers remaining |
 | PR 4 ✅ | Delete REST handlers, WebSocket plumbing, and the dashboard's REST fetchers. `github.com/coder/websocket` dropped from `cli/go.mod`. `BroadcastServiceUpdate` relocated to `server_broadcast.go`; securityHeaders middleware, port-discovery/lifecycle, and `broadcast.Manager` retained. `handleCheckRequirements` remains a subprocess path (no `RequirementsService` in proto yet). | REST + WebSocket surface removed |
 

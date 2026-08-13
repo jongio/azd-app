@@ -76,7 +76,7 @@ func resolveEnvironmentWithSources(ctx context.Context, service Service, azureEn
 		env[key] = value
 	}
 
-	// Start with full OS environment — child processes inherit everything from the parent.
+	// Start with full OS environment, child processes inherit everything from the parent.
 	// When running as an azd extension, the parent azd process injects all environment
 	// values (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*, SERVICE_*, custom outputs) into this
 	// process's environment. Services need these to function correctly.

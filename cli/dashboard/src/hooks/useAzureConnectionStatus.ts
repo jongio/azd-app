@@ -84,7 +84,7 @@ function logModeToProto(m: LogMode): ProtoLogMode {
 
 /**
  * Project a Get/SetMode response onto the local state shape. Keeps the
- * two response handlers in sync — both messages share the same fields,
+ * two response handlers in sync: both messages share the same fields,
  * so a divergence here would silently desync the UI.
  */
 interface NormalizedModeSnapshot {
@@ -132,7 +132,7 @@ export interface UseAzureConnectionStatusResult {
 
 export interface UseAzureConnectionStatusOptions {
   onAzureRealtimeConfig?: (azureRealtime: boolean | undefined) => void
-  /** Test seam — inject a Connect transport (e.g. createRouterTransport). */
+  /** Test seam, inject a Connect transport (e.g. createRouterTransport). */
   transport?: Transport
 }
 

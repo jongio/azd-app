@@ -10,7 +10,7 @@ status: shipped
 
 When running `azd app run`, the dashboard sometimes fails to display logs for one
 or more services. The user sees an empty log pane that never receives entries
-despite the service clearly producing output. A page refresh fixes it — but only
+despite the service clearly producing output. A page refresh fixes it, but only
 if the service's buffer happens to exist by then. This is a regression-prone,
 non-deterministic UX bug that erodes trust in the dashboard's reliability.
 
@@ -49,7 +49,7 @@ and dynamically subscribes + starts a pump goroutine for new services mid-stream
 
 ### 2. Reorder pump start before backfill (backend)
 
-Start pump goroutines immediately after subscribing — before sending backfill
+Start pump goroutines immediately after subscribing, before sending backfill
 entries to the client. This ensures the 100-capacity subscriber channels drain
 continuously and don't overflow from `broadcast()` drop-on-full during the
 (potentially slow) backfill send phase.
@@ -94,7 +94,7 @@ gated on `connected` because Log Analytics genuinely needs the backend reachable
 
 - The `OnBufferAdded` listener channel (capacity 16) can fill if many services
   start simultaneously. The non-blocking send means the notification is dropped,
-  but the service still exists in the LogManager — a worst case requires one more
+  but the service still exists in the LogManager, a worst case requires one more
   reconnect cycle to discover it. Acceptable for the expected service count (<20).
 - Backfill entries and live-stream entries can overlap (duplicate delivery) for
   entries that arrive between subscribe and backfill-snapshot. The ring buffer's

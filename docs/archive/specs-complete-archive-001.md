@@ -226,7 +226,7 @@ The dashboard logs experience currently exposes a services dropdown, a custom 1-
 ## DONE: 10 Review azlogs diffs and fix regressions {#10-review-azlogs-diffs-and-fix-regressions}
 - Removed stray inline code injected into the LogsPane header badge and restored the process badge icon render path.
 - Corrected service label formatting in log rows to avoid corrupted characters and preserve single timestamp + optional service label view.
-- Attempted targeted vitest run for logspane.test.tsx; runner not detected by automation here—tests recommended locally.
+- Attempted targeted vitest run for logspane.test.tsx; runner not detected by automation here; tests recommended locally.
 
 ## DONE: 11 Refine LogsPane timestamp/service label formatting {#11-refine-logspane-timestamp-service-label-formatting}
 - Unified log row formatting to display `[timestamp | service]` once per entry with stripEmbeddedTimestamp applied to payloads.

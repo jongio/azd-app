@@ -14,12 +14,12 @@
  *   does.
  *
  * Wire format:
- * - Unary calls ride `application/json` with a raw message body — easy.
+ * - Unary calls ride `application/json` with a raw message body: easy.
  * - Server-streaming rides `application/connect+json` with length-prefixed
  *   envelopes: one 5-byte header (1 flag byte + 4-byte big-endian length)
  *   per frame, terminated by an end-stream envelope (flag 0x02). Request
  *   bodies for streams are a single data envelope, which is why we parse
- *   with `postDataBuffer()` rather than `postData()` — the 5-byte prefix
+ *   with `postDataBuffer()` rather than `postData()`: the 5-byte prefix
  *   is not UTF-8-safe.
  *
  * Enum encoding:
@@ -72,7 +72,7 @@ function encodeStreamBody(messages: unknown[], endPayload: unknown = {}): Buffer
  * Build a single data-envelope (flag 0x00) for a JSON message. Used by
  * callers that construct a never-closing ReadableStream inside the page
  * (via addInitScript) and need raw bytes to enqueue. Returns a plain
- * Uint8Array — Node's Buffer doesn't survive the structured-clone serde
+ * Uint8Array: Node's Buffer doesn't survive the structured-clone serde
  * boundary into the page context.
  */
 export function encodeStreamEnvelopeNoEnd(message: unknown): Uint8Array {

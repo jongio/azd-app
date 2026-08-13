@@ -7,7 +7,7 @@
  * stage a proto response (built by `buildHealthResponse`) or a thrown
  * error. The assertion surface (rendered status, names, fix-setup
  * routing, etc.) is unchanged because the component still renders a
- * `HealthCheckResponse` internally — only the wire shape differs.
+ * `HealthCheckResponse` internally: only the wire shape differs.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'

@@ -32,7 +32,7 @@ type doctorCheck struct {
 }
 
 // doctorToolRequirement describes a required executable. Candidates holds the
-// acceptable executable names — the requirement is satisfied when any one of
+// acceptable executable names; the requirement is satisfied when any one of
 // them resolves on PATH. An empty Candidates means the requirement name is the
 // only accepted executable.
 type doctorToolRequirement struct {

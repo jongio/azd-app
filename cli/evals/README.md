@@ -6,7 +6,7 @@ Evaluation suites for azd-app Copilot skills, powered by [@microsoft/vally](http
 
 ```
 cli/evals/
-├── .vally.yaml              # Root config — suite definitions
+├── .vally.yaml              # Root config, suite definitions
 ├── package.json             # Dev dependency + npm scripts
 ├── .gitignore               # Ignores results/ and node_modules/
 └── azd-app-onboard/
@@ -21,7 +21,7 @@ cd cli/evals
 # Install Vally CLI
 npm install
 
-# Run smoke suite (fast — routing checks only)
+# Run smoke suite (fast: routing checks only)
 npm run eval:smoke
 
 # Run a specific skill's eval
@@ -38,11 +38,11 @@ npm run grade -- azd-app-onboard/eval.yaml < results/results.jsonl
 
 | Suite | Filter | Use Case |
 |-------|--------|----------|
-| `smoke` | `tier: smoke` | PR gate — fast routing checks |
+| `smoke` | `tier: smoke` | PR gate, fast routing checks |
 | `pr` | `tier: smoke` | Same as smoke (alias for clarity) |
 | `routing` | `type: routing` | All routing/trigger evals |
 | `integration` | `type: integration` | Full behavior tests (LLM-backed) |
-| `full` | (none) | All evals — nightly CI |
+| `full` | (none) | All evals, nightly CI |
 
 ## CI Integration
 

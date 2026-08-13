@@ -1032,7 +1032,7 @@ export async function mockConnectRoutes(page: Page, options: MockConnectOptions 
   // close the connection, because `useHealthStream` flips `connected` to
   // false on stream close and schedules a reconnect. React batches state
   // updates, so a setConnected(true) + setConnected(false) within the
-  // same tick collapses to false — tests never observe the "connected"
+  // same tick collapses to false; tests never observe the "connected"
   // state and downstream hooks gated on it (useLogsStream for Azure)
   // never fire their first fetch.
   //

@@ -71,7 +71,7 @@ func (h *ProjectHandler) GetProject(
 		// dashboard's project context is broken (missing azure.yaml,
 		// malformed manifest, IO error). A more granular code (e.g.
 		// FailedPrecondition for "no azure.yaml in this tree") would be
-		// a behavior change vs. the legacy 500 — defer that until a
+		// a behavior change vs. the legacy 500, defer that until a
 		// concrete consumer needs it.
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

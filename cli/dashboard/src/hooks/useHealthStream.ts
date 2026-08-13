@@ -1,5 +1,5 @@
 /**
- * useHealthStream — subscribes to the HealthService.StreamHealth Connect
+ * useHealthStream: subscribes to the HealthService.StreamHealth Connect
  * server-streaming RPC and exposes the same React hook surface the
  * dashboard already consumes.
  *
@@ -9,8 +9,8 @@
  * moves: instead of named SSE events (`message`, `health-change`,
  * `heartbeat`) we consume a `HealthEvent` oneof and translate each
  * variant back into the legacy event shape so downstream UI never sees
- * a proto type. Doing that translation in this single place — rather
- * than threading proto types through to App.tsx — keeps the migration
+ * a proto type. Doing that translation in this single place, rather
+ * than threading proto types through to App.tsx, keeps the migration
  * contained to the transport layer.
  *
  * The `summary` field on legacy `HealthReportEvent` was computed by the
@@ -118,7 +118,7 @@ function healthStateToStatus(state: HealthState): HealthStatus {
 
 /**
  * Convert google.protobuf.Timestamp (seconds + nanos as bigint) to ISO
- * string. Falls back to "now" when the server omitted the field — the
+ * string. Falls back to "now" when the server omitted the field: the
  * legacy SSE handler always populated it, so omission is a server bug
  * rather than a normal path, but a missing timestamp must never crash
  * the UI.

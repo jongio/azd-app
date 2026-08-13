@@ -79,7 +79,7 @@ Archived: 2025-12-14
 - Added dashboard Go integration coverage for /api/azure/logs defaults/bounds/service filter pass-through and /api/azure/logs/health diagnostics responses using injectable Azure wrappers.
 
 ## DONE: Add e2e coverage for logs UX {#add-e2e-logs-ux}
-- Added Playwright coverage for logs UX requirements: services dropdown removal, timeframe presets (no 1h option), refresh interval clamping (5s–5m), diagnostics visibility in Azure mode, and host=local override behavior.
+- Added Playwright coverage for logs UX requirements: services dropdown removal, timeframe presets (no 1h option), refresh interval clamping (5s to 5m), diagnostics visibility in Azure mode, and host=local override behavior.
 
 ## DONE: Coverage and reporting {#coverage-and-reporting}
 - Dashboard coverage: pnpm test:coverage (script stabilized for Windows file locking).

@@ -101,7 +101,7 @@ async function testAzurite() {
 // ========== Cosmos DB ==========
 async function testCosmos() {
   try {
-    // Cosmos emulator uses a self-signed cert — scope TLS bypass to this client only (CWE-295)
+    // Cosmos emulator uses a self-signed cert, so scope TLS bypass to this client only (CWE-295)
     const agent = new https.Agent({ rejectUnauthorized: false });
 
     const client = new CosmosClient({

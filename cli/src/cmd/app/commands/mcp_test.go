@@ -1144,8 +1144,8 @@ func TestSetEnvironmentVariableToolValidation(t *testing.T) {
 
 // TestSetEnvironmentVariableRedactsSecrets verifies that
 // handleSetEnvironmentVariable (CWE-684 / SEC-015) never echoes sensitive
-// values — keys matching TOKEN, SECRET, KEY, PASSWORD, CREDENTIAL, or
-// CONNECTION_STRING patterns — back in the MCP tool response.
+// values, keys matching TOKEN, SECRET, KEY, PASSWORD, CREDENTIAL, or
+// CONNECTION_STRING patterns, back in the MCP tool response.
 //
 // Acceptance criteria:
 //
@@ -1181,7 +1181,7 @@ func TestSetEnvironmentVariableRedactsSecrets(t *testing.T) {
 			{"DB_PASSWORD", "supersecret123", "supersecret123"},
 			// SECRET pattern
 			{"CLIENT_SECRET", "my-very-secret-value", "my-very-secret-value"},
-			// CREDENTIAL pattern — AC3: newly added pattern
+			// CREDENTIAL pattern, AC3: newly added pattern
 			{"APP_CREDENTIAL", "cred_value_abc", "cred_value_abc"},
 			// CONNECTION_STRING pattern
 			{"DB_CONNECTION_STRING", "Server=host;Password=pw;", "Server=host;Password=pw;"},

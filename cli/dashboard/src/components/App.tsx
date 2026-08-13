@@ -173,7 +173,7 @@ export function App({
   )
   const hasServiceSearch = serviceSearch.trim().length > 0
 
-  // Sync selected service with services list (in case it updates) — render-time reset
+  // Sync selected service with services list (in case it updates), render-time reset
   const [prevServices, setPrevServices] = React.useState(services)
   if (services !== prevServices) {
     setPrevServices(services)
@@ -329,8 +329,8 @@ export function App({
        *
        * The full-screen blocking overlay only renders when the backend is
        * genuinely unreachable (reconnect attempts exhausted). Transient
-       * reconnect cycles — `Connection lost. Reconnecting in Ns...` and
-       * bare `Backend connection lost` during attempts 4-5 — must not
+       * reconnect cycles: `Connection lost. Reconnecting in Ns...` and
+       * bare `Backend connection lost` during attempts 4-5: must not
        * block the UI; the page stays interactive and recovers silently
        * when the stream re-attaches. The exhaustion signal is the single
        * `Click to reconnect` substring that useHealthStream sets exactly

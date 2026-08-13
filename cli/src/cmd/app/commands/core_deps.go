@@ -385,8 +385,8 @@ func detectProjectsFromAzureYaml(searchRoot string) ([]types.NodeProject, []type
 
 	// Dedupe by resolved project directory: a monorepo often points several
 	// services at one directory (e.g. `project: .` on each), and each would
-	// otherwise be collected — then installed, and rendered as its own progress
-	// bar — once per service. Collapsing to the unique directory installs it once.
+	// otherwise be collected, then installed, and rendered as its own progress
+	// bar, once per service. Collapsing to the unique directory installs it once.
 	seenDirs := make(map[string]bool)
 
 	for _, svc := range azureYaml.Services {

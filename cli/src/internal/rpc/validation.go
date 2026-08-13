@@ -36,9 +36,9 @@ func init() {
 // connect.CodeInvalidArgument.
 //
 // Two invariants it enforces:
-//  1. Size ≤ maxQueryBytes — prevents gigantic payloads from bloating or
+//  1. Size ≤ maxQueryBytes, prevents gigantic payloads from bloating or
 //     corrupting azure.yaml.
-//  2. No non-printable bytes (except \n, \r, \t) — prevents null-byte
+//  2. No non-printable bytes (except \n, \r, \t), prevents null-byte
 //     injection and other control-code tricks that could confuse YAML
 //     parsers or downstream KQL evaluation (CWE-94).
 func validateQuery(query string) error {

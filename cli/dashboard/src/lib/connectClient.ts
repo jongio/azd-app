@@ -17,7 +17,7 @@
  *
  * Adding a new service: add an `import { FooService } from '@/gen/...'`
  * plus a `createFooClient(transport?)` factory that mirrors the pattern
- * below. Do NOT cache the client at module scope — the caller (typically
+ * below. Do NOT cache the client at module scope: the caller (typically
  * a hook with a stable transport reference) is responsible for memoising.
  */
 import { createClient, type Client, type Transport } from '@connectrpc/connect'
@@ -65,7 +65,7 @@ let cachedDefaultTransport: Transport | null = null
  * exactly once and never mutated, so reading it at transport-construction time
  * is sufficient and avoids a redundant DOM query on every RPC call.
  *
- * Keeping the value inside a closure — rather than a module-level variable —
+ * Keeping the value inside a closure (rather than a module-level variable)
  * prevents it from being visible via `window` inspection in browser DevTools
  * or becoming reachable through any future module-scope leak.
  */
@@ -109,7 +109,7 @@ export function getDefaultTransport(): Transport {
 /**
  * Test-only hook: replace the default transport for the duration of a
  * test. Pass `null` to fall back to the real transport. Production code
- * MUST NOT call this — the only call sites should be vitest specs that
+ * MUST NOT call this: the only call sites should be vitest specs that
  * wire a `createRouterTransport` against an in-memory service handler.
  *
  * Exposed as a named export rather than a plain assignment because TS
