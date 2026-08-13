@@ -24,7 +24,7 @@ Monorepo with three major components:
   - `cli/src/cmd/app/commands/`: Command implementations (run, logs, health, test, etc.)
   - `cli/src/internal/`: Domain packages (service, detector, executor, orchestrator, portmanager, etc.)
   - `cli/src/gen/proto/`: Generated protobuf Go code
-- **Dashboard**: `cli/dashboard/`: Vite + React 19 SPA, communicates via Connect-RPC
+- **Dashboard**: `cli/dashboard/`, a Vite + React 19 SPA that communicates via Connect-RPC
 
 ### Web (Astro)
 
@@ -50,7 +50,7 @@ Conventional Commits strictly enforced:
 
 ### Go Code Style
 
-- **Error handling**: `fmt.Errorf` with `%w` wrapping: always add context
+- **Error handling**: `fmt.Errorf` with `%w` wrapping, always add context
 - **Logging**: slog-based via logutil, component-scoped: `NewLogger("component-name")`
 - **Naming**: PascalCase exports, camelCase unexported, descriptive domain package names
 - **Interfaces**: Suffix with role (e.g., `*Credential`, `*Logger`, `*Provider`)
@@ -66,15 +66,15 @@ Conventional Commits strictly enforced:
 
 ### Linting
 
-- **Config**: `.golangci.yml`: 24 linters enabled, 5-minute timeout
+- **Config**: `.golangci.yml`, 24 linters enabled, 5-minute timeout
 - **Key linters**: errcheck, govet, staticcheck, gosec, revive, dupl, exhaustive
 - **Security**: gosec enabled (G204/G304 excluded for CLI exec patterns)
-- **Test exclusions**: Broad: most linters disabled for `_test.go` files
+- **Test exclusions**: broad, most linters disabled for `_test.go` files
 - **Run**: `mage preflight` (runs format, imports, security, lint)
 
 ## CI/CD
 
-- **Main CI**: `.github/workflows/ci.yml`: preflight, lint, test on ubuntu/windows/macos matrix
+- **Main CI**: `.github/workflows/ci.yml`, running preflight, lint, and test on ubuntu/windows/macos matrix
 - **Go version**: 1.26.5, Node: 22, pnpm: 9
 - **Race detector**: Enabled on Linux/Windows, disabled on macOS
 - **Coverage**: codecov integration with threshold enforcement

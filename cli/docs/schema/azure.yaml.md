@@ -12,7 +12,7 @@ This document describes the `azd app` extensions to the standard `azure.yaml` co
 
 `azd app` extends the standard `azd` azure.yaml with local development features:
 - **`ports`**: Explicit port mappings (Docker Compose style)
-- **`volumes`**: Container volume mounts: named volumes and bind mounts (Docker Compose style)
+- **`volumes`**: Container volume mounts, both named volumes and bind mounts (Docker Compose style)
 - **`environment`**: Environment variables (Docker Compose compatible formats)
 - **`entrypoint`**: Custom entry point files for Python/Node services
 - **`command`**: Override auto-detected run commands (string or array)
@@ -127,14 +127,14 @@ services:
 
 Container services support these properties:
 - **`image`**: Docker image name (triggers container mode)
-- **`ports`**: Port mappings (`["5432"]` or `["5432:5432"]`): **all** listed ports are published
+- **`ports`**: Port mappings (`["5432"]` or `["5432:5432"]`). **All** listed ports are published
 - **`volumes`**: Named volumes and bind mounts (`["pgdata:/var/lib/postgresql/data", "./init.sql:/init.sql:ro"]`)
 - **`environment`**: Environment variables for the container
 - **`command`**: Override the container's default command (string or array)
 - **`pull_policy`**: When to pull the image (`missing`, `always`, `never`)
 - **`healthcheck`**: Health check configuration
 - **`type`**: Auto-detected as `container` when `image` is set
-- **`uses`**: Start ordering: a container waits for its dependencies to be healthy first
+- **`uses`**: Start ordering, so a container waits for its dependencies to be healthy first
 
 Container services in a project also share a per-project Docker network so they
 can resolve each other by service name (see [Container Networking](#container-networking)).
