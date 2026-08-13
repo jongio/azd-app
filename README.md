@@ -252,7 +252,7 @@ retired and being archived; it still resolves for existing installs but is no lo
 maintained. **azd exec** is no longer needed at all, because `azd exec` shipped as a
 built-in azd command in v1.25.1.
 
-🌐 **Extension Hub**: [jongio.github.io/azd-extensions](https://jongio.github.io/azd-extensions/): Browse all extensions, quick install, and registry info.
+🌐 **Extension Hub**: [jongio.github.io/azd-extensions](https://jongio.github.io/azd-extensions/). Browse all extensions, quick install, and registry info.
 
 ---
 

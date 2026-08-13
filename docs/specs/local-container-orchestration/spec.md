@@ -126,7 +126,7 @@ they can resolve each other by service name (compose-equivalent).
   azurite container regardless of its `azd-<name>` container name. A **reused**
   (already-running) container is (idempotently) connected to the network with
   the same alias so DNS works after a fast restart.
-- **Lifecycle**: azd-app container services are **persistent**: `azd app stop`
+- **Lifecycle**: azd-app container services are **persistent**, so `azd app stop`
   and Ctrl+C run a graceful shutdown that leaves running containers in place
   (`shutdownAllServices` stops only OS processes; containers are reused on the
   next `azd app run`). The network therefore **persists with its containers** and
