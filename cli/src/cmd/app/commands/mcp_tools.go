@@ -746,7 +746,7 @@ func handleInstallDependencies(ctx context.Context, args azdext.ToolArgs) (*mcp.
 		return mcpErrorResult("Error searching for azure.yaml: %v", err), nil
 	}
 	if azureYamlPath == "" {
-		return mcpErrorResult("install_dependencies requires an azure.yaml project, run from a project directory"), nil
+		return mcpErrorResult("install_dependencies requires an azure.yaml project; run from a project directory"), nil
 	}
 
 	if ctxErr := ctx.Err(); ctxErr != nil {

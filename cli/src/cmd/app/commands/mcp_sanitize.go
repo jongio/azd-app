@@ -41,7 +41,7 @@ func sanitizeForLLM(s string) string {
 	s = ansiStripper.ReplaceAllString(s, "")
 
 	// Second pass: strip any remaining dangerous control characters.
-	// Allocate the same capacity as the input, common case is no stripping.
+	// Allocate the same capacity as the input; the common case is no stripping.
 	var b strings.Builder
 	b.Grow(len(s))
 	for _, r := range s {

@@ -42,7 +42,7 @@ const ansiConverterDark = new AnsiConverter({
   // entities.encodeXML() on every text token, converting all user-supplied
   // < > & " to &lt; &gt; &amp; &quot; before any HTML is assembled.
   // This is the sole XSS defence. No post-processing step is needed or used.
-  // Do NOT set to false, doing so would expose raw user content as HTML.
+  // Do NOT set to false; doing so would expose raw user content as HTML.
   escapeXML: true,
   stream: false,
 })

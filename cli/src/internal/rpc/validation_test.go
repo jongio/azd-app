@@ -170,7 +170,7 @@ func TestSaveAzureLogConfig_ValidationGateBlocksStore(t *testing.T) {
 	}
 	h := newStubHandler(funcs)
 
-	// Unknown table, store must not be called.
+	// Unknown table; store must not be called.
 	_, err := h.SaveAzureLogConfig(context.Background(),
 		connect.NewRequest(&v1.SaveAzureLogConfigRequest{
 			Service: "api",

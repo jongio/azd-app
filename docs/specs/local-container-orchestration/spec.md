@@ -237,7 +237,7 @@ with no keyword defaulted to `INFO`. The classifier now:
 - **Network lifecycle**: the network must be created idempotently (parallel
   startup) and cleaned up best-effort (a leftover empty network is harmless and
   reused next run). Container **reuse** (an already-running container) must not
-  be broken by network changes, reused containers are assumed already attached.
+  be broken by network changes; reused containers are assumed already attached.
 - **Arg injection**: volumes and command introduce user-controlled `docker run`
   arguments. Each is validated and passed as discrete `exec` argv elements
   (never a shell string), consistent with the existing G204-scoped exec pattern.
@@ -306,7 +306,7 @@ website's dev stack under `azd app run` (dev config mirroring `compose.dev.yml`)
 
 ### Deferred (follow-up)
 - **Container-exec health checks** (`healthcheck.test: ["CMD-SHELL", ...]`) that run
-  *inside* a container via `docker exec` are not yet honored, container health uses
+  *inside* a container via `docker exec` are not yet honored; container health uses
   host-side TCP/HTTP checks against the published port. This is adequate for the
   emulators in scope (they open their ports when ready), and `uses` health-gating
   works on that signal. A dedicated follow-up can add a `container-exec` health type.

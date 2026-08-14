@@ -66,7 +66,7 @@ func hostAllow(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host, _, err := net.SplitHostPort(r.Host)
 		if err != nil {
-			// No port present (or other parse error), use the raw Host value.
+			// No port present (or other parse error); use the raw Host value.
 			host = r.Host
 		}
 		switch host {

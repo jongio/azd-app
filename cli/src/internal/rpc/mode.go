@@ -15,7 +15,7 @@ import (
 // access to the current log source mode. dashboard.Server satisfies it
 // via its modeMu/currentMode pair; tests inject an in-memory stub.
 //
-// Get/Set semantics are intentionally synchronous, callers must hold
+// Get/Set semantics are intentionally synchronous; callers must hold
 // no other locks. The store implementation is responsible for its own
 // concurrency control (Server uses a sync.RWMutex).
 type ModeStore interface {

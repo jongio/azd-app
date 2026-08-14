@@ -214,7 +214,7 @@ func TestStreamBroadcastClientCancelExitsCleanly(t *testing.T) {
 	// Cancel from a goroutine once the subscription is active. Cancel
 	// before the first Send aborts the in-flight HTTP request, which
 	// connect-go surfaces as either an error from StreamBroadcast or
-	// from stream.Receive, both are valid client-cancel paths.
+	// from stream.Receive; both are valid client-cancel paths.
 	go func() {
 		deadline := time.Now().Add(3 * time.Second)
 		for time.Now().Before(deadline) && mgr.Count() == 0 {

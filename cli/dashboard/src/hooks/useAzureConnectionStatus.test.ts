@@ -78,7 +78,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
   })
 
   describe('initial render', () => {
-    it('does not auto-fetch, fetchAzureStatus must be called explicitly', async () => {
+    it('does not auto-fetch; fetchAzureStatus must be called explicitly', async () => {
       let calls = 0
       const transport = makeTransport({
         getMode: () => {

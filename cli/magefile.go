@@ -115,7 +115,7 @@ func getVersion() (string, error) {
 	// For dev builds, append git metadata.
 	sha, err := sh.Output("git", "rev-parse", "--short", "HEAD")
 	if err != nil {
-		// No git available, fall back to base version with +dev suffix.
+		// No git available; fall back to base version with +dev suffix.
 		return base + "+dev", nil
 	}
 
