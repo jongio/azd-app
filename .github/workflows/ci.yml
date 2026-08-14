@@ -27,7 +27,7 @@ defaults:
     working-directory: cli
 
 env:
-  GO_VERSION: '1.26.5'
+  GO_VERSION: '1.26.6'
 
 jobs:
   preflight:
@@ -385,4 +385,3 @@ jobs:
             cli/tests/projects/integration/health-test/*.log
             cli/.azure/**/*.log
           if-no-files-found: ignore
-
