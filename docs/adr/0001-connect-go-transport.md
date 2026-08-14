@@ -10,7 +10,7 @@ deciders: jongio
 
 ## Status
 
-Implemented. All four PRs have landed: PR 1 (foundation/proto), PR 2 (Connect handlers mounted in parallel), Stage 3 (CLI/MCP converged on typed Connect client), Stage 3.5 (dashboard TS migrated to Connect-ES), and PR 4 (REST + WebSocket surface deleted). The dashboard, CLI cobra commands, and MCP tools all talk to the same Connect handlers. `handleCheckRequirements` remains a subprocess path, no `RequirementsService` exists in the proto yet, so the MCP `reqs` tool still shells out to `azd app reqs`; adding that service is a follow-up ADR.
+Implemented. All four PRs have landed: PR 1 (foundation/proto), PR 2 (Connect handlers mounted in parallel), Stage 3 (CLI/MCP converged on typed Connect client), Stage 3.5 (dashboard TS migrated to Connect-ES), and PR 4 (REST + WebSocket surface deleted). The dashboard, CLI cobra commands, and MCP tools all talk to the same Connect handlers. `handleCheckRequirements` remains a subprocess path; no `RequirementsService` exists in the proto yet, so the MCP `reqs` tool still shells out to `azd app reqs`; adding that service is a follow-up ADR.
 
 ## Context
 

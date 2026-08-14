@@ -114,7 +114,7 @@ test.describe('Component Screenshots', () => {
     
     // Check if search modal element exists before interacting
     const modalExists = await page.locator('#search-modal').count() > 0;
-    test.skip(!modalExists, 'Search modal element not found, may be provided by external component');
+    test.skip(!modalExists, 'Search modal element not found; it may be provided by an external component');
     
     // Open search with keyboard shortcut (/ key)
     await page.keyboard.press('/');
@@ -129,7 +129,7 @@ test.describe('Component Screenshots', () => {
         await searchBtn.click();
         await page.waitForSelector('#search-modal.open', { timeout: 30000 });
       } else {
-        test.skip(true, 'Search modal cannot be opened, keyboard shortcut and search button not available');
+        test.skip(true, 'Search modal cannot be opened; keyboard shortcut and search button not available');
         return;
       }
     }
@@ -152,7 +152,7 @@ test.describe('Component Screenshots', () => {
     
     // Check if mobile menu toggle exists (rendered by external Header component)
     const toggleExists = await page.locator('[data-mobile-menu-toggle]').count() > 0;
-    test.skip(!toggleExists, 'Mobile menu toggle not found, may be provided by external Header component');
+    test.skip(!toggleExists, 'Mobile menu toggle not found; it may be provided by an external Header component');
     
     // Click the mobile menu toggle button
     await page.click('[data-mobile-menu-toggle]');

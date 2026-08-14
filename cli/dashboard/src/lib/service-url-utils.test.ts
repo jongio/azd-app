@@ -59,7 +59,7 @@ describe('isValidUrl', () => {
       expect(isValidUrl('javascript:alert(document.cookie)')).toBe(false)
     })
 
-    it('rejects javascript: URLs with encoded colon (%3A), URL constructor normalises it', () => {
+    it('rejects javascript: URLs with encoded colon (%3A); URL constructor normalises it', () => {
       // new URL('javascript%3Aalert(1)') throws → returns false, which is also correct
       expect(isValidUrl('javascript%3Aalert(1)')).toBe(false)
     })
@@ -165,7 +165,7 @@ describe('getEffectiveLocalUrl', () => {
       expect(result.source).toBe('url')
     })
 
-    it('blocks javascript: customUrl and invalid url, returns null', () => {
+    it('blocks javascript: customUrl and invalid url and returns null', () => {
       const result = getEffectiveLocalUrl(localInfo({
         customUrl: 'javascript:alert(1)',
       }))

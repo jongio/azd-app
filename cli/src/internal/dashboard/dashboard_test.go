@@ -340,7 +340,7 @@ func TestHostAllow_ViaBuiltHandler(t *testing.T) {
 
 	t.Run("no port in Host header works correctly", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.Host = "localhost" // no port, SplitHostPort fails, raw host used
+		req.Host = "localhost" // No port; SplitHostPort fails and the raw host is used.
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
@@ -391,7 +391,7 @@ func TestSecurityHeaders_CacheControl(t *testing.T) {
 		{"connect_rpc_health_sets_no_store", "/azdapp.v1.HealthService/GetHealth", true},
 		// AC3: SPA root, must NOT get no-store (serveIndex handles it separately).
 		{"root_does_not_set_no_store", "/", false},
-		// AC4: static assets, must NOT get no-store so they remain cacheable.
+		// AC4: static assets must NOT get no-store so they remain cacheable.
 		{"app_js_does_not_set_no_store", "/app.js", false},
 		{"favicon_does_not_set_no_store", "/favicon.ico", false},
 	}

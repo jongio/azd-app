@@ -61,7 +61,7 @@ func TestValidatePathContainment_AcceptedPaths(t *testing.T) {
 			baseDir: root,
 		},
 		{
-			// Non-existent child path, creation is allowed inside root
+			// Non-existent child path; creation is allowed inside root
 			name:    "non-existent child allowed",
 			path:    filepath.Join(root, "new-service"),
 			baseDir: root,

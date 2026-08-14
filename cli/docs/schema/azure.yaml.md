@@ -408,7 +408,7 @@ services:
 
 Docker Compose-style volume mounts for **container services**. Supports:
 
-- **Named volumes**: `name:/container/path` (Docker-managed, persist across runs)
+- **Named volumes**: `name:/container/path` (managed by Docker and persistent across runs)
 - **Bind mounts**: `./host/path:/container/path[:mode]` (host path is resolved
   **relative to the project directory**; absolute host paths are also accepted)
 
@@ -1407,4 +1407,3 @@ services:
 - [Port Configuration Guide](../features/ports.md)
 - [Port Management Design](../design/ports.md)
 - [Azure Functions Support](../features/azure-functions.md) - Comprehensive Azure Functions documentation
-
