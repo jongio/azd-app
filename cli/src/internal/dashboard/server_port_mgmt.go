@@ -98,7 +98,7 @@ func loadOrCreateNonce(projectHash string) (string, error) {
 		if nonce := strings.TrimSpace(string(data)); len(nonce) == 32 {
 			return nonce, nil
 		}
-		// Corrupt or truncated — fall through to regenerate.
+		// Corrupt or truncated; fall through to regenerate.
 	}
 
 	// Generate 128 bits of randomness.

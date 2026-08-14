@@ -363,7 +363,7 @@ func TestLogManagerOnBufferAdded(t *testing.T) {
 	ch := lm.OnBufferAdded()
 	defer lm.RemoveBufferListener(ch)
 
-	// Create a buffer — the listener should receive the service name.
+	// Create a buffer; the listener should receive the service name.
 	_, err = lm.CreateBuffer("svc-alpha", 100, false)
 	if err != nil {
 		t.Fatalf("CreateBuffer() error = %v", err)
@@ -387,7 +387,7 @@ func TestLogManagerOnBufferAdded(t *testing.T) {
 		// expected: no notification
 	}
 
-	// Create a second buffer — should notify.
+	// Create a second buffer; should notify.
 	_, err = lm.CreateBuffer("svc-beta", 100, false)
 	if err != nil {
 		t.Fatalf("CreateBuffer() error = %v", err)
@@ -411,7 +411,7 @@ func TestLogManagerRemoveBufferListener(t *testing.T) {
 
 	ch := lm.OnBufferAdded()
 
-	// Remove listener, then create a buffer — should NOT receive.
+	// Remove listener, then create a buffer; should NOT receive.
 	lm.RemoveBufferListener(ch)
 
 	_, _ = lm.CreateBuffer("orphan-svc", 100, false)

@@ -1,6 +1,6 @@
 /**
  * Tests for useProject against an in-memory Connect router transport.
- * Mirrors useCodespaceEnv.test.tsx — no fetch mocking, no client mocking;
+ * Mirrors useCodespaceEnv.test.tsx: no fetch mocking, no client mocking;
  * the production hook code path runs unchanged with an injected transport.
  */
 import { renderHook, waitFor } from '@testing-library/react'

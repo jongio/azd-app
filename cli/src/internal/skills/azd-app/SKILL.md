@@ -140,12 +140,12 @@ Environment variables are resolved at service startup and injected into each ser
 
 azd-app supports lifecycle hooks defined in `azure.yaml`:
 
-- **prerun** — runs before services start
-- **postrun** — runs after services are ready
-- **prestop** — runs before services are stopped (e.g., drain connections, flush caches)
-- **poststop** — runs after all services are stopped (e.g., cleanup temp files, remove tunnels)
+- **prerun**: runs before services start
+- **postrun**: runs after services are ready
+- **prestop**: runs before services are stopped (e.g., drain connections, flush caches)
+- **poststop**: runs after all services are stopped (e.g., cleanup temp files, remove tunnels)
 
-Hooks can be defined at the project level. Hook failures in `prestop`/`poststop` are non-fatal — services will still be stopped.
+Hooks can be defined at the project level. Hook failures in `prestop`/`poststop` are non-fatal; services will still be stopped.
 
 ## Supported Languages
 
@@ -158,7 +158,7 @@ Hooks can be defined at the project level. Hook failures in `prestop`/`poststop`
 | Go | go mod download | go test | go run |
 | Rust | cargo build | cargo test | cargo run |
 | PHP | composer install | PHPUnit | php |
-| Docker | docker build | — | docker compose |
+| Docker | docker build | n/a | docker compose |
 
 ## MCP Tools
 

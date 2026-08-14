@@ -118,7 +118,7 @@ func TestSecurityHeaders_CSPTokens(t *testing.T) {
 		t.Fatal("Content-Security-Policy header must be set")
 	}
 
-	// script-src must be 'self' only — no eval, no inline scripts.
+	// script-src must be 'self' only, no eval, no inline scripts.
 	if !strings.Contains(csp, "script-src 'self'") {
 		t.Errorf("CSP must contain \"script-src 'self'\"; got: %s", csp)
 	}
@@ -340,7 +340,7 @@ func TestHostAllow_ViaBuiltHandler(t *testing.T) {
 
 	t.Run("no port in Host header works correctly", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.Host = "localhost" // no port — SplitHostPort fails, raw host used
+		req.Host = "localhost" // No port; SplitHostPort fails and the raw host is used.
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
@@ -372,10 +372,10 @@ func TestTimeoutContext(t *testing.T) {
 //
 // Acceptance criteria:
 //
-//	AC1 — /api/shutdown receives Cache-Control: no-store
-//	AC2 — Connect-RPC path (/azdapp.v1.*) receives Cache-Control: no-store
-//	AC3 — root path (/) does NOT receive Cache-Control: no-store
-//	AC4 — static asset paths do NOT receive Cache-Control: no-store
+//	AC1, /api/shutdown receives Cache-Control: no-store
+//	AC2, Connect-RPC path (/azdapp.v1.*) receives Cache-Control: no-store
+//	AC3, root path (/) does NOT receive Cache-Control: no-store
+//	AC4, static asset paths do NOT receive Cache-Control: no-store
 func TestSecurityHeaders_CacheControl(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -389,9 +389,9 @@ func TestSecurityHeaders_CacheControl(t *testing.T) {
 		// AC2: Connect-RPC paths (/azdapp.v1.<Service>/<Method>).
 		{"connect_rpc_lifecycle_sets_no_store", "/azdapp.v1.LifecycleService/Ping", true},
 		{"connect_rpc_health_sets_no_store", "/azdapp.v1.HealthService/GetHealth", true},
-		// AC3: SPA root — must NOT get no-store (serveIndex handles it separately).
+		// AC3: SPA root, must NOT get no-store (serveIndex handles it separately).
 		{"root_does_not_set_no_store", "/", false},
-		// AC4: static assets — must NOT get no-store so they remain cacheable.
+		// AC4: static assets must NOT get no-store so they remain cacheable.
 		{"app_js_does_not_set_no_store", "/app.js", false},
 		{"favicon_does_not_set_no_store", "/favicon.ico", false},
 	}

@@ -107,7 +107,7 @@ func runningOnVsCodeDesktop(ctx context.Context) bool {
 	if err != nil {
 		// Failure to spawn `code` (missing CLI, sandbox, etc.) is treated
 		// as "not desktop" so the dashboard falls back to URL rewriting.
-		// That is the safer default — it produces working URLs in browser
+		// That is the safer default; it produces working URLs in browser
 		// Codespaces at the cost of an unnecessary rewrite when the CLI
 		// is just absent.
 		return false

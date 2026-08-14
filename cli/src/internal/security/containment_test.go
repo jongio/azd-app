@@ -61,7 +61,7 @@ func TestValidatePathContainment_AcceptedPaths(t *testing.T) {
 			baseDir: root,
 		},
 		{
-			// Non-existent child path — creation is allowed inside root
+			// Non-existent child path; creation is allowed inside root
 			name:    "non-existent child allowed",
 			path:    filepath.Join(root, "new-service"),
 			baseDir: root,
@@ -123,7 +123,7 @@ func TestValidatePathContainment_RejectedPaths(t *testing.T) {
 			errMsg:  "escapes project root",
 		},
 		{
-			// Single step up — catches ../sibling style
+			// Single step up, catches ../sibling style
 			name:    "one level up from root",
 			path:    filepath.Clean(filepath.Join(root, "..")),
 			baseDir: root,

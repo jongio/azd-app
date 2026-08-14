@@ -130,7 +130,7 @@ This server complements azd's core MCP capabilities:
 			newServiceConfigResource(),
 		)
 
-	// Register all tools via AddTool — builder handles rate limiting + ToolArgs parsing
+	// Register all tools via AddTool, builder handles rate limiting + ToolArgs parsing
 	registerAllTools(builder)
 
 	s := builder.Build()
@@ -215,7 +215,7 @@ func extractValidatedProjectDir(args azdext.ToolArgs) (string, error) {
 }
 
 // marshalToolResult marshals data to JSON, sanitizes all string values for LLM
-// safety (stripping ANSI/control characters — CWE-150/117), and returns an MCP
+// safety (stripping ANSI/control characters, CWE-150/117), and returns an MCP
 // tool result with both structured content and a text fallback.
 //
 // The JSON round-trip (Marshal → Unmarshal → sanitizeAny → Marshal) is

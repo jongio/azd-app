@@ -10,13 +10,13 @@ import (
 // These headers provide defense-in-depth against common web attacks (CWE-693).
 //
 // CSP notes:
-//   - script-src: 'self' only — no eval, no inline scripts.
+//   - script-src: 'self' only, no eval, no inline scripts.
 //   - style-src:  'unsafe-inline' is retained because multiple React components
 //     use style={} props (e.g. progress bars, panel widths, animation hints).
 //     Those props render as HTML style= attributes, which the browser blocks
 //     without this token. Removing it requires refactoring ~10 components;
 //     that work is tracked separately and out of scope for this patch.
-//   - connect-src: 'self' only — the legacy WebSocket endpoint
+//   - connect-src: 'self' only; the legacy WebSocket endpoint
 //     (ws://localhost:* / wss://localhost:*) was removed; Connect-RPC uses HTTP.
 //   - object-src, base-uri, form-action: 'none' for defence-in-depth.
 //
@@ -66,7 +66,7 @@ func hostAllow(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host, _, err := net.SplitHostPort(r.Host)
 		if err != nil {
-			// No port present (or other parse error) — use the raw Host value.
+			// No port present (or other parse error); use the raw Host value.
 			host = r.Host
 		}
 		switch host {

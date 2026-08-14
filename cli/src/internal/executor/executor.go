@@ -27,7 +27,7 @@ func RunWithContext(ctx context.Context, name string, args []string, dir string)
 		cmd.Stdout = io.Discard
 		cmd.Stderr = io.Discard
 		cmd.Stdin = nil
-		// cmd.Env is nil — child inherits full parent environment (including azd env values)
+		// cmd.Env is nil, child inherits full parent environment (including azd env values)
 		return cmd.Run()
 	}
 

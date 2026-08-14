@@ -15,7 +15,7 @@ import (
 // access to the current log source mode. dashboard.Server satisfies it
 // via its modeMu/currentMode pair; tests inject an in-memory stub.
 //
-// Get/Set semantics are intentionally synchronous — callers must hold
+// Get/Set semantics are intentionally synchronous; callers must hold
 // no other locks. The store implementation is responsible for its own
 // concurrency control (Server uses a sync.RWMutex).
 type ModeStore interface {
@@ -146,7 +146,7 @@ type azureConfigSnapshot struct {
 // probeAzureConfig parses azure.yaml and projects the result into the
 // snapshot the wire types want. Errors are encoded into the snapshot
 // (not returned) because both RPCs need to surface a partial answer
-// even when the manifest is unreadable — telling the user "I can't
+// even when the manifest is unreadable, telling the user "I can't
 // read azure.yaml" is more useful than a generic Internal error.
 func (h *ModeHandler) probeAzureConfig() azureConfigSnapshot {
 	snap := azureConfigSnapshot{
@@ -186,7 +186,7 @@ func logModeToProto(m service.LogMode) v1.LogMode {
 
 // protoToLogMode converts a proto LogMode to the internal string-based
 // LogMode. UNSPECIFIED is rejected (returns an error) because every
-// SetMode caller must declare a concrete intent — silently treating
+// SetMode caller must declare a concrete intent, silently treating
 // UNSPECIFIED as a default would mask client bugs.
 func protoToLogMode(m v1.LogMode) (service.LogMode, error) {
 	switch m {

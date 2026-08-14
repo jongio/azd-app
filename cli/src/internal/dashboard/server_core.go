@@ -153,8 +153,8 @@ func (s *Server) Start() (string, error) {
 		ReadHeaderTimeout: 10 * time.Second,
 		// WriteTimeout must be 0 (disabled) because Connect-RPC server-streaming
 		// handlers (StreamHealth, StreamLocalLogs, StreamBroadcast) are long-lived.
-		// Go's WriteTimeout is an absolute deadline from request header read — not
-		// a per-write idle timeout — so any non-zero value kills streams after that
+		// Go's WriteTimeout is an absolute deadline from request header read, not
+		// a per-write idle timeout, so any non-zero value kills streams after that
 		// duration, causing ERR_INCOMPLETE_CHUNKED_ENCODING on the client.
 		// Security: this server binds to 127.0.0.1 only (not internet-facing).
 		// ReadHeaderTimeout guards against slowloris; IdleTimeout reclaims idle
@@ -275,7 +275,7 @@ func (s *Server) Stop() error {
 	// so any in-flight stream handlers have already started exiting.
 	s.broadcast.StopAll()
 
-	// Now safe — no more handlers running
+	// Now safe, no more handlers running
 	if s.configClient != nil {
 		s.configClient.Close()
 		s.configClient = nil

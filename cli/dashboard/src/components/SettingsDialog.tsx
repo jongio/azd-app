@@ -79,7 +79,7 @@ export function SettingsDialog({
     }
   }, [])
 
-  // Reset pending changes when dialog opens — render-time reset
+  // Reset pending changes when dialog opens, render-time reset
   const [prevIsOpen, setPrevIsOpen] = React.useState(isOpen)
   if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen)

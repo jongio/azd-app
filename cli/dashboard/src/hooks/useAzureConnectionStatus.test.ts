@@ -34,7 +34,7 @@ interface RouterOverrides {
 /**
  * Build an in-memory router serving ModeService. Each test passes the
  * scenario it cares about; unimplemented methods raise CodeUnimplemented
- * automatically — exactly what we want when a test should not hit a
+ * automatically: exactly what we want when a test should not hit a
  * given RPC.
  */
 function makeTransport(overrides: RouterOverrides = {}) {
@@ -78,7 +78,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
   })
 
   describe('initial render', () => {
-    it('does not auto-fetch — fetchAzureStatus must be called explicitly', async () => {
+    it('does not auto-fetch; fetchAzureStatus must be called explicitly', async () => {
       let calls = 0
       const transport = makeTransport({
         getMode: () => {
@@ -186,13 +186,13 @@ describe('useAzureConnectionStatus (Connect)', () => {
       })
       await waitFor(() => expect(calls).toBe(1))
 
-      // Now issue concurrent calls — they must all bail out at the
+      // Now issue concurrent calls; they must all bail out at the
       // abortControllerRef guard before reaching the transport.
       act(() => {
         void result.current.fetchAzureStatus()
         void result.current.fetchAzureStatus()
       })
-      // Give microtasks a chance — calls must stay at 1.
+      // Give microtasks a chance; calls must stay at 1.
       await Promise.resolve()
       expect(calls).toBe(1)
 
@@ -248,7 +248,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
 
       const { result } = renderHook(() => useAzureConnectionStatus({ transport }))
 
-      // Initial state is 'local' — switching to 'local' should be a no-op.
+      // Initial state is 'local'; switching to 'local' should be a no-op.
       await act(async () => {
         await result.current.handleLogModeChange('local')
       })
@@ -303,7 +303,7 @@ describe('useAzureConnectionStatus (Connect)', () => {
         // Switching flips on synchronously.
         expect(result.current.isModeSwitching).toBe(true)
 
-        // Resolve the SetMode promise — switching stays true until the
+        // Resolve the SetMode promise; switching stays true until the
         // 1500ms cleanup timeout fires.
         await act(async () => {
           resolveSet(create(SetModeResponseSchema, {

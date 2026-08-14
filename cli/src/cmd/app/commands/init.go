@@ -121,7 +121,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 
 	if dryRun {
 		cliout.Newline()
-		cliout.Info("Dry run — no files modified")
+		cliout.Info("Dry run: no files modified")
 		cliout.Newline()
 		cliout.Item("Generated azure.yaml would contain:")
 		cliout.Newline()
@@ -963,7 +963,7 @@ func enrichAzureYaml(azureYamlPath string, services []DetectedService) error {
 	}
 
 	if !modified {
-		cliout.Info("No changes needed — azure.yaml already has complete service configuration")
+		cliout.Info("No changes needed: azure.yaml already has complete service configuration")
 		return nil
 	}
 

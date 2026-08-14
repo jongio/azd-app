@@ -99,7 +99,7 @@ export function LogsPane({
     return `azure:${resolvedTimeRange.preset}:${end}:${azureRealtime ? 'realtime' : 'poll'}`
   }, [logMode, resolvedTimeRange.preset, resolvedTimeRange.end, azureRealtime])
 
-  // Reset state when fetchKey changes — render-time reset
+  // Reset state when fetchKey changes, render-time reset
   const [prevFetchKey, setPrevFetchKey] = useState(fetchKey)
   if (fetchKey !== prevFetchKey) {
     setPrevFetchKey(fetchKey)

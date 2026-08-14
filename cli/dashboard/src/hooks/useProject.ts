@@ -1,5 +1,5 @@
 /**
- * useProject — fetches azure.yaml-derived project metadata via the
+ * useProject: fetches azure.yaml-derived project metadata via the
  * ProjectService Connect handler.
  *
  * Wire migration note: replaces a one-shot `fetch('/api/project')` that

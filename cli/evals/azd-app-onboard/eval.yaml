@@ -1,4 +1,4 @@
-# Vally eval suite — azd-app-onboard skill
+# Vally eval suite: azd-app-onboard skill
 # Validates that the onboarding skill is correctly invoked and produces
 # quality guidance for various project onboarding scenarios.
 
@@ -26,7 +26,7 @@ scoring:
 
 stimuli:
   # ═══════════════════════════════════════════════════════════
-  # ROUTING — Does the agent invoke this skill for onboarding?
+  # ROUTING: Does the agent invoke this skill for onboarding?
   # ═══════════════════════════════════════════════════════════
 
   - name: "New project onboarding request"
@@ -80,7 +80,7 @@ stimuli:
         config:
           pattern: "(?i)fatal error|unhandled exception|stack trace"
 
-  - name: "Negative routing — running services (should NOT invoke onboard)"
+  - name: "Negative routing: running services (should NOT invoke onboard)"
     prompt: "Run my services with azd app"
     tags:
       type: routing
@@ -101,7 +101,7 @@ stimuli:
           pattern: "(?i)fatal error|unhandled exception|stack trace"
 
   # ═══════════════════════════════════════════════════════════
-  # GENERATION — Correct azure.yaml output for common projects
+  # GENERATION: Correct azure.yaml output for common projects
   # ═══════════════════════════════════════════════════════════
 
   - name: "Node.js Express API azure.yaml generation"
@@ -200,7 +200,7 @@ stimuli:
           pattern: "(?i)fatal error|unhandled exception|stack trace"
 
   # ═══════════════════════════════════════════════════════════
-  # GUIDANCE — Step-by-step quality
+  # GUIDANCE: Step-by-step quality
   # ═══════════════════════════════════════════════════════════
 
   - name: "Complete onboarding guidance includes verification steps"
@@ -287,7 +287,7 @@ stimuli:
           pattern: "(?i)fatal error|unhandled exception|stack trace"
 
   # ═══════════════════════════════════════════════════════════
-  # ERROR HANDLING — Invalid project structures
+  # ERROR HANDLING: Invalid project structures
   # ═══════════════════════════════════════════════════════════
 
   - name: "Handles empty project gracefully"
@@ -335,7 +335,7 @@ stimuli:
           pattern: "(?i)(custom|command|docker|run\\.command|manual)"
 
   # ═══════════════════════════════════════════════════════════
-  # COMPLETENESS — All services detected
+  # COMPLETENESS: All services detected
   # ═══════════════════════════════════════════════════════════
 
   - name: "Detects all services in complex project"

@@ -103,8 +103,8 @@ describe('connectClient factories', () => {
       __setDefaultTransportForTesting(null) // ensure fresh construction
       getDefaultTransport()
 
-      // The token selector must have been queried exactly once — at
-      // construction time — and must not be re-queried per request.
+      // The token selector must have been queried exactly once, at
+      // construction time, and must not be re-queried per request.
       const tokenQueryCount = querySpy.mock.calls.filter(
         ([selector]) => selector === 'meta[name="azd-session-token"]'
       ).length

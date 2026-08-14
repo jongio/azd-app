@@ -1,4 +1,4 @@
-# Test Plan — Native container config for `host: local` services
+# Test Plan: Native container config for `host: local` services
 
 Issue: https://github.com/jongio/azd-app/issues/546
 Spec: ./spec.md
@@ -36,15 +36,15 @@ All planned rows are automated. Mapping to implemented tests:
 | T23 | AC5 | `docker.TestValidatePullPolicy`; `service.TestService_PullPolicy` | automated |
 | T24 | AC6 | existing `service` orchestrator/graph tests (uses ordering unchanged) | automated |
 | T25 | AC7 | `service.TestV11SchemaDocumentsContainerFields` | automated |
-| T26 | AC8 | `service.TestStartContainerService_WebsiteStyleTopology` (docker) — full path: command + 3 ports + named volume + project network, verified via docker inspect | automated |
-| T27 | AC9 | `service.TestService_RunsAsLocalProcess` — routing predicate (image=container; docker.*+command=process) | automated |
-| T28 | AC9 | `service.TestDetectServiceRuntime_DockerServiceWithCommandRunsAsProcess` / `_DockerServiceWithoutCommandStaysContainer` — routing + backward compat | automated |
-| T29 | AC10 | `testing.TestValidateService_ExplicitCommand_UnsupportedLanguage` / `_DefaultsFrameworkToCustom` / `TestValidateService_DockerNoExplicitCommand_Skipped`; `TestHasExplicitCommand` — explicit `test:` makes a docker/unset-language service testable; no-command service still skipped | automated |
-| T30 | AC10 | `testing.TestNewRunnerForService_ExplicitConfig_FrameworkDispatch` / `_LanguageWins` / `_UnsupportedLanguage_NoExplicitCommand` — runner selected by framework for explicit-config services | automated |
-| T31 | AC10 | `testing.TestExecuteServiceTests_All_ExpandsExplicitTypes` — `--type all` runs each configured explicit type and aggregates | automated |
-| T32 | AC10 | `testing.TestExecuteServiceTests_UnconfiguredType_NonTestLanguage_Skipped`; `TestTypeHasExplicitCommand`; `TestIsRecognizedTestLanguage` — a non-test-language service is skipped (not run via the framework default) for a requested type it did not configure | automated |
-| T33 | AC11 | `commands.TestDetectProjectsFromAzureYaml_DedupesSharedProjectDir` — three services sharing `project: .` collapse to one node project; `commands.TestGroupedNodeLabel` / `TestServiceDirsFromAzureYaml`, `installer.TestAddNodeProjectLabeled` — shared install is labeled with the covering service names | automated |
-| T34 | AC12 | `service.TestInferLogLevel` — structured `level`/`severity` honored; word-boundary keywords (no `errorReporter`/`trace_worker` misfire); unclassified stderr→WARN, stdout→INFO | automated |
+| T26 | AC8 | `service.TestStartContainerService_WebsiteStyleTopology` (docker): full path: command + 3 ports + named volume + project network, verified via docker inspect | automated |
+| T27 | AC9 | `service.TestService_RunsAsLocalProcess`: routing predicate (image=container; docker.*+command=process) | automated |
+| T28 | AC9 | `service.TestDetectServiceRuntime_DockerServiceWithCommandRunsAsProcess` / `_DockerServiceWithoutCommandStaysContainer`: routing + backward compat | automated |
+| T29 | AC10 | `testing.TestValidateService_ExplicitCommand_UnsupportedLanguage` / `_DefaultsFrameworkToCustom` / `TestValidateService_DockerNoExplicitCommand_Skipped`; `TestHasExplicitCommand`: explicit `test:` makes a docker/unset-language service testable; no-command service still skipped | automated |
+| T30 | AC10 | `testing.TestNewRunnerForService_ExplicitConfig_FrameworkDispatch` / `_LanguageWins` / `_UnsupportedLanguage_NoExplicitCommand`: runner selected by framework for explicit-config services | automated |
+| T31 | AC10 | `testing.TestExecuteServiceTests_All_ExpandsExplicitTypes`: `--type all` runs each configured explicit type and aggregates | automated |
+| T32 | AC10 | `testing.TestExecuteServiceTests_UnconfiguredType_NonTestLanguage_Skipped`; `TestTypeHasExplicitCommand`; `TestIsRecognizedTestLanguage`: a non-test-language service is skipped (not run via the framework default) for a requested type it did not configure | automated |
+| T33 | AC11 | `commands.TestDetectProjectsFromAzureYaml_DedupesSharedProjectDir`: three services sharing `project: .` collapse to one node project; `commands.TestGroupedNodeLabel` / `TestServiceDirsFromAzureYaml`, `installer.TestAddNodeProjectLabeled`: shared install is labeled with the covering service names | automated |
+| T34 | AC12 | `service.TestInferLogLevel`: structured `level`/`severity` honored; word-boundary keywords (no `errorReporter`/`trace_worker` misfire); unclassified stderr→WARN, stdout→INFO | automated |
 
 Original planned matrix retained below for traceability.
 
@@ -82,7 +82,7 @@ Original planned matrix retained below for traceability.
 
 ## Functionality Inventory (Phase 3 reconciliation)
 
-Enumerated against `git diff origin/main` — every unit of new functionality maps
+Enumerated against `git diff origin/main`: every unit of new functionality maps
 to a covering test. **Zero gaps.**
 
 | Functionality | Covering test(s) |

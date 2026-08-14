@@ -70,15 +70,15 @@ services:
       - ./eventhubs-config.json:/Eventhubs_Emulator/ConfigFiles/Config.json  # bind mount
 ```
 
-- **`volumes`** — named volumes and bind mounts (bind paths resolve relative to
+- **`volumes`**: named volumes and bind mounts (bind paths resolve relative to
   the project directory).
-- **`command`** — string or array; overrides the image's default command.
-- **`pull_policy`** — `missing` / `always` / `never`.
-- **Multi-port** — every port in `ports` is published.
-- **Networking** — all container services share a project network and resolve
+- **`command`**: string or array; overrides the image's default command.
+- **`pull_policy`**: `missing` / `always` / `never`.
+- **Multi-port**: every port in `ports` is published.
+- **Networking**: all container services share a project network and resolve
   each other by service name (`BLOB_SERVER: azurite`). See the
   [Container Networking](../schema/azure.yaml.md#container-networking) reference.
-- **`uses`** — health-gated startup ordering (Compose `depends_on: service_healthy`).
+- **`uses`**: health-gated startup ordering (Compose `depends_on: service_healthy`).
 
 ## Behavior
 

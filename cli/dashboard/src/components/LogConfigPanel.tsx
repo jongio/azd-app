@@ -76,7 +76,7 @@ export function LogConfigPanel({
   // Close on Escape
   useEscapeKey(onClose, isOpen)
 
-  // Fetch data when panel opens — render-time reset
+  // Fetch data when panel opens, render-time reset
   const [prevIsOpen, setPrevIsOpen] = React.useState(isOpen)
   if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen)
@@ -87,7 +87,7 @@ export function LogConfigPanel({
     }
   }
 
-  // Sync local state with fetched config — render-time reset
+  // Sync local state with fetched config, render-time reset
   const [prevConfig, setPrevConfig] = React.useState(config)
   if (config !== prevConfig) {
     setPrevConfig(config)

@@ -27,7 +27,7 @@ const (
 
 // DetectServiceRuntime determines how to run a service based on its configuration and project structure.
 func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int]bool, azureYamlDir string, runtimeMode string) (*ServiceRuntime, error) {
-	// Container services (image/docker.image) run as containers — UNLESS the
+	// Container services (image/docker.image) run as containers, UNLESS the
 	// service opts into running as a local process via an explicit local
 	// `command` or `type: process`. In that case its `docker.*`/image is
 	// deploy-only and `azd app run` runs the command as a process.
@@ -170,8 +170,8 @@ func DetectServiceRuntime(serviceName string, service Service, usedPorts map[int
 	}
 
 	// Copy environment variables from service config. A service run as a local
-	// process — including a docker/appservice/containerapp service routed to a
-	// local `command` or `type: process` (RunsAsLocalProcess) — must still
+	// process, including a docker/appservice/containerapp service routed to a
+	// local `command` or `type: process` (RunsAsLocalProcess), must still
 	// receive its azure.yaml `environment:` block. Orchestration resolves each
 	// service's effective env from runtime.Env (see orchestrator.go), so without
 	// this the block (e.g. APP_BASE_URL, NODE_ENV, POSTGRES_URL) is silently

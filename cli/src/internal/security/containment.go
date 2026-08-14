@@ -69,14 +69,14 @@ func ValidatePathContainment(path, baseDir string) (string, error) {
 	// Follow symlinks when the path already exists so that symlink-based
 	// escapes (e.g. a symlink inside baseDir pointing outside it) are caught.
 	// For paths that do not yet exist (service project dirs to be created),
-	// resolve symlinks on the parent directory only — this handles the macOS
+	// resolve symlinks on the parent directory only; this handles the macOS
 	// /var → /private/var symlink that would otherwise cause a false mismatch.
 	if realPath, symlinkErr := filepath.EvalSymlinks(absPath); symlinkErr == nil {
 		absPath = realPath
 	} else if !os.IsNotExist(symlinkErr) {
 		return "", fmt.Errorf("cannot resolve symbolic links for %q: %w", path, symlinkErr)
 	} else {
-		// Path doesn't exist — resolve parent to normalise platform symlinks.
+		// Path doesn't exist, so resolve parent to normalise platform symlinks.
 		parent := filepath.Dir(absPath)
 		if realParent, parentErr := filepath.EvalSymlinks(parent); parentErr == nil {
 			absPath = filepath.Join(realParent, filepath.Base(absPath))
@@ -86,7 +86,7 @@ func ValidatePathContainment(path, baseDir string) (string, error) {
 	// --- Containment check via filepath.Rel ---
 	// filepath.Rel(base, path) returns ".." or a string starting with "../"
 	// ("..\" on Windows) whenever path is outside base.  This is the
-	// authoritative check — it works correctly even when no ".." literals
+	// authoritative check; it works correctly even when no ".." literals
 	// appear in the individual inputs.
 	rel, relErr := filepath.Rel(absBase, absPath)
 	if relErr != nil {

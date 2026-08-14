@@ -10,12 +10,12 @@ paths:
 
 suites:
   smoke:
-    description: "Quick routing checks — 1 stimulus per skill, runs: 1"
+    description: "Quick routing checks, 1 stimulus per skill, runs: 1"
     filter:
       tier: smoke
 
   pr:
-    description: "PR gate — smoke routing + basic generation"
+    description: "PR gate, smoke routing + basic generation"
     filter:
       tier: smoke
 
@@ -30,5 +30,5 @@ suites:
       type: integration
 
   full:
-    description: "All evals — nightly"
+    description: "All evals, nightly"
     filter: {}

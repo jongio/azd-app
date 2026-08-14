@@ -33,7 +33,7 @@ var ansiStripper = regexp.MustCompile(
 // sanitizeForLLM strips ANSI escape sequences and dangerous C0/C1 control
 // characters from s before it is included in an MCP tool response.
 //
-// Preserved: \t (0x09), \n (0x0A), \r (0x0D) — safe for LLM consumption.
+// Preserved: \t (0x09), \n (0x0A), \r (0x0D), safe for LLM consumption.
 // Stripped:  ANSI CSI/OSC/charset sequences; C0 control chars 0x00-0x08,
 // 0x0B, 0x0C, 0x0E-0x1F (includes bare ESC); C1 control chars 0x80-0x9F.
 func sanitizeForLLM(s string) string {
@@ -41,7 +41,7 @@ func sanitizeForLLM(s string) string {
 	s = ansiStripper.ReplaceAllString(s, "")
 
 	// Second pass: strip any remaining dangerous control characters.
-	// Allocate the same capacity as the input — common case is no stripping.
+	// Allocate the same capacity as the input; the common case is no stripping.
 	var b strings.Builder
 	b.Grow(len(s))
 	for _, r := range s {
@@ -119,7 +119,7 @@ func sanitizeAny(v any) any {
 		}
 		return result
 	default:
-		return val // nil, bool, float64 — no string content
+		return val // nil, bool, float64, no string content
 	}
 }
 
@@ -143,7 +143,7 @@ var sensitivePrefixes = []string{
 // pattern; otherwise it returns value unchanged.
 //
 // This function is used exclusively in MCP tool responses where the result
-// reaches an LLM context window. Full redaction is intentional — even a
+// reaches an LLM context window. Full redaction is intentional, even a
 // partial leak (e.g. first/last two chars) is unacceptable for LLM output.
 //
 // For CLI display, see redactSecretValue in core_helpers.go which applies
@@ -157,7 +157,7 @@ var sensitivePrefixes = []string{
 func redactEnvVarForMCP(key, value string) string {
 	upper := strings.ToUpper(key)
 
-	// Exact matches first — cheap O(1) check.
+	// Exact matches first, cheap O(1) check.
 	if upper == "PASSWORD" || upper == "SECRET" {
 		return redacted
 	}

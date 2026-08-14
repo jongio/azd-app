@@ -11,9 +11,9 @@ scope: P1
 
 Extend azd-app's **native container path** (services with an `image:`, launched via
 individual `docker run -d`) so a project can express a realistic multi-container
-local-development topology directly in `azure.yaml` — volumes, a run `command`,
+local-development topology directly in `azure.yaml`: volumes, a run `command`,
 multiple published ports, container-to-container name resolution, and image
-pull policy — without falling back to a hand-maintained `docker-compose.yml`.
+pull policy, without falling back to a hand-maintained `docker-compose.yml`.
 
 ## Background
 
@@ -39,7 +39,7 @@ project) can adopt `azd app run` for local dev.
 
 ## Goals
 
-1. Support `volumes:` on container services — named volumes and bind mounts,
+1. Support `volumes:` on container services, named volumes and bind mounts,
    with relative bind paths resolved against the project directory.
 2. Pass a container `command:` (string **or** array) through to `docker run`.
 3. Publish **all** ports listed for a container service, not just the primary.
@@ -56,7 +56,7 @@ project) can adopt `azd app run` for local dev.
   the port manager, health checks, log streaming, dashboard, and `azd app add`
   continue to work unchanged.
 - **No local image build.** `azd app run` does not `docker build` a service's
-  Dockerfile — that would reimplement Docker Compose. Deploy images are built by
+  Dockerfile, because that would reimplement Docker Compose. Deploy images are built by
   `azd deploy`; for local dev a service runs from source as a process (see the
   local process override in Design §6).
 - **No new `depends_on` field.** The orchestrator already builds a dependency
@@ -82,13 +82,13 @@ Add `Volumes []string` to `Service` / `serviceRaw` / `ServiceRuntime` and
 
 Classification of each `volumes:` entry:
 
-- **Named volume** — `name:/container/path` where the left side is a bare
+- **Named volume**: `name:/container/path` where the left side is a bare
   volume name (`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`). Passed through unchanged;
   Docker auto-creates it.
-- **Bind mount** — left side is a path (`.`, `..`, `/`, `~`, or a Windows drive
+- **Bind mount**: left side is a path (`.`, `..`, `/`, `~`, or a Windows drive
   like `C:\`). The host side is resolved to an **absolute** path relative to the
   project directory before being passed to Docker.
-- **Anonymous volume** — a single `/container/path` with no `:` host side.
+- **Anonymous volume**: a single `/container/path` with no `:` host side.
 
 Each entry is passed to `docker run -v` as a discrete argv element (never through
 a shell) and validated to reject empty, oversized, or control-character specs, so
@@ -120,13 +120,13 @@ they can resolve each other by service name (compose-equivalent).
 - **Creation**: idempotent `EnsureNetwork` (`docker network create`, tolerating
   "already exists") performed by each container as it starts. Safe under
   parallel level startup because the "already exists" error is treated as
-  success — no serialization needed.
+  success, no serialization needed.
 - **Attachment**: each container runs with `--network <net>` and
   `--network-alias <serviceName>`, so `BLOB_SERVER: azurite` resolves to the
   azurite container regardless of its `azd-<name>` container name. A **reused**
   (already-running) container is (idempotently) connected to the network with
   the same alias so DNS works after a fast restart.
-- **Lifecycle**: azd-app container services are **persistent** — `azd app stop`
+- **Lifecycle**: azd-app container services are **persistent**, so `azd app stop`
   and Ctrl+C run a graceful shutdown that leaves running containers in place
   (`shutdownAllServices` stops only OS processes; containers are reused on the
   next `azd app run`). The network therefore **persists with its containers** and
@@ -143,10 +143,10 @@ they can resolve each other by service name (compose-equivalent).
 Add `pull_policy` (`missing` | `always` | `never`) to gate the existing
 `client.Pull()` call:
 
-- `missing` (recommended for pinned emulator images) — pull only if the image
+- `missing` (recommended for pinned emulator images): pull only if the image
   is not present locally.
-- `always` — always pull; the container fails to start if the pull fails.
-- `never` — never pull; fail only if the image is absent at `docker run` time.
+- `always`: always pull; the container fails to start if the pull fails.
+- `never`: never pull; fail only if the image is absent at `docker run` time.
 - **Default (unset)** preserves today's behavior (attempt pull, tolerate
   failure, continue with cached image).
 
@@ -171,10 +171,10 @@ to run the service as a **process**, using `docker.*`/`image` only for
 - A service whose container-ness comes from **`docker.*`** (a build-and-deploy
   service) runs as a **process** when it has a local `command`/`type: process`.
 - A `docker.*` service **without** a local command keeps today's container
-  (pull) behavior — this is backward compatible.
+  (pull) behavior; this is backward compatible.
 
 This is a routing rule only (`Service.RunsAsLocalProcess()`), not a local image
-build — building the Dockerfile locally would reimplement Docker Compose and is
+build; building the Dockerfile locally would reimplement Docker Compose and is
 explicitly out of scope.
 
 ### 7. `azd app test` for explicit-command services
@@ -193,7 +193,7 @@ language**:
   reports pass/fail from the process **exit code**.
 - `azd app test` with no `--type` (i.e. `all`) **runs each explicitly-configured
   type** (unit, then integration, then e2e) and aggregates, instead of falling
-  back to the framework's default command — so the declared commands are always
+  back to the framework's default command, so the declared commands are always
   the ones executed. `--type unit|integration|e2e` runs just that command.
 - Services **without** an explicit `test:` block are unchanged: language
   auto-detection still applies, and container/emulator services without a suite
@@ -203,8 +203,8 @@ language**:
 
 A monorepo commonly points several services at one directory (e.g. `project: .`
 on each, backed by a single root `package.json`). The deps step collected one
-install task **per service**, so the same directory was installed — and rendered
-as its own progress bar — once per service (N identical `website (npm)` bars).
+install task **per service**, so the same directory was installed, and rendered
+as its own progress bar, once per service (N identical `website (npm)` bars).
 Project collection (`detectProjectsFromAzureYaml`) now **dedupes by resolved
 project directory**, so a shared directory is collected, installed, and shown
 **once**. `azd app deps --dry-run` and `azd app run`'s install phase are
@@ -212,7 +212,7 @@ consistent.
 
 To keep it clear that the single install covers **all** the services (not just
 the directory), the install line is **labeled with the service names** that
-share the directory — e.g. `web, ingest, +6 more (npm)` (sorted, truncated for
+share the directory, e.g. `web, ingest, +6 more (npm)` (sorted, truncated for
 readability). A directory used by a single service keeps its default
 directory-name label (no change).
 
@@ -225,11 +225,11 @@ ignored the stream. That mislabeled lines two ways: a JSON log like
 dropped to `DEBUG`, while an unstructured stderr diagnostic (`​.env not found`)
 with no keyword defaulted to `INFO`. The classifier now:
 
-- **honors structured logs** — a JSON line with a `level`/`severity` field uses
+- **honors structured logs**: a JSON line with a `level`/`severity` field uses
   that level (the emitter's own classification wins);
 - uses **word-boundary** keyword matching, so identifiers (`errorReporter`,
   `trace_worker`) no longer misfire;
-- is **stream-aware** — an unclassified **stderr** line surfaces as `WARN`
+- is **stream-aware**: an unclassified **stderr** line surfaces as `WARN`
   (where programs write diagnostics) instead of `INFO`.
 
 ## Risks / trade-offs
@@ -237,7 +237,7 @@ with no keyword defaulted to `INFO`. The classifier now:
 - **Network lifecycle**: the network must be created idempotently (parallel
   startup) and cleaned up best-effort (a leftover empty network is harmless and
   reused next run). Container **reuse** (an already-running container) must not
-  be broken by network changes — reused containers are assumed already attached.
+  be broken by network changes; reused containers are assumed already attached.
 - **Arg injection**: volumes and command introduce user-controlled `docker run`
   arguments. Each is validated and passed as discrete `exec` argv elements
   (never a shell string), consistent with the existing G204-scoped exec pattern.
@@ -247,38 +247,38 @@ with no keyword defaulted to `INFO`. The classifier now:
 
 ## Acceptance criteria
 
-- **AC1** — `volumes:` supports named volumes and bind mounts; relative bind
+- **AC1**: `volumes:` supports named volumes and bind mounts; relative bind
   paths resolve against the project dir; entries are injection-safe.
-- **AC2** — container `command:` accepts string and array forms; tokens reach
+- **AC2**: container `command:` accepts string and array forms; tokens reach
   `docker run`.
-- **AC3** — every `ports:` entry is published for a container service.
-- **AC4** — container services share a per-project network (created
+- **AC3**: every `ports:` entry is published for a container service.
+- **AC4**: container services share a per-project network (created
   idempotently); a container can reach another by service name; a reused
   container is reconnected with its alias; single-container projects still work;
   the network is safely reused across runs (persists with its containers).
-- **AC5** — `pull_policy: missing|always|never` gates image pulls; unset
+- **AC5**: `pull_policy: missing|always|never` gates image pulls; unset
   preserves current behavior.
-- **AC6** — `uses` still health-gates startup ordering (regression).
-- **AC7** — v1.1 JSON schema + CLI/web docs document volumes, array command,
+- **AC6**: `uses` still health-gates startup ordering (regression).
+- **AC7**: v1.1 JSON schema + CLI/web docs document volumes, array command,
   multi-port, pull_policy, and container networking.
-- **AC8** — the website's 3-container topology (postgres + azurite +
+- **AC8**: the website's 3-container topology (postgres + azurite +
   eventhubs) starts under `azd app run` (end-to-end validation).
-- **AC9** — a service with `docker.*`/`image` **and** an explicit local
+- **AC9**: a service with `docker.*`/`image` **and** an explicit local
   `command`/`type: process` runs as a **process** under `azd app run` (its
   `docker.*` stays deploy-only); a `docker.*` service **without** a local command
   is unchanged (still a container). No local image build is performed.
-- **AC10** — a service whose `language` isn't a recognized test language (e.g.
+- **AC10**: a service whose `language` isn't a recognized test language (e.g.
   `docker`) but which declares an explicit `test.<type>.command` is testable
   under `azd app test`; the runner is selected from `framework`; `--type all`
   runs each configured type and aggregates; services without a `test:` block are
   unaffected (auto-detection unchanged).
-- **AC11** — when several services share one resolved `project` directory, deps
+- **AC11**: when several services share one resolved `project` directory, deps
   collection yields a single install task for it (one progress bar, one install),
   and that line is **labeled with the service names** it covers (sorted,
   truncated, e.g. `web, ingest, +6 more (npm)`); a single-service directory keeps
   its directory-name label; `azd app deps --dry-run` and the `azd app run` install
   phase agree; distinct directories and package managers remain separate.
-- **AC12** — service-log level classification honors an explicit `level`/
+- **AC12**: service-log level classification honors an explicit `level`/
   `severity` on a structured (JSON) line; keyword detection is whole-word (no
   identifier misfires); an unclassified stderr line is `WARN`, an unclassified
   stdout line is `INFO`.
@@ -302,15 +302,15 @@ website's dev stack under `azd app run` (dev config mirroring `compose.dev.yml`)
   in review: subdir network-name derivation, and array-command on process
   services).
 - Note (pre-existing, out of scope): `azd app run --detach` exits silently on
-  Windows (empty run.log) — unrelated to this change (`run_detach.go`).
+  Windows (empty run.log), unrelated to this change (`run_detach.go`).
 
 ### Deferred (follow-up)
 - **Container-exec health checks** (`healthcheck.test: ["CMD-SHELL", ...]`) that run
-  *inside* a container via `docker exec` are not yet honored — container health uses
+  *inside* a container via `docker exec` are not yet honored; container health uses
   host-side TCP/HTTP checks against the published port. This is adequate for the
   emulators in scope (they open their ports when ready), and `uses` health-gating
   works on that signal. A dedicated follow-up can add a `container-exec` health type.
-- **Command tokenizer consolidation** — `parseCommandLine` is a third copy of a
+- **Command tokenizer consolidation**: `parseCommandLine` is a third copy of a
   quote-aware splitter (the `testing` package has two). Consolidating into a shared
   `internal` util is a low-risk cleanup deferred to avoid touching unrelated
   test-infra code in this PR.
@@ -319,6 +319,6 @@ website's dev stack under `azd app run` (dev config mirroring `compose.dev.yml`)
 Volume/command/network/pull_policy values flow to `docker run` as **discrete argv**
 (never a shell), and the image positional is validated to not start with `-`, so
 shell- and flag-injection are neutralized (security review: no findings). Bind mounts
-to **absolute** host paths are intentionally allowed — the same trust model as
+to **absolute** host paths are intentionally allowed; the same trust model as
 `docker compose` for a developer-authored `azure.yaml`. Relative binds that escape the
 project directory are rejected.

@@ -54,7 +54,7 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 		return "", nil, newProjectNotFoundError()
 	}
 
-	// Validate path to azure.yaml — enforce containment within cwd so a
+	// Validate path to azure.yaml, enforce containment within cwd so a
 	// crafted detector result cannot point outside the project tree (CWE-22).
 	if _, err := internalsec.ValidatePathContainment(azureYamlPath, cwd); err != nil {
 		return "", nil, fmt.Errorf("invalid path: %w", err)
