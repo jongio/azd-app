@@ -78,7 +78,7 @@ Successfully migrated azd-app to use azd-core/testutil package, demonstrating pr
 
 ### What We Didn't Change
 - **t.TempDir()**: Go 1.16+ has built-in `t.TempDir()` which is the standard approach
-  - testutil.TempDir is available but not needed for azd-app (Go 1.25.5)
+  - testutil.TempDir is available but not needed for azd-app
   - Kept existing `t.TempDir()` usage unchanged
   
 - **FindTestData**: azd-app tests create fixtures with `t.TempDir()` rather than searching for test data directories
