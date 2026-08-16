@@ -60,11 +60,10 @@ c:\code\
 
 3. **Create a workspace using the installed Go toolchain**:
    ```bash
-   go work init
-   go work use ./azd-app/cli ./azd-core
+   go work init ./azd-app/cli ./azd-core
    ```
 
-   These commands generate a `go.work` directive compatible with both modules.
+   This command generates a `go.work` file whose `go` directive matches your installed toolchain, with `use` directives for both modules.
 
 ### Building and Testing
 

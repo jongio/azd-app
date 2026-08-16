@@ -36,6 +36,30 @@ jobs:
           # Full history so the merge base with the target branch resolves.
           fetch-depth: 0
 
+      - name: Guard Go version source
+        run: |
+          set -euo pipefail
+          set +e
+          matches="$(git grep -niE '(^|[^[:alnum:]_])go(([ _-]version[^0-9]*)|[[:space:]]+)1\.[0-9]+\.[0-9]+([^0-9]|$)' -- \
+            ':(glob)**/*.md' \
+            ':(glob).github/workflows/*.yml' \
+            ':(glob).github/workflows/*.yaml' \
+            ':(glob)web/src/pages/**/*.astro' \
+            ':(exclude,glob)**/CHANGELOG.md' \
+            ':(exclude,glob)web/src/pages/reference/changelog/**' \
+            ':(exclude,glob)web/src/pages/reference/whats-new/**')"
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "Hard-coded Go patch versions found. Reference cli/go.mod instead:"
+            echo "$matches"
+            exit 1
+          fi
+          if [ "$status" -ne 1 ]; then
+            echo "Failed to scan for hard-coded Go patch versions."
+            exit "$status"
+          fi
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
