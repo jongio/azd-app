@@ -384,3 +384,4 @@ jobs:
             cli/tests/projects/integration/health-test/*.log
             cli/.azure/**/*.log
           if-no-files-found: ignore
+
