@@ -46,6 +46,8 @@ jobs:
         with:
           path: ~/go/bin
           key: go-tools-${{ runner.os }}-${{ hashFiles('cli/go.mod') }}
+          restore-keys: |
+            go-tools-${{ runner.os }}-
 
       - name: Verify Go version
         run: go version

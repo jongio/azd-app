@@ -46,6 +46,7 @@ jobs:
             ':(glob).github/workflows/*.yaml' \
             ':(glob)web/src/pages/**/*.astro' \
             ':(exclude,glob)**/CHANGELOG.md' \
+            ':(exclude)docs/task-4-completion-report.md' \
             ':(exclude,glob)web/src/pages/reference/changelog/**' \
             ':(exclude,glob)web/src/pages/reference/whats-new/**')"
           status=$?

@@ -51,6 +51,8 @@ jobs:
         with:
           path: ~/go/bin
           key: go-tools-${{ runner.os }}-${{ hashFiles('cli/go.mod') }}
+          restore-keys: |
+            go-tools-${{ runner.os }}-
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -382,4 +384,3 @@ jobs:
             cli/tests/projects/integration/health-test/*.log
             cli/.azure/**/*.log
           if-no-files-found: ignore
-

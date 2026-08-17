@@ -5,7 +5,7 @@ This devcontainer provides a complete development environment for the App Extens
 ## What's Included
 
 ### Languages & Runtimes
-- **Go 1.26** (latest patch) - Primary development language
+- **Go 1.26 image channel** - Tracks Microsoft's latest published 1.26 patch. Go commands automatically resolve the exact version declared in [`cli/go.mod`](../cli/go.mod).
 - **Node.js LTS** - For Node.js project testing
 - **Python 3.12** - For Python project testing
 - **.NET 8.0** - For .NET and Aspire project testing
