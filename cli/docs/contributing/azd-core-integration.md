@@ -42,7 +42,7 @@ c:\code\
 
 ### Prerequisites
 
-- Go 1.25.5 or later
+- The Go version declared in [`../../go.mod`](../../go.mod) or later
 - Azure CLI (`az` command available)
 
 ### Initial Setup
@@ -58,15 +58,12 @@ c:\code\
    cd c:\code
    ```
 
-3. **The `go.work` file automatically enables the workspace**:
+3. **Create a workspace using the installed Go toolchain**:
+   ```bash
+   go work init ./azd-app/cli ./azd-core
    ```
-   go 1.25.5
-   
-   use (
-       ./azd-app/cli
-       ./azd-core
-   )
-   ```
+
+   This command generates a `go.work` file whose `go` directive matches your installed toolchain, with `use` directives for both modules.
 
 ### Building and Testing
 

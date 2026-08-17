@@ -21,9 +21,6 @@ defaults:
     shell: bash
     working-directory: cli
 
-env:
-  GO_VERSION: '1.26.5'
-
 jobs:
   preflight:
     name: Preflight Checks
@@ -40,7 +37,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '${{ env.GO_VERSION }}'
+          go-version-file: cli/go.mod
           cache: true
           cache-dependency-path: cli/go.sum
 
@@ -48,7 +45,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/go/bin
-          key: go-tools-${{ runner.os }}-${{ env.GO_VERSION }}
+          key: go-tools-${{ runner.os }}-${{ hashFiles('cli/go.mod') }}
+          restore-keys: |
+            go-tools-${{ runner.os }}-
 
       - name: Verify Go version
         run: go version
@@ -113,7 +112,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '${{ env.GO_VERSION }}'
+          go-version-file: cli/go.mod
           cache: true
           cache-dependency-path: cli/go.sum
 
@@ -171,7 +170,7 @@ jobs:
         with:
           files: coverage/coverage.out
           flags: unittests
-          name: codecov-${{ matrix.os }}-go-${{ env.GO_VERSION }}
+          name: codecov-${{ matrix.os }}
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
           verbose: true
@@ -210,7 +209,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '${{ env.GO_VERSION }}'
+          go-version-file: cli/go.mod
           cache: true
           cache-dependency-path: cli/go.sum
 
