@@ -9,25 +9,52 @@ on:
     paths:
       - 'cli/**'
       - '.github/workflows/latest.yml'
+      - 'scripts/publish-latest-release.sh'
+      - 'scripts/test-publish-latest-release.sh'
+      - 'scripts/testdata/fake-gh.sh'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/latest.yml'
+      - 'scripts/publish-latest-release.sh'
+      - 'scripts/test-publish-latest-release.sh'
+      - 'scripts/testdata/fake-gh.sh'
   workflow_dispatch:
 
-concurrency:
-  group: latest-build
-  cancel-in-progress: false
-
 permissions:
-  contents: write
-
-defaults:
-  run:
-    shell: bash
-    working-directory: cli
+  contents: read
 
 jobs:
+  verify:
+    name: Verify Latest Workflow
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install actionlint
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+      - name: Lint workflows
+        run: actionlint -ignore 'unknown permission scope "copilot-requests"'
+
+      - name: Test latest release publisher
+        run: bash scripts/test-publish-latest-release.sh
+
   build:
     name: Build Latest
+    if: github.event_name != 'pull_request'
+    needs: [verify]
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: latest-build
+      cancel-in-progress: true
+    defaults:
+      run:
+        shell: bash
+        working-directory: cli
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -73,117 +100,55 @@ jobs:
         run: azd x pack
 
       - name: Prepare release assets
-        id: assets
         run: |
-          echo "sha_short=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
-          echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
-          # List what was built
           echo "=== Build output ==="
           find output/ -type f 2>/dev/null || find bin/ -type f 2>/dev/null || echo "No output found"
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: latest-release-assets
+          path: cli/bin/
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish Latest
+    if: github.event_name != 'pull_request'
+    needs: [verify, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: latest-publish
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: latest-release-assets
+          path: release-assets
+
+      - name: Recover interrupted publication
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: bash scripts/publish-latest-release.sh recover
 
       - name: Update latest release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        working-directory: .
+          REPO: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          BUILD_DATE: ${{ github.event.head_commit.timestamp }}
         run: |
-          SHA_SHORT="${{ steps.assets.outputs.sha_short }}"
-          BUILD_DATE="${{ steps.assets.outputs.date }}"
-          
-          cat > /tmp/release-notes.md << EOF
-          ## Latest Build from main
-
-          **Commit:** [${SHA_SHORT}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-          **Built:** ${BUILD_DATE}
-
-          ---
-
-          > ⚠️ This is an automatically-built pre-release from the main branch.
-          > It may contain bugs. For stable releases, see the [Releases page](https://github.com/${{ github.repository }}/releases).
-
-          ### Install
-
-          azd extension install jongio.azd.app --version latest
-          EOF
-
-          # Collect assets into an array
           shopt -s nullglob
-          FILES=(cli/bin/*)
-          if [ ${#FILES[@]} -eq 0 ]; then
-            echo "No assets in cli/bin/, trying cli/output/..."
-            FILES=(cli/output/*)
-          fi
-
-          echo "Found ${#FILES[@]} asset(s)"
-          printf '  %s\n' "${FILES[@]}"
-
-          if [ ${#FILES[@]} -eq 0 ]; then
-            echo "No release assets were built." >&2
-            exit 1
-          fi
-
-          STAGING_TAG="latest-staging-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          CUTOVER_STARTED=false
-          cleanup_staging_release() {
-            if [ "$CUTOVER_STARTED" = true ]; then
-              echo "Cutover failed; retaining draft release $STAGING_TAG for recovery." >&2
-              return
-            fi
-            gh release delete "$STAGING_TAG" \
-              --repo "${{ github.repository }}" \
-              --yes \
-              --cleanup-tag \
-              >/dev/null 2>&1 || true
-          }
-          trap cleanup_staging_release EXIT
-
-          gh release create "$STAGING_TAG" "${FILES[@]}" \
-            --repo "${{ github.repository }}" \
-            --title "Latest Build (${SHA_SHORT})" \
-            --notes-file /tmp/release-notes.md \
-            --draft \
-            --target "${{ github.sha }}"
-
-          set +e
-          release_lookup="$(gh api "repos/${{ github.repository }}/releases/tags/latest" --jq '.id' 2>&1)"
-          release_status=$?
-          set -e
-
-          if [ "$release_status" -eq 0 ]; then
-            CUTOVER_STARTED=true
-            gh release delete latest \
-              --repo "${{ github.repository }}" \
-              --yes
-          elif ! printf '%s' "$release_lookup" | grep -q '(HTTP 404)'; then
-            echo "Failed to inspect the existing latest release:" >&2
-            printf '%s\n' "$release_lookup" >&2
-            exit "$release_status"
-          fi
-
-          # Delete a surviving tag when the release was already absent or tag cleanup was incomplete.
-          set +e
-          tag_lookup="$(gh api "repos/${{ github.repository }}/git/ref/tags/latest" --jq '.ref' 2>&1)"
-          tag_status=$?
-          set -e
-
-          if [ "$tag_status" -eq 0 ]; then
-            CUTOVER_STARTED=true
-            gh api --method DELETE \
-              "repos/${{ github.repository }}/git/refs/tags/latest"
-          elif ! printf '%s' "$tag_lookup" | grep -q '(HTTP 404)'; then
-            echo "Failed to inspect the existing latest tag:" >&2
-            printf '%s\n' "$tag_lookup" >&2
-            exit "$tag_status"
-          fi
-
-          CUTOVER_STARTED=true
-          gh release edit "$STAGING_TAG" \
-            --repo "${{ github.repository }}" \
-            --tag latest \
-            --title "Latest Build (${SHA_SHORT})" \
-            --notes-file /tmp/release-notes.md \
-            --draft=false \
-            --prerelease \
-            --target "${{ github.sha }}"
-          trap - EXIT
-          
-          echo "✅ Latest release updated: https://github.com/${{ github.repository }}/releases/tag/latest"
+          files=(release-assets/*)
+          bash scripts/publish-latest-release.sh publish "${files[@]}"
