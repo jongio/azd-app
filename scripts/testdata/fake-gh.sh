@@ -5,9 +5,27 @@ set -euo pipefail
 command_text="$*"
 printf '%s\n' "$command_text" >>"$FAKE_LOG"
 if [[ -n "${FAIL_MATCH:-}" && "$command_text" == *"$FAIL_MATCH"* && ! -f "$FAKE_STATE/failure-used" ]]; then
-  touch "$FAKE_STATE/failure-used"
-  echo "injected failure" >&2
+  failure_match_count=0
+  if [[ -f "$FAKE_STATE/failure-match-count" ]]; then
+    read -r failure_match_count <"$FAKE_STATE/failure-match-count"
+  fi
+  failure_match_count=$((failure_match_count + 1))
+  printf '%s' "$failure_match_count" >"$FAKE_STATE/failure-match-count"
+  if [[ "$failure_match_count" -eq "${FAIL_MATCH_OCCURRENCE:-1}" ]]; then
+    touch "$FAKE_STATE/failure-used"
+    echo "injected failure" >&2
+    exit 1
+  fi
+fi
+if [[ -n "${POST_EDIT_FAIL_MATCH:-}" &&
+      -f "$FAKE_STATE/promotion-applied" &&
+      "$command_text" == *"$POST_EDIT_FAIL_MATCH"* ]]; then
+  echo "injected post-edit failure" >&2
   exit 1
+fi
+if [[ -n "${PAUSE_MATCH:-}" && "$command_text" == *"$PAUSE_MATCH"* ]]; then
+  touch "$FAKE_STATE/pause-started"
+  sleep 1
 fi
 
 release_dir() {
@@ -20,6 +38,9 @@ api_status() {
   case "$endpoint" in
     repos/*/releases/tags/*)
       path="$(release_dir "${endpoint##*/}")"
+      if [[ -e "$path" && "$(cat "$path/draft")" == true ]]; then
+        path=
+      fi
       ;;
     repos/*/git/ref/tags/*)
       path="$FAKE_STATE/tags/${endpoint##*/}"
@@ -37,15 +58,23 @@ if [[ "$1" == api ]]; then
   shift
   if [[ "$1" == --include ]]; then
     shift 2
+    if [[ -n "${HTTP_FAIL_MATCH:-}" && "$1" == *"$HTTP_FAIL_MATCH"* ]]; then
+      printf 'HTTP/2.0 500 Internal Server Error\n'
+      exit 1
+    fi
     api_status "$1"
     exit
   fi
   if [[ "$1" == --paginate ]]; then
+    expected_filter='.[] | select(.draft and ((.tag_name | startswith("latest-staging-")) or (.tag_name | startswith("latest-backup-")))) | [.created_at, .tag_name, .target_commitish] | @tsv'
+    [[ "$2" == "repos/example/repo/releases?per_page=100" ]]
+    [[ "$3" == --jq ]]
+    [[ "$4" == "$expected_filter" ]]
     find "$FAKE_STATE/releases" -mindepth 1 -maxdepth 1 -type d \
       | while read -r dir; do
           tag="$(basename "$dir")"
-          if [[ "$(cat "$dir/draft")" == true && "$tag" == latest-* ]]; then
-            printf '2026-08-17T00:00:00Z\t%s\n' "$tag"
+          if [[ "$(cat "$dir/draft")" == true && ("$tag" == latest-staging-* || "$tag" == latest-backup-*) ]]; then
+            printf '2026-08-17T00:00:00Z\t%s\t%s\n' "$tag" "$(cat "$dir/sha")"
           fi
         done
     exit
@@ -71,6 +100,7 @@ if [[ "$1" == api ]]; then
       ;;
     repos/*/releases/tags/*)
       dir="$(release_dir "${endpoint##*/}")"
+      [[ "$(cat "$dir/draft")" == false ]]
       case "$jq_filter" in
         '.target_commitish') cat "$dir/sha" ;;
         '.name // "Latest Build"') cat "$dir/title" ;;
@@ -110,6 +140,9 @@ if [[ "$1" == release ]]; then
       printf '%s' "$target" >"$dir/sha"
       printf '%s' "$title" >"$dir/title"
       if [[ -n "$notes" ]]; then cp "$notes" "$dir/body"; else : >"$dir/body"; fi
+      if [[ -n "${ADVANCE_MAIN_MATCH:-}" && "$command_text" == *"$ADVANCE_MAIN_MATCH"* ]]; then
+        printf 'newer-sha' >"$FAKE_STATE/main-sha"
+      fi
       ;;
     edit)
       new_tag=
@@ -124,6 +157,7 @@ if [[ "$1" == release ]]; then
       mv "$dir" "$(release_dir "$new_tag")"
       printf 'false' >"$(release_dir "$new_tag")/draft"
       printf '%s' "$target" >"$FAKE_STATE/tags/$new_tag"
+      touch "$FAKE_STATE/promotion-applied"
       ;;
     delete)
       rm -rf "$(release_dir "$tag")"

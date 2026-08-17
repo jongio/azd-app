@@ -352,15 +352,24 @@ func buildAllPlatforms() error {
 	return nil
 }
 
-// Test runs unit tests only (with -short flag).
+// Test runs unit tests and the latest release publisher harness.
 func Test() error {
+	mg.Deps(DashboardBuild)
+
 	fmt.Println("Running unit tests...")
 	// Use full module path in workspace mode
 	pkgPath := goSrcPattern
 	if _, err := os.Stat("../go.work"); err == nil {
 		pkgPath = "github.com/jongio/azd-app/cli/src/..."
 	}
-	return sh.RunV("go", "test", "-v", "-short", pkgPath)
+	if err := sh.RunV("go", "test", "-v", "-short", pkgPath); err != nil {
+		return err
+	}
+	if _, err := exec.LookPath("bash"); err != nil {
+		fmt.Println("Warning: bash not installed; skipping latest release publisher harness")
+		return nil
+	}
+	return sh.RunV("bash", "../scripts/test-publish-latest-release.sh")
 }
 
 // TestIntegration runs integration tests only.
@@ -1555,9 +1564,15 @@ func preflightDeadcode() error {
 	return nil
 }
 
-// dashboardInstall runs pnpm install for the dashboard project.
+// dashboardInstall installs dashboard dependencies without changing the lockfile.
 func dashboardInstall() error {
-	return runQuiet("pnpm", "install", "--dir", dashboardDir)
+	args := []string{"install", "--dir", dashboardDir}
+	if _, err := os.Stat(filepath.Join(dashboardDir, "pnpm-lock.yaml")); err == nil {
+		args = append(args, "--frozen-lockfile")
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to inspect dashboard lockfile: %w", err)
+	}
+	return runQuiet("pnpm", args...)
 }
 
 // dashboardBuildOnly builds the dashboard without running pnpm install.
@@ -2316,7 +2331,7 @@ func DashboardBuild() error {
 
 	// Install dependencies
 	fmt.Println("Installing dashboard dependencies...")
-	if err := sh.RunV("pnpm", "install", "--dir", dashboardDir); err != nil {
+	if err := dashboardInstall(); err != nil {
 		return fmt.Errorf(errPnpmFailedFmt, err)
 	}
 

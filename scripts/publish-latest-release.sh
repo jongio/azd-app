@@ -6,12 +6,18 @@ readonly REPO="${REPO:?REPO is required}"
 readonly GITHUB_SHA="${GITHUB_SHA:?GITHUB_SHA is required}"
 readonly STAGING_PREFIX="latest-staging-"
 readonly BACKUP_PREFIX="latest-backup-"
+readonly MAIN_TIP_STALE_STATUS=10
+readonly MAIN_TIP_API_FAILURE_STATUS=11
 
 HTTP_STATUS=
 WORK_DIR=
 STAGING_TAG=
 BACKUP_TAG=
+BACKUP_TARGET=
 CUTOVER_STARTED=false
+REMOTE_PROMOTION_APPLIED=false
+PROMOTION_IN_PROGRESS=false
+PENDING_SIGNAL_STATUS=0
 PUBLISH_COMPLETE=false
 LATEST_EXISTED=false
 
@@ -19,20 +25,30 @@ probe_api() {
   local endpoint="$1"
   local headers
   local errors
+  local result
   local status
+  local was_errexit=false
 
   headers="$(mktemp)"
   errors="$(mktemp)"
+  HTTP_STATUS=
+  [[ $- == *e* ]] && was_errexit=true
   set +e
   gh api --include --silent "$endpoint" >"$headers" 2>"$errors"
-  set -e
+  result=$?
+  if [[ "$was_errexit" == true ]]; then
+    set -e
+  fi
 
   status="$(awk 'NR == 1 && $1 ~ /^HTTP/ { print $2 }' "$headers")"
   if [[ ! "$status" =~ ^[0-9]{3}$ ]]; then
     echo "GitHub API request failed without an HTTP status: $endpoint" >&2
     cat "$errors" >&2
     rm -f "$headers" "$errors"
-    return 1
+    if [[ "$result" -eq 0 ]]; then
+      return 1
+    fi
+    return "$result"
   fi
 
   HTTP_STATUS="$status"
@@ -69,7 +85,7 @@ latest_tag_status() {
 
 list_recovery_artifacts() {
   gh api --paginate "repos/$REPO/releases?per_page=100" \
-    --jq '.[] | select(.draft and ((.tag_name | startswith("latest-staging-")) or (.tag_name | startswith("latest-backup-")))) | [.created_at, .tag_name] | @tsv' \
+    --jq '.[] | select(.draft and ((.tag_name | startswith("latest-staging-")) or (.tag_name | startswith("latest-backup-")))) | [.created_at, .tag_name, .target_commitish] | @tsv' \
     | sort -r
 }
 
@@ -79,38 +95,34 @@ delete_draft() {
 }
 
 prune_recovery_artifacts() {
-  local keep="${1:-}"
+  local artifacts
   local tag
 
-  while IFS=$'\t' read -r _ tag; do
-    if [[ -n "$tag" && "$tag" != "$keep" ]]; then
+  artifacts="$(list_recovery_artifacts)"
+  while IFS=$'\t' read -r _ tag _; do
+    if [[ -n "$tag" ]]; then
       echo "Deleting stale recovery draft $tag."
       delete_draft "$tag"
     fi
-  done < <(list_recovery_artifacts)
+  done <<<"$artifacts"
 }
 
 delete_latest_objects() {
-  latest_release_status
+  latest_release_status || return 1
   if [[ "$HTTP_STATUS" == 200 ]]; then
     echo "Deleting the current latest release."
-    gh release delete latest --repo "$REPO" --yes
+    gh release delete latest --repo "$REPO" --yes || return 1
   else
     echo "No latest release exists."
   fi
 
-  latest_tag_status
+  latest_tag_status || return 1
   if [[ "$HTTP_STATUS" == 200 ]]; then
     echo "Deleting the current latest tag."
-    gh api --method DELETE "repos/$REPO/git/refs/tags/latest"
+    gh api --method DELETE "repos/$REPO/git/refs/tags/latest" || return 1
   else
     echo "No latest tag exists."
   fi
-}
-
-release_target() {
-  local tag="$1"
-  gh api "repos/$REPO/releases/tags/$tag" --jq '.target_commitish'
 }
 
 verify_latest() {
@@ -139,13 +151,29 @@ verify_latest() {
 promote_draft() {
   local tag="$1"
   local expected_sha="$2"
+  local edit_result
 
   echo "Promoting recovery draft $tag to latest."
-  gh release edit "$tag" \
-    --repo "$REPO" \
-    --tag latest \
-    --draft=false \
-    --prerelease
+  PROMOTION_IN_PROGRESS=true
+  if gh release edit "$tag" \
+      --repo "$REPO" \
+      --tag latest \
+      --draft=false \
+      --prerelease; then
+    edit_result=0
+    REMOTE_PROMOTION_APPLIED=true
+  else
+    edit_result=$?
+  fi
+  PROMOTION_IN_PROGRESS=false
+
+  if [[ "$PENDING_SIGNAL_STATUS" -ne 0 ]]; then
+    exit "$PENDING_SIGNAL_STATUS"
+  fi
+  if [[ "$edit_result" -ne 0 ]]; then
+    return "$edit_result"
+  fi
+
   verify_latest "$expected_sha"
 }
 
@@ -153,9 +181,9 @@ select_recovery_artifact() {
   local artifacts="$1"
   local candidate
 
-  candidate="$(printf '%s\n' "$artifacts" | awk -F '\t' '$2 ~ /^latest-backup-/ { print $2; exit }')"
+  candidate="$(printf '%s\n' "$artifacts" | awk -F '\t' '$2 ~ /^latest-backup-/ { print; exit }')"
   if [[ -z "$candidate" ]]; then
-    candidate="$(printf '%s\n' "$artifacts" | awk -F '\t' '$2 ~ /^latest-staging-/ { print $2; exit }')"
+    candidate="$(printf '%s\n' "$artifacts" | awk -F '\t' -v sha="$GITHUB_SHA" '$2 ~ /^latest-staging-/ && $3 == sha { print; exit }')"
   fi
   printf '%s' "$candidate"
 }
@@ -163,6 +191,7 @@ select_recovery_artifact() {
 recover_latest() {
   local artifacts
   local candidate
+  local candidate_row
   local release_status
   local tag_status
   local target
@@ -178,26 +207,20 @@ recover_latest() {
   fi
 
   artifacts="$(list_recovery_artifacts)"
-  candidate="$(select_recovery_artifact "$artifacts")"
-  if [[ -z "$candidate" ]]; then
-    if [[ "$release_status" == 404 && "$tag_status" == 404 ]]; then
-      echo "No latest release or recovery draft exists."
-      return
+  candidate_row="$(select_recovery_artifact "$artifacts")"
+  if [[ -z "$candidate_row" ]]; then
+    if [[ "$release_status" == 200 || "$tag_status" == 200 ]]; then
+      echo "Removing incomplete latest state so the current build can republish it."
+      delete_latest_objects
+    else
+      echo "No latest release or matching recovery draft exists."
     fi
-    echo "The latest release is incomplete and no recovery draft exists." >&2
-    return 1
+    prune_recovery_artifacts
+    return
   fi
 
-  target="$(release_target "$candidate")"
-  if [[ "$release_status" == 200 ]]; then
-    echo "Deleting the incomplete latest release before recovery."
-    gh release delete latest --repo "$REPO" --yes
-  fi
-  if [[ "$tag_status" == 200 ]]; then
-    echo "Deleting the surviving latest tag before recovery."
-    gh api --method DELETE "repos/$REPO/git/refs/tags/latest"
-  fi
-
+  IFS=$'\t' read -r _ candidate target <<<"$candidate_row"
+  delete_latest_objects
   promote_draft "$candidate" "$target"
   prune_recovery_artifacts
   echo "Recovered the latest release from $candidate."
@@ -205,10 +228,14 @@ recover_latest() {
 
 assert_main_tip() {
   local main_sha
-  main_sha="$(gh api "repos/$REPO/git/ref/heads/main" --jq '.object.sha')"
+
+  if ! main_sha="$(gh api "repos/$REPO/git/ref/heads/main" --jq '.object.sha')"; then
+    echo "Failed to determine the current main tip." >&2
+    return "$MAIN_TIP_API_FAILURE_STATUS"
+  fi
   if [[ "$main_sha" != "$GITHUB_SHA" ]]; then
     echo "Skipping publication because main advanced to $main_sha."
-    return 1
+    return "$MAIN_TIP_STALE_STATUS"
   fi
 }
 
@@ -227,6 +254,7 @@ stage_backup() {
   fi
 
   backup_target="$(gh api "$(latest_tag_endpoint)" --jq '.object.sha')"
+  BACKUP_TARGET="$backup_target"
   backup_title="$(gh api "$(latest_release_endpoint)" --jq '.name // "Latest Build"')"
   gh api "$(latest_release_endpoint)" --jq '.body // ""' >"$backup_notes"
   asset_count="$(gh api "$(latest_release_endpoint)" --jq '.assets | length')"
@@ -253,10 +281,11 @@ restore_after_failure() {
 
   if [[ "$LATEST_EXISTED" == true ]]; then
     candidate="$BACKUP_TAG"
+    target="$BACKUP_TARGET"
   else
     candidate="$STAGING_TAG"
+    target="$GITHUB_SHA"
   fi
-  target="$(release_target "$candidate" 2>/dev/null || true)"
 
   echo "Cutover failed. Restoring latest from $candidate." >&2
   set +e
@@ -290,7 +319,10 @@ on_exit() {
     exit "$status"
   fi
 
-  if [[ "$CUTOVER_STARTED" == true ]]; then
+  if [[ "$REMOTE_PROMOTION_APPLIED" == true ]]; then
+    echo "Promotion succeeded, but completion could not be verified." >&2
+    echo "Preserving the promoted latest release and recovery artifacts." >&2
+  elif [[ "$CUTOVER_STARTED" == true ]]; then
     if ! restore_after_failure; then
       status=1
     fi
@@ -305,11 +337,22 @@ on_exit() {
   exit "$status"
 }
 
+on_signal() {
+  local status="$1"
+
+  if [[ "$PROMOTION_IN_PROGRESS" == true ]]; then
+    PENDING_SIGNAL_STATUS="$status"
+    return
+  fi
+  exit "$status"
+}
+
 publish_latest() {
   local -a files=("$@")
   local notes
   local short_sha="${GITHUB_SHA:0:7}"
   local build_date="${BUILD_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+  local main_tip_status
 
   if [[ "${#files[@]}" -eq 0 ]]; then
     echo "No release assets were provided." >&2
@@ -322,14 +365,22 @@ publish_latest() {
     fi
   done
 
-  if ! assert_main_tip; then
-    return
-  fi
+  main_tip_status=0
+  assert_main_tip || main_tip_status=$?
+  case "$main_tip_status" in
+    0) ;;
+    "$MAIN_TIP_STALE_STATUS") return 0 ;;
+    *) return "$main_tip_status" ;;
+  esac
 
   WORK_DIR="$(mktemp -d)"
   STAGING_TAG="${STAGING_PREFIX}${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}-${GITHUB_RUN_ATTEMPT:?GITHUB_RUN_ATTEMPT is required}"
   BACKUP_TAG="${BACKUP_PREFIX}${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
   notes="$WORK_DIR/release-notes.md"
+
+  trap on_exit EXIT
+  trap 'on_signal 130' INT
+  trap 'on_signal 143' TERM
 
   cat >"$notes" <<EOF
 ## Latest Build from main
@@ -339,10 +390,6 @@ publish_latest() {
 
 > This is an automatically built prerelease from the main branch.
 > It may contain bugs. For stable releases, see the [Releases page](https://github.com/$REPO/releases).
-
-### Install
-
-\`azd extension install jongio.azd.app --version latest\`
 EOF
 
   gh release create "$STAGING_TAG" "${files[@]}" \
@@ -352,10 +399,6 @@ EOF
     --draft \
     --target "$GITHUB_SHA"
 
-  trap on_exit EXIT
-  trap 'exit 130' INT
-  trap 'exit 143' TERM
-
   latest_release_status
   if [[ "$HTTP_STATUS" == 200 ]]; then
     LATEST_EXISTED=true
@@ -364,9 +407,13 @@ EOF
     echo "No latest release exists; the staged release is the recovery artifact."
   fi
 
-  if ! assert_main_tip; then
-    return
-  fi
+  main_tip_status=0
+  assert_main_tip || main_tip_status=$?
+  case "$main_tip_status" in
+    0) ;;
+    "$MAIN_TIP_STALE_STATUS") return 0 ;;
+    *) return "$main_tip_status" ;;
+  esac
 
   CUTOVER_STARTED=true
   delete_latest_objects
