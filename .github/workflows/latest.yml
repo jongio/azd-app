@@ -13,7 +13,7 @@ on:
 
 concurrency:
   group: latest-build
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -105,9 +105,6 @@ jobs:
           azd extension install jongio.azd.app --version latest
           EOF
 
-          # Delete existing latest release (if any) to recreate it
-          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
-          
           # Collect assets into an array
           shopt -s nullglob
           FILES=(cli/bin/*)
@@ -119,18 +116,74 @@ jobs:
           echo "Found ${#FILES[@]} asset(s)"
           printf '  %s\n' "${FILES[@]}"
 
-          if [ ${#FILES[@]} -gt 0 ]; then
-            gh release create latest "${FILES[@]}" \
-              --title "Latest Build (${SHA_SHORT})" \
-              --notes-file /tmp/release-notes.md \
-              --prerelease \
-              --target "${{ github.sha }}"
-          else
-            gh release create latest \
-              --title "Latest Build (${SHA_SHORT})" \
-              --notes-file /tmp/release-notes.md \
-              --prerelease \
-              --target "${{ github.sha }}"
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "No release assets were built." >&2
+            exit 1
           fi
+
+          STAGING_TAG="latest-staging-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          CUTOVER_STARTED=false
+          cleanup_staging_release() {
+            if [ "$CUTOVER_STARTED" = true ]; then
+              echo "Cutover failed; retaining draft release $STAGING_TAG for recovery." >&2
+              return
+            fi
+            gh release delete "$STAGING_TAG" \
+              --repo "${{ github.repository }}" \
+              --yes \
+              --cleanup-tag \
+              >/dev/null 2>&1 || true
+          }
+          trap cleanup_staging_release EXIT
+
+          gh release create "$STAGING_TAG" "${FILES[@]}" \
+            --repo "${{ github.repository }}" \
+            --title "Latest Build (${SHA_SHORT})" \
+            --notes-file /tmp/release-notes.md \
+            --draft \
+            --target "${{ github.sha }}"
+
+          set +e
+          release_lookup="$(gh api "repos/${{ github.repository }}/releases/tags/latest" --jq '.id' 2>&1)"
+          release_status=$?
+          set -e
+
+          if [ "$release_status" -eq 0 ]; then
+            CUTOVER_STARTED=true
+            gh release delete latest \
+              --repo "${{ github.repository }}" \
+              --yes
+          elif ! printf '%s' "$release_lookup" | grep -q '(HTTP 404)'; then
+            echo "Failed to inspect the existing latest release:" >&2
+            printf '%s\n' "$release_lookup" >&2
+            exit "$release_status"
+          fi
+
+          # Delete a surviving tag when the release was already absent or tag cleanup was incomplete.
+          set +e
+          tag_lookup="$(gh api "repos/${{ github.repository }}/git/ref/tags/latest" --jq '.ref' 2>&1)"
+          tag_status=$?
+          set -e
+
+          if [ "$tag_status" -eq 0 ]; then
+            CUTOVER_STARTED=true
+            gh api --method DELETE \
+              "repos/${{ github.repository }}/git/refs/tags/latest"
+          elif ! printf '%s' "$tag_lookup" | grep -q '(HTTP 404)'; then
+            echo "Failed to inspect the existing latest tag:" >&2
+            printf '%s\n' "$tag_lookup" >&2
+            exit "$tag_status"
+          fi
+
+          CUTOVER_STARTED=true
+          gh release edit "$STAGING_TAG" \
+            --repo "${{ github.repository }}" \
+            --tag latest \
+            --title "Latest Build (${SHA_SHORT})" \
+            --notes-file /tmp/release-notes.md \
+            --draft=false \
+            --prerelease \
+            --target "${{ github.sha }}"
+          trap - EXIT
           
           echo "✅ Latest release updated: https://github.com/${{ github.repository }}/releases/tag/latest"
