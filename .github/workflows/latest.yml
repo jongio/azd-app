@@ -37,7 +37,7 @@ jobs:
         run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 
       - name: Lint workflows
-        run: actionlint -ignore 'unknown permission scope "copilot-requests"'
+        run: $(go env GOPATH)/bin/actionlint -ignore 'unknown permission scope "copilot-requests"'
 
       - name: Test latest release publisher
         run: bash scripts/test-publish-latest-release.sh
