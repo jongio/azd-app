@@ -25,6 +25,7 @@ new_fixture() {
   unset PAUSE_MATCH
   unset ADVANCE_MAIN_MATCH
   mkdir -p "$FAKE_STATE/releases" "$FAKE_STATE/tags" "$FIXTURE/bin"
+  : >"$FAKE_LOG"
   printf '%s' "$MAIN_SHA" >"$FAKE_STATE/main-sha"
   printf 'new asset' >"$FIXTURE/new.bin"
   cp "$SCRIPT_DIR/testdata/fake-gh.sh" "$FIXTURE/bin/gh"
