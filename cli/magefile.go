@@ -160,7 +160,10 @@ func patchExtensionVersion(version string) (func(), error) {
 // All runs lint, test, and build in dependency order.
 // Set ALL_PLATFORMS=true to build for all platforms instead of current platform.
 func All() error {
-	mg.Deps(Fmt, DashboardBuild, Lint, Test)
+	mg.Deps(Fmt, DashboardBuild, Lint)
+	if err := Test(); err != nil {
+		return err
+	}
 	return Build()
 }
 
@@ -352,15 +355,25 @@ func buildAllPlatforms() error {
 	return nil
 }
 
-// Test runs unit tests only (with -short flag).
+// Test runs unit tests and the latest release publisher harness.
 func Test() error {
+	if err := ensureDashboardDist(); err != nil {
+		return err
+	}
+
 	fmt.Println("Running unit tests...")
 	// Use full module path in workspace mode
 	pkgPath := goSrcPattern
 	if _, err := os.Stat("../go.work"); err == nil {
 		pkgPath = "github.com/jongio/azd-app/cli/src/..."
 	}
-	return sh.RunV("go", "test", "-v", "-short", pkgPath)
+	if err := sh.RunV("go", "test", "-v", "-short", pkgPath); err != nil {
+		return err
+	}
+	if _, err := exec.LookPath("bash"); err != nil {
+		return fmt.Errorf("bash is required to run the release publisher harness: %w", err)
+	}
+	return sh.RunV("bash", "../scripts/test-publish-latest-release.sh")
 }
 
 // TestIntegration runs integration tests only.
@@ -2316,7 +2329,7 @@ func DashboardBuild() error {
 
 	// Install dependencies
 	fmt.Println("Installing dashboard dependencies...")
-	if err := sh.RunV("pnpm", "install", "--dir", dashboardDir); err != nil {
+	if err := dashboardInstall(); err != nil {
 		return fmt.Errorf(errPnpmFailedFmt, err)
 	}
 
