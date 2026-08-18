@@ -98,13 +98,20 @@ prune_recovery_artifacts() {
   local artifacts
   local tag
 
-  artifacts="$(list_recovery_artifacts)"
+  artifacts="$(list_recovery_artifacts)" || return $?
   while IFS=$'\t' read -r _ tag _; do
     if [[ -n "$tag" ]]; then
       echo "Deleting stale recovery draft $tag."
-      delete_draft "$tag"
+      delete_draft "$tag" || return $?
     fi
   done <<<"$artifacts"
+}
+
+prune_after_success() {
+  if ! prune_recovery_artifacts; then
+    echo "The latest release is healthy, but stale recovery artifacts could not be pruned." >&2
+    return 1
+  fi
 }
 
 delete_latest_objects() {
@@ -222,7 +229,7 @@ recover_latest() {
   IFS=$'\t' read -r _ candidate target <<<"$candidate_row"
   delete_latest_objects
   promote_draft "$candidate" "$target"
-  prune_recovery_artifacts
+  prune_after_success
   echo "Recovered the latest release from $candidate."
 }
 
@@ -420,7 +427,7 @@ EOF
   promote_draft "$STAGING_TAG" "$GITHUB_SHA"
   PUBLISH_COMPLETE=true
 
-  prune_recovery_artifacts
+  prune_after_success
   echo "Latest release updated: https://github.com/$REPO/releases/tag/latest"
 }
 

@@ -160,7 +160,10 @@ func patchExtensionVersion(version string) (func(), error) {
 // All runs lint, test, and build in dependency order.
 // Set ALL_PLATFORMS=true to build for all platforms instead of current platform.
 func All() error {
-	mg.Deps(Fmt, DashboardBuild, Lint, Test)
+	mg.Deps(Fmt, DashboardBuild, Lint)
+	if err := Test(); err != nil {
+		return err
+	}
 	return Build()
 }
 
@@ -354,7 +357,9 @@ func buildAllPlatforms() error {
 
 // Test runs unit tests and the latest release publisher harness.
 func Test() error {
-	mg.Deps(DashboardBuild)
+	if err := ensureDashboardDist(); err != nil {
+		return err
+	}
 
 	fmt.Println("Running unit tests...")
 	// Use full module path in workspace mode
@@ -366,8 +371,7 @@ func Test() error {
 		return err
 	}
 	if _, err := exec.LookPath("bash"); err != nil {
-		fmt.Println("Warning: bash not installed; skipping latest release publisher harness")
-		return nil
+		return fmt.Errorf("bash is required to run the release publisher harness: %w", err)
 	}
 	return sh.RunV("bash", "../scripts/test-publish-latest-release.sh")
 }
@@ -1564,15 +1568,9 @@ func preflightDeadcode() error {
 	return nil
 }
 
-// dashboardInstall installs dashboard dependencies without changing the lockfile.
+// dashboardInstall runs pnpm install for the dashboard project.
 func dashboardInstall() error {
-	args := []string{"install", "--dir", dashboardDir}
-	if _, err := os.Stat(filepath.Join(dashboardDir, "pnpm-lock.yaml")); err == nil {
-		args = append(args, "--frozen-lockfile")
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to inspect dashboard lockfile: %w", err)
-	}
-	return runQuiet("pnpm", args...)
+	return runQuiet("pnpm", "install", "--dir", dashboardDir)
 }
 
 // dashboardBuildOnly builds the dashboard without running pnpm install.

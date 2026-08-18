@@ -261,6 +261,16 @@ case_list_failure_is_reported() {
   assert_file "$FAKE_STATE/releases/latest/assets/app.bin"
 }
 
+case_post_publish_prune_failure_is_reported() {
+  local output
+  add_release latest false old-sha
+  export POST_EDIT_FAIL_MATCH="api --paginate repos/example/repo/releases?per_page=100"
+  if output="$(bash "$PUBLISHER" publish "$FIXTURE/new.bin" 2>&1)"; then return 1; fi
+  [[ "$output" == *"The latest release is healthy, but stale recovery artifacts could not be pruned."* ]]
+  assert_file "$FAKE_STATE/releases/latest/assets/new.bin"
+  [[ "$(cat "$FAKE_STATE/tags/latest")" == new-sha ]]
+}
+
 case_api_failure_stops_before_cutover() {
   add_release latest false old-sha
   export FAIL_MATCH="api --include --silent repos/example/repo/releases/tags/latest"
@@ -292,6 +302,7 @@ run_case "preserves promoted latest after TERM" case_preserve_promoted_latest_af
 run_case "preserves promoted latest when verification fails" case_preserve_promoted_latest_when_verification_fails
 run_case "stops on HTTP 500 before cutover" case_http_500_stops_before_cutover
 run_case "reports recovery artifact list failures" case_list_failure_is_reported
+run_case "reports cleanup failure after publication" case_post_publish_prune_failure_is_reported
 run_case "stops on an API failure before cutover" case_api_failure_stops_before_cutover
 
 echo "1..$PASSED"
