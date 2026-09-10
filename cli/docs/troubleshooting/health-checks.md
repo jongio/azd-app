@@ -638,7 +638,7 @@ This gives services time to initialize before health checks count as failures.
 **Workaround:**
 ```bash
 # Follow health in streaming mode and log to file
-azd app health --stream --format json > health.log
+azd app health --stream --output json > health.log
 
 # Later, analyze:
 cat health.log | jq 'select(.services[].status == "unhealthy")'

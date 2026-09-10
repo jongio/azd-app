@@ -142,54 +142,54 @@ func runEnv(_ *cobra.Command, args []string) error {
 	// --diff compares two services and takes exactly two service names.
 	if envDiff {
 		if envKeys {
-			return fmt.Errorf("cannot combine --keys with --diff")
+			return newInvalidFlagUsageError("cannot combine --keys with --diff", "Use --keys to list variable names, or --diff to compare two services, but not both.")
 		}
 		if len(prefixes) > 0 {
-			return fmt.Errorf("cannot combine --prefix with --diff")
+			return newInvalidFlagUsageError("cannot combine --prefix with --diff", "Use --prefix to filter variables, or --diff to compare two services, but not both.")
 		}
 		return runEnvDiff(azureYaml, names, args)
 	}
 
 	// Two arguments are only valid with --diff.
 	if len(args) > 1 {
-		return fmt.Errorf("expected at most one service name; use --diff to compare two services")
+		return newInvalidFlagUsageError("expected at most one service name; use --diff to compare two services", "Name a single service, or pass --diff with two service names.")
 	}
 
 	// --all cannot be combined with a specific service name.
 	if envAll && len(args) > 0 {
-		return fmt.Errorf("cannot combine --all with a service name")
+		return newInvalidFlagUsageError("cannot combine --all with a service name", "Use --all for every service, or name one service, but not both.")
 	}
 
 	// --out only makes sense together with --write.
 	if envOut != "" && !envWrite {
-		return fmt.Errorf("--out requires --write")
+		return newInvalidFlagUsageError("--out requires --write", "Add --write to write the file, or drop --out to print to stdout.")
 	}
 
 	if envKeys {
 		if envExplain {
-			return fmt.Errorf("cannot combine --keys with --explain")
+			return newInvalidFlagUsageError("cannot combine --keys with --explain", "Use --keys to list variable names, or --explain to show where each value comes from, but not both.")
 		}
 		if envWrite {
-			return fmt.Errorf("cannot combine --keys with --write")
+			return newInvalidFlagUsageError("cannot combine --keys with --write", "Use --keys to list variable names, or --write to write a file, but not both.")
 		}
 		format, err := currentEnvFormat()
 		if err != nil {
 			return err
 		}
 		if format == envFormatGitHubActions {
-			return fmt.Errorf("cannot combine --keys with --format github-actions because that format requires KEY=VALUE pairs")
+			return newInvalidFlagUsageError("cannot combine --keys with --format github-actions because that format requires KEY=VALUE pairs", "Drop --keys, or choose a different --format.")
 		}
 		if envAll {
 			return runEnvAllKeys(azureYaml, names, prefixes)
 		}
 		if len(args) == 0 {
-			return fmt.Errorf("specify a service name or --all with --keys")
+			return newInvalidFlagUsageError("specify a service name or --all with --keys", "Name a service, or pass --all to list keys for every service.")
 		}
 	}
 
 	if envWrite {
 		if !envAll && len(args) == 0 {
-			return fmt.Errorf("specify a service name or --all with --write")
+			return newInvalidFlagUsageError("specify a service name or --all with --write", "Name a service, or pass --all to write a file for every service.")
 		}
 		return runEnvWrite(azureYaml, names, args, prefixes)
 	}
@@ -325,7 +325,7 @@ func normalizeEnvPrefixes(prefixes []string) ([]string, error) {
 	for _, prefix := range prefixes {
 		prefix = strings.TrimSpace(prefix)
 		if prefix == "" {
-			return nil, fmt.Errorf("--prefix values cannot be empty")
+			return nil, newInvalidFlagUsageError("--prefix values cannot be empty", "Give each --prefix a value, for example --prefix APP_.")
 		}
 		normalized = append(normalized, prefix)
 	}
@@ -661,7 +661,7 @@ func resolveEnvFormat(format string) (string, error) {
 	case envFormatGitHubActions:
 		return envFormatGitHubActions, nil
 	default:
-		return "", fmt.Errorf("invalid --format %q: expected dotenv, shell, powershell, json, or github-actions", format)
+		return "", newInvalidFlagValueError("format", format, []string{"dotenv", "shell", "powershell", "json", "github-actions"})
 	}
 }
 

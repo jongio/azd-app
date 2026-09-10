@@ -209,23 +209,26 @@ if path == "" {
 
 ---
 
-## 3. procutil/ Package - Process Detection
+## 3. Process Detection
 
 **Status**: ✅ DONE in azd-app, ❌ NOT in azd-exec  
-**Package**: `github.com/jongio/azd-core/procutil`
+**Package**: `github.com/azure/azure-dev/cli/azd/pkg/azdext`
+
+> Previously `github.com/jongio/azd-core/procutil`. That package was removed in favor
+> of the equivalent helper in the azd extension SDK.
 
 ### What It Provides
 
 ```go
-// Check if process is running (uses gopsutil for reliability)
-if procutil.IsProcessRunning(pid) {
+// Check if process is running
+if azdext.IsProcessRunning(pid) {
     fmt.Println("Process is alive")
 }
 ```
 
 ### azd-app Integration Status
 
-azd-app **already uses** procutil from azd-core:
+azd-app **already uses** `azdext.IsProcessRunning`:
 - [internal/healthcheck/checker.go](c:\code\azd-app\cli\src\internal\healthcheck\checker.go#L20)
 - [internal/monitor/state_monitor.go](c:\code\azd-app\cli\src\internal\monitor\state_monitor.go#L13)
 

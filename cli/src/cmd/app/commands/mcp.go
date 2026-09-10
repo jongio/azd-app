@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,7 +39,6 @@ const (
 	azdCommand     = "azd"
 	appSubcommand  = "app"
 	jsonOutputFlag = "--output"
-	jsonOutputVal  = "json"
 	cwdFlag        = "--cwd"
 )
 
@@ -157,7 +157,7 @@ func executeAzdAppCommandWithTimeout(ctx context.Context, command string, args [
 	}
 
 	cmdArgs := append([]string{command}, args...)
-	cmdArgs = append(cmdArgs, jsonOutputFlag, jsonOutputVal)
+	cmdArgs = append(cmdArgs, jsonOutputFlag, outputFormatJSON)
 
 	// Use context with timeout for command execution
 	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
@@ -288,7 +288,30 @@ func isValidDuration(s string) bool {
 
 // validateProjectDir validates that the project directory path is safe
 // Prevents path traversal attacks and ensures the directory exists
+//
+// Every rejection is recorded at warn level. A model that has been steered
+// into probing the filesystem produces a burst of these, and without the log
+// the only evidence is an error string handed back to the model itself. This
+// is the audit trail that azdext.MCPSecurityPolicy.OnBlocked provides for the
+// SDK's own path check, which is not used here because it is weaker than this
+// one. See mcp_security_audit_test.go for the specific gaps.
+//
+// Both fields are sanitized. The reason is not safer than the path it
+// describes: several rejection branches format the caller's path into the
+// error text, and neither filepath.Clean nor filepath.Abs removes control
+// characters, so sanitizing only the path would leave the same bytes reaching
+// the log through the other field.
 func validateProjectDir(dir string) (string, error) {
+	resolved, err := validateProjectDirCore(dir)
+	if err != nil {
+		slog.Warn("rejected project directory",
+			"path", sanitizeForAudit(dir),
+			"reason", sanitizeForAudit(err.Error()))
+	}
+	return resolved, err
+}
+
+func validateProjectDirCore(dir string) (string, error) {
 	if dir == "" || dir == "." {
 		// Get current working directory for "." reference
 		cwd, err := os.Getwd()

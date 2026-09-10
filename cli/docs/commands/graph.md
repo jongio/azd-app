@@ -20,7 +20,7 @@ A startup level groups the services that can start in parallel. Level 0 has no d
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--output` | `-o` | string | `text` | Output format: `text`, `json`, `markdown`, `mermaid`, `dot`, or `d2` |
+| `--output` | `-o` | string | `text` | Output format: `text`, `json`, `markdown`, `mermaid`, `dot`, `d2`, or `plantuml`. This is azd's global output flag. |
 | `--output-file` | | string | | Write output to this file instead of stdout |
 | `--focus` | | string | | Limit the graph to a service, its dependencies, and its dependents |
 | `--services-only` | | bool | `false` | Show only services and service-to-service edges |

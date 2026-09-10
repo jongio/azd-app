@@ -4,6 +4,26 @@
 //
 // For unit testing, use NewInMemoryClient() which provides an in-memory
 // implementation that doesn't require a gRPC connection.
+//
+// # Why this is not azdext.ConfigHelper
+//
+// azdext.ConfigHelper wraps the same two gRPC services, but it cannot stand in
+// for this package:
+//
+//   - It exposes no wrapper for the UserConfig GetSection RPC, which
+//     GetAllServicePorts needs to read a whole subtree in one call.
+//   - Its setters are SetUserJSON and SetEnvJSON, which json.Marshal the value.
+//     This package writes raw bytes, so switching would change the stored
+//     representation of every existing key and orphan values already on disk.
+//   - It is a concrete struct over *azdext.AzdClient with no interface, so it
+//     cannot replace the ConfigClient seam that dashboard.Server and
+//     portmanager.PortManager depend on, nor InMemoryClient, which is both the
+//     test fake and the production fallback when azd's gRPC server is absent.
+//   - ProjectHash determines on-disk paths under ~/.azd/azd-app/<hash>/, so it
+//     has to keep producing the same value regardless of config plumbing.
+//
+// Its path validator also permits dots, so it would not have prevented the
+// nested-key bug that encodeSegment now guards against.
 package azdconfig
 
 import (
@@ -115,6 +135,78 @@ func preferencePath(key string) string {
 	return fmt.Sprintf("app.preferences.%s", key)
 }
 
+// encodeSegment makes an arbitrary name safe to use as a single segment of a
+// dot-separated config path.
+//
+// Config paths address a nested JSON tree, so a service named "foo.bar" written
+// verbatim produces {"foo":{"bar":port}} rather than a single "foo.bar" key.
+// GetAllServicePorts reads that subtree back and its value type switch only
+// accepts numbers and strings, so a nested object is skipped and the port
+// silently disappears. Service names come from azure.yaml and nothing on the
+// port-assignment path validates them.
+//
+// Percent-encoding every byte outside [A-Za-z0-9_-] keeps the segment flat and
+// reversible. Names that already consist only of those characters encode to
+// themselves, so keys written by earlier versions still resolve unchanged; only
+// names that were already broken get a new, working key.
+func encodeSegment(name string) string {
+	var b strings.Builder
+	b.Grow(len(name))
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '_', c == '-':
+			b.WriteByte(c)
+		default:
+			fmt.Fprintf(&b, "%%%02X", c)
+		}
+	}
+	return b.String()
+}
+
+// decodeSegment reverses encodeSegment. A malformed escape is returned as-is
+// rather than dropped, so a hand-edited config still round-trips to something
+// the user can recognize.
+func decodeSegment(name string) string {
+	if !strings.Contains(name, "%") {
+		return name
+	}
+	var b strings.Builder
+	b.Grow(len(name))
+	for i := 0; i < len(name); i++ {
+		if name[i] != '%' || i+2 >= len(name) {
+			b.WriteByte(name[i])
+			continue
+		}
+		hi, okHi := unhex(name[i+1])
+		lo, okLo := unhex(name[i+2])
+		if !okHi || !okLo {
+			b.WriteByte(name[i])
+			continue
+		}
+		b.WriteByte(hi<<4 | lo)
+		i += 2
+	}
+	return b.String()
+}
+
+func unhex(c byte) (byte, bool) {
+	switch {
+	case c >= '0' && c <= '9':
+		return c - '0', true
+	case c >= 'A' && c <= 'F':
+		return c - 'A' + 10, true
+	case c >= 'a' && c <= 'f':
+		return c - 'a' + 10, true
+	}
+	return 0, false
+}
+
+// servicePortPath builds the config path holding one service's assigned port.
+func servicePortPath(projectHash, serviceName string) string {
+	return projectConfigPath(projectHash, "ports."+encodeSegment(serviceName))
+}
+
 // GetDashboardPort retrieves the dashboard port for a project.
 // Returns 0 if not set.
 func (c *Client) GetDashboardPort(projectHash string) (int, error) {
@@ -163,7 +255,7 @@ func (c *Client) ClearDashboardPort(projectHash string) error {
 // GetServicePort retrieves the assigned port for a service.
 // Returns 0 if not set.
 func (c *Client) GetServicePort(projectHash, serviceName string) (int, error) {
-	path := projectConfigPath(projectHash, fmt.Sprintf("ports.%s", serviceName))
+	path := servicePortPath(projectHash, serviceName)
 	resp, err := c.azdClient.UserConfig().GetString(c.ctx, &azdext.GetUserConfigStringRequest{
 		Path: path,
 	})
@@ -182,7 +274,7 @@ func (c *Client) GetServicePort(projectHash, serviceName string) (int, error) {
 
 // SetServicePort stores the assigned port for a service.
 func (c *Client) SetServicePort(projectHash, serviceName string, port int) error {
-	path := projectConfigPath(projectHash, fmt.Sprintf("ports.%s", serviceName))
+	path := servicePortPath(projectHash, serviceName)
 	_, err := c.azdClient.UserConfig().Set(c.ctx, &azdext.SetUserConfigRequest{
 		Path:  path,
 		Value: []byte(strconv.Itoa(port)),
@@ -195,7 +287,7 @@ func (c *Client) SetServicePort(projectHash, serviceName string, port int) error
 
 // ClearServicePort removes the assigned port for a service.
 func (c *Client) ClearServicePort(projectHash, serviceName string) error {
-	path := projectConfigPath(projectHash, fmt.Sprintf("ports.%s", serviceName))
+	path := servicePortPath(projectHash, serviceName)
 	_, err := c.azdClient.UserConfig().Unset(c.ctx, &azdext.UnsetUserConfigRequest{
 		Path: path,
 	})
@@ -227,10 +319,10 @@ func (c *Client) GetAllServicePorts(projectHash string) (map[string]int, error) 
 	for name, value := range ports {
 		switch v := value.(type) {
 		case float64:
-			result[name] = int(v)
+			result[decodeSegment(name)] = int(v)
 		case string:
 			if port, err := strconv.Atoi(v); err == nil {
-				result[name] = port
+				result[decodeSegment(name)] = port
 			}
 		}
 	}
@@ -360,7 +452,7 @@ func (c *InMemoryClient) ClearDashboardPort(projectHash string) error {
 func (c *InMemoryClient) GetServicePort(projectHash, serviceName string) (int, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	path := projectConfigPath(projectHash, fmt.Sprintf("ports.%s", serviceName))
+	path := servicePortPath(projectHash, serviceName)
 	if v, ok := c.data[path]; ok {
 		if port, ok := v.(int); ok {
 			return port, nil
@@ -373,7 +465,7 @@ func (c *InMemoryClient) GetServicePort(projectHash, serviceName string) (int, e
 func (c *InMemoryClient) SetServicePort(projectHash, serviceName string, port int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	path := projectConfigPath(projectHash, fmt.Sprintf("ports.%s", serviceName))
+	path := servicePortPath(projectHash, serviceName)
 	c.data[path] = port
 	return nil
 }
@@ -382,7 +474,7 @@ func (c *InMemoryClient) SetServicePort(projectHash, serviceName string, port in
 func (c *InMemoryClient) ClearServicePort(projectHash, serviceName string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	path := projectConfigPath(projectHash, fmt.Sprintf("ports.%s", serviceName))
+	path := servicePortPath(projectHash, serviceName)
 	delete(c.data, path)
 	return nil
 }
@@ -395,7 +487,7 @@ func (c *InMemoryClient) GetAllServicePorts(projectHash string) (map[string]int,
 	result := make(map[string]int)
 	for k, v := range c.data {
 		if strings.HasPrefix(k, prefix) {
-			serviceName := strings.TrimPrefix(k, prefix)
+			serviceName := decodeSegment(strings.TrimPrefix(k, prefix))
 			if port, ok := v.(int); ok {
 				result[serviceName] = port
 			}

@@ -341,7 +341,7 @@ azd app run --service frontend
 | Health check failing | Verify the endpoint returns HTTP 200 and the path matches `healthcheck.path` |
 | Docker service won't start | Check `docker` is running with `azd app reqs` |
 | Env var not resolving | Ensure the referenced variable is set in your shell or `.env` file |
-| Key Vault access denied | Verify `az login` and that your identity has Key Vault access |
+| Key Vault access denied | Verify `azd auth login` and that your identity has Key Vault access |
 
 ## Complete azure.yaml Reference
 

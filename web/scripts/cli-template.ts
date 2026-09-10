@@ -40,7 +40,7 @@ function generateExamplesSection(command: CommandInfo): string {
 
 function generateDetailedDocsLink(command: CommandInfo): string {
   if (!command.hasDetailedDoc) return '';
-  return `<div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700"><h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100">📚 Detailed Documentation</h3><p class="text-neutral-700 dark:text-neutral-300 mb-4">For complete documentation including flows, diagrams, and advanced usage, see the full command specification.</p><a href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/${encodeURIComponent(command.name)}.md" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline">View full ${escapeHtml(command.name)} specification →</a></div>`;
+  return `<div class="mt-12 p-6 bg-blue-100 dark:bg-blue-900/40 rounded-lg border border-blue-300 dark:border-blue-700"><h3 class="text-lg font-semibold mb-2 text-neutral-900 dark:text-neutral-100"><Icon name="book-open" size={20} /> Detailed Documentation</h3><p class="text-neutral-700 dark:text-neutral-300 mb-4">For complete documentation including flows, diagrams, and advanced usage, see the full command specification.</p><a href="https://github.com/jongio/azd-app/blob/main/cli/docs/commands/${encodeURIComponent(command.name)}.md" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline">View full ${escapeHtml(command.name)} specification →</a></div>`;
 }
 
 export function generateCommandPage(command: CommandInfo): string {
@@ -49,6 +49,7 @@ export function generateCommandPage(command: CommandInfo): string {
 
   return `---
 import Layout from '../../../components/Layout.astro';
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 import { Code } from 'astro-expressive-code/components';
 const usageCode = ${JSON.stringify(command.usage)};
 ${exampleCodes}
@@ -133,6 +134,7 @@ export function generateIndexPage(commands: CommandInfo[]): string {
 
   return `---
 import Layout from '../../../components/Layout.astro';
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 import { Code } from 'astro-expressive-code/components';
 
 const quickRefCode = \`# Check prerequisites
@@ -184,7 +186,7 @@ azd app mcp serve\`;
 
     <section class="mt-12 p-6 bg-purple-100 dark:bg-purple-900/40 rounded-lg border border-purple-300 dark:border-purple-700">
       <div class="flex items-start gap-4">
-        <span class="text-3xl">🤖</span>
+        <span class="text-3xl"><Icon name="bot" size={30} /></span>
         <div>
           <h3 class="text-xl font-bold mb-2 text-neutral-900 dark:text-neutral-100">AI-Powered Debugging with MCP</h3>
           <p class="text-neutral-700 dark:text-neutral-300 mb-4">

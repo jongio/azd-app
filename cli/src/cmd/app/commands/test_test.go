@@ -1,13 +1,16 @@
 package commands
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
 	testrunner "github.com/jongio/azd-app/cli/src/internal/testing"
 	"github.com/jongio/azd-core/cliout"
+	"github.com/spf13/cobra"
 )
 
 // TestNewTestCommand verifies that the test command is created correctly.
@@ -381,22 +384,80 @@ func TestDisplayTestResults_EmptyServices(t *testing.T) {
 	displayTestResults(result)
 }
 
-// TestEnvFlagRegistered tests that --environment flag is registered with -e shortcut.
-func TestEnvFlagRegistered(t *testing.T) {
+// TestEnvFlagNotShadowed verifies the test command does not define its own
+// --environment flag. azd reserves --environment/-e globally, and a local copy
+// shadowed it so azd never saw the value the user passed. The command now reads
+// the inherited persistent flag instead.
+func TestEnvFlagNotShadowed(t *testing.T) {
 	cmd := NewTestCommand()
 
-	envFlag := cmd.Flags().Lookup("environment")
-	if envFlag == nil {
-		t.Fatal("Expected --environment flag to be registered")
+	if flag := cmd.Flags().Lookup("environment"); flag != nil {
+		t.Fatal("test command must not define a local --environment flag; it shadows the azd global flag")
+	}
+	if flag := cmd.Flags().ShorthandLookup("e"); flag != nil {
+		t.Fatalf("test command must not define a local -e shorthand, found %q", flag.Name)
 	}
 
-	if envFlag.DefValue != "" {
-		t.Errorf("Expected environment default to be empty, got %q", envFlag.DefValue)
+	root := &cobra.Command{Use: "app"}
+	root.PersistentFlags().StringP("environment", "e", "", "azd environment name")
+	root.AddCommand(cmd)
+
+	if err := cmd.ParseFlags([]string{"-e", "staging"}); err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+	inherited := cmd.Flags().Lookup("environment")
+	if inherited == nil {
+		t.Fatal("expected --environment to resolve from the inherited persistent flag")
+	}
+	if got := inherited.Value.String(); got != "staging" {
+		t.Errorf("inherited environment = %q, want %q", got, "staging")
+	}
+}
+
+// TestEnvFlagPropagatesToOptions pins the second half of the fix: reading the
+// inherited flag is only useful if the value reaches opts.Environment. Without
+// this, deleting the copy in RunE would leave TestEnvFlagNotShadowed green
+// while `azd app test -e staging` silently ran against the default environment.
+func TestEnvFlagPropagatesToOptions(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"long form", []string{"--environment", "staging"}, "staging"},
+		{"shorthand", []string{"-e", "prod"}, "prod"},
+		{"omitted", nil, ""},
 	}
 
-	shortFlag := cmd.Flags().ShorthandLookup("e")
-	if shortFlag == nil || shortFlag.Name != "environment" {
-		t.Error("Expected -e shortcut for --environment flag")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var captured *TestOptions
+			original := runTestsFn
+			runTestsFn = func(_ *orchestrator.Orchestrator, opts *TestOptions) error {
+				captured = opts
+				return nil
+			}
+			t.Cleanup(func() { runTestsFn = original })
+
+			root := &cobra.Command{Use: "app"}
+			root.PersistentFlags().StringP("environment", "e", "", "azd environment name")
+			cmd := NewTestCommand()
+			root.AddCommand(cmd)
+
+			root.SetArgs(append([]string{"test"}, tc.args...))
+			root.SetOut(io.Discard)
+			root.SetErr(io.Discard)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+
+			if captured == nil {
+				t.Fatal("RunE did not reach the test runner")
+			}
+			if captured.Environment != tc.want {
+				t.Errorf("opts.Environment = %q, want %q", captured.Environment, tc.want)
+			}
+		})
 	}
 }
 

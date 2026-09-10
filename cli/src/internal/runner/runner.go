@@ -40,7 +40,7 @@ func RunAspire(ctx context.Context, project types.AspireProject) error {
 // RunPnpmScript runs pnpm with the specified script.
 func RunPnpmScript(ctx context.Context, script string) error {
 	// Validate script name
-	if err := security.SanitizeScriptName(script); err != nil {
+	if err := security.ValidateScriptName(script); err != nil {
 		return fmt.Errorf("invalid script name: %w", err)
 	}
 
@@ -58,7 +58,7 @@ func RunPnpmScript(ctx context.Context, script string) error {
 // RunDockerCompose runs a docker compose script from package.json.
 func RunDockerCompose(ctx context.Context, scriptName, scriptCmd string) error {
 	// Validate script name
-	if err := security.SanitizeScriptName(scriptName); err != nil {
+	if err := security.ValidateScriptName(scriptName); err != nil {
 		return fmt.Errorf("invalid script name: %w", err)
 	}
 
@@ -80,7 +80,7 @@ func RunNode(ctx context.Context, project types.NodeProject, script string) erro
 	if err := security.ValidatePath(project.Dir); err != nil {
 		return fmt.Errorf("invalid project directory: %w", err)
 	}
-	if err := security.SanitizeScriptName(script); err != nil {
+	if err := security.ValidateScriptName(script); err != nil {
 		return fmt.Errorf("invalid script name: %w", err)
 	}
 	if err := security.ValidatePackageManager(project.PackageManager); err != nil {

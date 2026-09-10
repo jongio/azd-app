@@ -355,7 +355,7 @@ func filterProjectsByService(nodeProjects []types.NodeProject, pythonProjects []
 func detectProjectsFromAzureYaml(searchRoot string) ([]types.NodeProject, []types.PythonProject, []types.DotnetProject, error) {
 	azureYamlPath, err := detector.FindAzureYaml(searchRoot)
 	if err != nil || azureYamlPath == "" {
-		return nil, nil, nil, fmt.Errorf("azure.yaml not found - create one with a 'services' section to define your development environment")
+		return nil, nil, nil, newProjectNotFoundError()
 	}
 
 	azureYaml, err := service.ParseAzureYaml(filepath.Dir(azureYamlPath))
@@ -364,7 +364,7 @@ func detectProjectsFromAzureYaml(searchRoot string) ([]types.NodeProject, []type
 	}
 
 	if !service.HasServices(azureYaml) {
-		return nil, nil, nil, fmt.Errorf("no services defined in azure.yaml - add a 'services' section to define your development environment")
+		return nil, nil, nil, newInvalidProjectConfigError("no services defined in azure.yaml", "Add a `services` section to azure.yaml to define your development environment.")
 	}
 
 	// Resolve the project root to an absolute path for containment checks.
@@ -402,12 +402,12 @@ func detectProjectsFromAzureYaml(searchRoot string) ([]types.NodeProject, []type
 		}
 		rel, err := filepath.Rel(absSearchRoot, absProjectDir)
 		if err != nil || strings.HasPrefix(rel, "..") {
-			return nil, nil, nil, fmt.Errorf("service project path %q resolves outside the project root - check the 'project' path in azure.yaml", projectDir)
+			return nil, nil, nil, newInvalidProjectConfigError(fmt.Sprintf("service project path %q resolves outside the project root", projectDir), "Check the `project` path in azure.yaml. It must point inside the project root.")
 		}
 
 		// Verify the project directory exists
 		if _, err := os.Stat(projectDir); os.IsNotExist(err) {
-			return nil, nil, nil, fmt.Errorf("service project directory %q does not exist - check the 'project' path in azure.yaml", projectDir)
+			return nil, nil, nil, newInvalidProjectConfigError(fmt.Sprintf("service project directory %q does not exist", projectDir), "Check the `project` path in azure.yaml. It must point at a directory that exists.")
 		}
 
 		// Skip a directory already collected via another service (see seenDirs).

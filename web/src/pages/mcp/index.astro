@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * MCP Server Overview Page
  * 
@@ -18,7 +19,7 @@ const baseUrl = import.meta.env.BASE_URL;
 const mcpTools = [
   {
     category: "Observe",
-    icon: "👁️",
+    icon: "eye",
     tools: [
       { name: "get_services", description: "List all services with status" },
       { name: "get_service_logs", description: "Stream/filter logs" },
@@ -28,7 +29,7 @@ const mcpTools = [
   },
   {
     category: "Operate",
-    icon: "⚙️",
+    icon: "settings",
     tools: [
       { name: "run_services", description: "Start services" },
       { name: "stop_services", description: "Stop services" },
@@ -38,7 +39,7 @@ const mcpTools = [
   },
   {
     category: "Configure",
-    icon: "🔧",
+    icon: "wrench",
     tools: [
       { name: "check_requirements", description: "Verify prerequisites" },
       { name: "get_environment_variables", description: "View env vars" },
@@ -57,12 +58,12 @@ const aiClients = [
   },
   {
     name: "Cursor",
-    icon: "🖱️",
+    icon: "mouse-pointer-click",
     description: "AI-first code editor with MCP capabilities",
   },
   {
     name: "Claude Desktop",
-    icon: "🤖",
+    icon: "bot",
     description: "Anthropic's desktop app with MCP",
   },
 ];
@@ -70,19 +71,19 @@ const aiClients = [
 // Use cases
 const useCases = [
   {
-    icon: "🔍",
+    icon: "search",
     title: "AI Debugging",
     description: "Ask Copilot to diagnose issues by analyzing logs and service health",
     example: '"Why is my API returning 500 errors?"',
   },
   {
-    icon: "📊",
+    icon: "chart-column",
     title: "Service Management",
     description: "Start, stop, and restart services through natural language",
     example: '"Restart the web service"',
   },
   {
-    icon: "📝",
+    icon: "file-pen",
     title: "Log Analysis",
     description: "Have AI search and analyze logs to find patterns and errors",
     example: '"Show me errors from the last 5 minutes"',
@@ -93,7 +94,7 @@ const useCases = [
 const featuredPrompts = [
   {
     category: "Diagnostics",
-    categoryIcon: "🔍",
+    categoryIcon: "search",
     prompts: [
       "What's the health status of all my services?",
       "Are there any errors in my service logs?",
@@ -102,7 +103,7 @@ const featuredPrompts = [
   },
   {
     category: "Operations",
-    categoryIcon: "⚙️",
+    categoryIcon: "settings",
     prompts: [
       "Start all services",
       "Restart the web service",
@@ -111,7 +112,7 @@ const featuredPrompts = [
   },
   {
     category: "Debugging",
-    categoryIcon: "🐛",
+    categoryIcon: "bug",
     prompts: [
       "Why is the database connection failing?",
       "Show me the stack trace from the most recent error",
@@ -126,7 +127,7 @@ const featuredPrompts = [
     <!-- Hero Section -->
     <section class="mcp-hero" aria-labelledby="mcp-heading">
       <div class="mcp-hero-badge">
-        <span class="mcp-hero-badge-icon" aria-hidden="true">🤖</span>
+        <span class="mcp-hero-badge-icon" aria-hidden="true"><Icon name="bot" /></span>
         <span>AI-Powered Development</span>
       </div>
       <h1 id="mcp-heading" class="mcp-hero-title">MCP Server</h1>
@@ -192,7 +193,7 @@ const featuredPrompts = [
       <div class="mcp-use-cases-grid">
         {useCases.map((useCase) => (
           <div class="mcp-use-case-card">
-            <span class="mcp-use-case-icon" aria-hidden="true">{useCase.icon}</span>
+            <span class="mcp-use-case-icon"><Icon name={useCase.icon} size={24} /></span>
             <h3 class="mcp-use-case-title">{useCase.title}</h3>
             <p class="mcp-use-case-description">{useCase.description}</p>
             <div class="mcp-use-case-example">
@@ -214,7 +215,7 @@ const featuredPrompts = [
         {featuredPrompts.map((category) => (
           <div class="mcp-prompts-category">
             <div class="mcp-prompts-category-header">
-              <span class="mcp-prompts-category-icon" aria-hidden="true">{category.categoryIcon}</span>
+              <span class="mcp-prompts-category-icon"><Icon name={category.categoryIcon} size={24} /></span>
               <h3 class="mcp-prompts-category-title">{category.category}</h3>
             </div>
             <ul class="mcp-prompts-list">
@@ -305,7 +306,7 @@ const featuredPrompts = [
         {mcpTools.map((category) => (
           <div class="mcp-tools-category">
             <div class="mcp-tools-category-header">
-              <span class="mcp-tools-category-icon" aria-hidden="true">{category.icon}</span>
+              <span class="mcp-tools-category-icon"><Icon name={category.icon} size={24} /></span>
               <h3 class="mcp-tools-category-title">{category.category}</h3>
             </div>
             <ul class="mcp-tools-list">
@@ -376,17 +377,17 @@ const featuredPrompts = [
       <h2 id="reference-heading" class="section-title">Documentation</h2>
       <div class="mcp-reference-grid">
         <a href={`${baseUrl}reference/azure-yaml/`} class="mcp-reference-card">
-          <span class="mcp-reference-icon" aria-hidden="true">📘</span>
+          <span class="mcp-reference-icon" aria-hidden="true"><Icon name="book-marked" /></span>
           <h3 class="mcp-reference-title">azure.yaml Reference</h3>
           <p class="mcp-reference-desc">Complete configuration reference</p>
         </a>
         <a href={`${baseUrl}reference/cli/`} class="mcp-reference-card">
-          <span class="mcp-reference-icon" aria-hidden="true">💻</span>
+          <span class="mcp-reference-icon" aria-hidden="true"><Icon name="monitor" /></span>
           <h3 class="mcp-reference-title">CLI Reference</h3>
           <p class="mcp-reference-desc">All commands and options</p>
         </a>
         <a href={`${baseUrl}quick-start/`} class="mcp-reference-card">
-          <span class="mcp-reference-icon" aria-hidden="true">🚀</span>
+          <span class="mcp-reference-icon" aria-hidden="true"><Icon name="rocket" /></span>
           <h3 class="mcp-reference-title">Quick Start</h3>
           <p class="mcp-reference-desc">Get started in 5 minutes</p>
         </a>
@@ -708,7 +709,7 @@ const featuredPrompts = [
   .mcp-prompt-text {
     font-size: 0.8125rem;
     color: var(--color-text-primary);
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     flex: 1;
     min-width: 0;
     line-height: 1.4;
@@ -862,7 +863,7 @@ const featuredPrompts = [
 
   .mcp-tool-name {
     font-size: 0.8125rem;
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     color: var(--color-azure-600);
     background: none;
     padding: 0;

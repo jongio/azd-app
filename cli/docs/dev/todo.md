@@ -34,7 +34,7 @@ message GetTokenResponse {
 ```
 
 **Current Workaround**
-Using `DefaultAzureCredential` which relies on Azure CLI credentials from `azd auth login`. This works but bypasses the extension framework's auth model.
+Using `DefaultAzureCredential`, which picks up the credentials from `azd auth login`. This works but bypasses the extension framework's auth model.
 
 **Impact**
 - Azure Logs feature must use `DefaultAzureCredential` instead of native extension auth

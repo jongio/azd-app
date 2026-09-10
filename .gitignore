@@ -155,3 +155,7 @@ cli/output-coverage
 
 # Test-generated temp directories
 cli/src/**/test_azure_yaml_resource*/
+
+# Coverage ratchet baselines are tracked on purpose: they are the regression gate.
+!**/coverage-baseline.json
+!coverage-baseline.json

@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -336,11 +337,8 @@ func validateLogsOptions(opts *logsOptions) error {
 	}
 
 	// Validate output format
-	switch opts.output {
-	case "text", jsonOutputVal:
-		// Valid formats
-	default:
-		return fmt.Errorf("--output must be 'text' or 'json', got '%s'", opts.output)
+	if !slices.Contains(logsOutputFormats, opts.output) {
+		return newInvalidFlagValueError("output", opts.output, logsOutputFormats)
 	}
 
 	// Validate level

@@ -4,6 +4,8 @@
  * Defines the 8-step guided tour structure with all metadata.
  */
 
+import type { IconName } from '@jongio/azd-web-core/components/Icon.astro';
+
 export interface TourStep {
   /** Step number (1-8) */
   number: number;
@@ -15,8 +17,8 @@ export interface TourStep {
   description: string;
   /** Estimated completion time in minutes */
   estimatedTime: number;
-  /** Step icon/emoji */
-  icon: string;
+  /** Lucide icon name from the azd-web-core registry */
+  icon: IconName;
   /** Prerequisites (previous step numbers) */
   prerequisites: number[];
   /** Related documentation links */
@@ -30,7 +32,7 @@ export const tourSteps: TourStep[] = [
     title: "Install azd + extension",
     description: "Set up the Azure Developer CLI and install the azd-app extension",
     estimatedTime: 5,
-    icon: "📦",
+    icon: "package",
     prerequisites: [],
     relatedDocs: ["/docs/installation"],
   },
@@ -40,7 +42,7 @@ export const tourSteps: TourStep[] = [
     title: "Check requirements",
     description: "Verify your system meets all requirements for running azd-app",
     estimatedTime: 3,
-    icon: "✅",
+    icon: "circle-check",
     prerequisites: [1],
     relatedDocs: ["/docs/requirements"],
   },
@@ -50,7 +52,7 @@ export const tourSteps: TourStep[] = [
     title: "Install dependencies",
     description: "Install required dependencies and configure your development environment",
     estimatedTime: 5,
-    icon: "🔧",
+    icon: "wrench",
     prerequisites: [1, 2],
     relatedDocs: ["/docs/dependencies"],
   },
@@ -60,7 +62,7 @@ export const tourSteps: TourStep[] = [
     title: "Run your first app",
     description: "Initialize and run a demo application using azd-app",
     estimatedTime: 7,
-    icon: "🚀",
+    icon: "rocket",
     prerequisites: [1, 2, 3],
     relatedDocs: ["/docs/quick-start", "/docs/commands/run"],
   },
@@ -70,7 +72,7 @@ export const tourSteps: TourStep[] = [
     title: "Explore the dashboard",
     description: "Navigate the azd-app dashboard and understand its features",
     estimatedTime: 5,
-    icon: "📊",
+    icon: "chart-column",
     prerequisites: [4],
     relatedDocs: ["/docs/dashboard"],
   },
@@ -80,7 +82,7 @@ export const tourSteps: TourStep[] = [
     title: "View and filter logs",
     description: "Learn to view, filter, and search logs for debugging",
     estimatedTime: 5,
-    icon: "📋",
+    icon: "clipboard-list",
     prerequisites: [4, 5],
     relatedDocs: ["/docs/commands/logs"],
   },
@@ -90,7 +92,7 @@ export const tourSteps: TourStep[] = [
     title: "Monitor service health",
     description: "Monitor service health and troubleshoot issues",
     estimatedTime: 5,
-    icon: "💓",
+    icon: "heart-pulse",
     prerequisites: [4, 5],
     relatedDocs: ["/docs/commands/health"],
   },
@@ -100,7 +102,7 @@ export const tourSteps: TourStep[] = [
     title: "MCP server integration",
     description: "Connect GitHub Copilot to azd-app using the MCP server",
     estimatedTime: 10,
-    icon: "🤖",
+    icon: "bot",
     prerequisites: [4],
     relatedDocs: ["/docs/mcp", "/docs/ai-features"],
   },

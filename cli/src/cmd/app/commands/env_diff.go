@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/jongio/azd-app/cli/src/internal/service"
 	"github.com/jongio/azd-core/cliout"
@@ -37,26 +36,22 @@ type envDiffResult struct {
 // shaped values are masked unless --no-mask is set.
 func runEnvDiff(azureYaml *service.AzureYaml, names []string, args []string) error {
 	if envAll {
-		return fmt.Errorf("cannot combine --diff with --all")
+		return newInvalidFlagUsageError("cannot combine --diff with --all", "Use --diff to compare two named services, or --all for every service, but not both.")
 	}
 	if envExplain {
-		return fmt.Errorf("cannot combine --diff with --explain")
+		return newInvalidFlagUsageError("cannot combine --diff with --explain", "Use --diff to compare two services, or --explain to show where values come from, but not both.")
 	}
 	if len(args) != 2 {
-		return fmt.Errorf("--diff needs exactly two service names, for example: azd app env --diff api web")
+		return newInvalidFlagUsageError("--diff needs exactly two service names, for example: azd app env --diff api web", "Pass exactly two service names after --diff.")
 	}
 
 	nameA, nameB := args[0], args[1]
 	if nameA == nameB {
-		return fmt.Errorf("--diff needs two different service names")
+		return newInvalidFlagUsageError("--diff needs two different service names", "Pass two different service names after --diff.")
 	}
 	for _, name := range []string{nameA, nameB} {
 		if _, ok := azureYaml.Services[name]; !ok {
-			if len(names) == 0 {
-				return fmt.Errorf("service %q not found. No services are defined in azure.yaml", name)
-			}
-			return fmt.Errorf("service %q not found. Available services: %s",
-				name, strings.Join(names, ", "))
+			return newServiceNotFoundError(name, names)
 		}
 	}
 

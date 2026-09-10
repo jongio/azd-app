@@ -5,7 +5,7 @@ This devcontainer provides a complete development environment for the App Extens
 ## What's Included
 
 ### Languages & Runtimes
-- **Go 1.25.5** - Primary development language
+- **Go 1.26 image channel** - Tracks Microsoft's latest published 1.26 patch. Go commands automatically resolve the exact version declared in [`cli/go.mod`](../cli/go.mod).
 - **Node.js LTS** - For Node.js project testing
 - **Python 3.12** - For Python project testing
 - **.NET 8.0** - For .NET and Aspire project testing
@@ -81,11 +81,19 @@ This process happens once during container creation and takes about 2-3 minutes.
 
 ### Azure Credentials
 
-Your local Azure credentials are automatically mounted into the container:
-- `~/.azure` - Azure CLI credentials
-- `~/.azd` - Azure Developer CLI configuration
+Sign in from inside the container:
 
-This means you don't need to re-authenticate inside the container.
+```bash
+azd auth login
+```
+
+Credentials are not mounted from the host. azd stores its tokens encrypted per machine and user, so a bind-mounted `~/.azd` from the host cannot be decrypted inside the container. Sign in once per container; the session persists until the container is rebuilt.
+
+If you're on a headless container or the browser can't open, use a device code:
+
+```bash
+azd auth login --use-device-code
+```
 
 ### Quick Commands
 
@@ -129,11 +137,10 @@ mage coverage
 - Ensure Docker is running
 - Check Docker has enough resources (4GB RAM recommended)
 
-### Azure CLI not authenticated
+### azd not authenticated
 
-If mounted credentials don't work:
+Sign in inside the container:
 ```bash
-az login
 azd auth login
 ```
 
@@ -159,10 +166,5 @@ To customize the devcontainer:
 2. Rebuild container: `Dev Containers: Rebuild Container`
 
 ## Performance
-
-The devcontainer uses bind mounts for Azure credentials, which provides:
-- Fast credential access
-- Automatic sync with host
-- No need to re-authenticate
 
 For best performance on Windows, ensure Docker Desktop is using WSL 2 backend.

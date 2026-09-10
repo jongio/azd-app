@@ -20,7 +20,7 @@ The bundle is written locally and never uploaded. You decide what to share.
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--output` | `-o` | string | | Output folder path |
+| `--output-dir` | | string | | Output folder path |
 | `--service` | `-s` | string | | Include logs and health for specific service(s), comma-separated |
 | `--tail` | | int | `200` | Recent log lines per service to include |
 | `--zip` | | bool | `false` | Create a zip archive after writing the support bundle |
@@ -41,15 +41,15 @@ A file that cannot be collected does not fail the run. The reason is recorded in
 
 ## Output Location
 
-Without `--output`, the bundle is written to a timestamped folder under the project:
+Without `--output-dir`, the bundle is written to a timestamped folder under the project:
 
 ```
 .azd/support-bundles/support-bundle-<YYYYMMDD-HHMMSS>/
 ```
 
-`--output` accepts an absolute path, or a path relative to the project directory. Paths are validated before use.
+`--output-dir` accepts an absolute path, or a path relative to the project directory. Paths are validated before use.
 
-With `--zip`, the archive is written next to the folder. If `--output` already ends in `.zip`, that path becomes the archive and the folder drops the extension.
+With `--zip`, the archive is written next to the folder. If `--output-dir` already ends in `.zip`, that path becomes the archive and the folder drops the extension.
 
 ## Examples
 
@@ -76,7 +76,7 @@ azd app support-bundle --zip
 ### Choose the output location
 
 ```bash
-azd app support-bundle --output ./diagnostics --zip
+azd app support-bundle --output-dir ./diagnostics --zip
 ```
 
 ### Limit logs and health to selected services

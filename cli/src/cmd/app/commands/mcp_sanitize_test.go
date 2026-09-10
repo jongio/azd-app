@@ -76,6 +76,14 @@ func TestSanitizeForLLM_CSISequences(t *testing.T) {
 			input: "\x1b[38;5;196mcolored\x1b[0m",
 			want:  "colored",
 		},
+		{
+			// DEL is neither C0 nor C1, so it reached the permissive default
+			// and survived into the audit record while containsControlChar
+			// already listed it as forbidden.
+			name:  "DEL stripped",
+			input: "safe\x7Fevil",
+			want:  "safeevil",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -261,13 +269,9 @@ func TestMcpErrorResult_SanitizesMessage(t *testing.T) {
 		t.Error("expected IsError=true")
 	}
 	// Verify no ANSI sequences in the content.
-	for _, c := range result.Content {
-		text, ok := c.(interface{ GetText() string })
-		if !ok {
-			continue
-		}
-		if strings.ContainsRune(text.GetText(), '\x1b') {
-			t.Errorf("ANSI ESC found in error result content: %q", text.GetText())
+	for _, txt := range toolResultTexts(t, result) {
+		if strings.ContainsRune(txt, '\x1b') {
+			t.Errorf("ANSI ESC found in error result content: %q", txt)
 		}
 	}
 }
@@ -294,20 +298,12 @@ func TestMarshalToolResult_SanitizesStringValues(t *testing.T) {
 	}
 
 	// Text content must not contain ESC characters.
-	for _, c := range result.Content {
-		text, ok := c.(interface{ GetText() string })
-		if !ok {
-			continue
-		}
-		txt := text.GetText()
+	for _, txt := range toolResultTexts(t, result) {
 		if strings.ContainsRune(txt, '\x1b') {
 			t.Errorf("ANSI ESC found in tool result text content: %q", txt)
 		}
-		if strings.Contains(txt, "IGNORE PREVIOUS INSTRUCTIONS") {
-			// The literal text must remain, but the ANSI prefix must be gone.
-			if strings.Contains(txt, `\u001b`) || strings.ContainsRune(txt, '\x1b') {
-				t.Error("ANSI sequences survived in text content")
-			}
+		if strings.Contains(txt, `\u001b`) {
+			t.Errorf("ANSI sequences survived as JSON escapes in text content: %q", txt)
 		}
 	}
 }
@@ -323,12 +319,7 @@ func TestMarshalToolResult_PreservesNewlinesAndTabs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshalToolResult error: %v", err)
 	}
-	for _, c := range result.Content {
-		text, ok := c.(interface{ GetText() string })
-		if !ok {
-			continue
-		}
-		txt := text.GetText()
+	for _, txt := range toolResultTexts(t, result) {
 		// The JSON representation will have \n and \t encoded; make sure the
 		// raw characters aren't accidentally double-encoded or removed.
 		if !strings.Contains(txt, "line1") || !strings.Contains(txt, "line2") {

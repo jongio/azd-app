@@ -4,13 +4,13 @@
  * Automatically captures screenshots of the azd app dashboard for the marketing website.
  * 
  * Prerequisites:
- * - Azure CLI authenticated (az login)
+ * - azd authenticated (azd auth login)
  * - Azure resources deployed in azure-logs-test project
  * 
  * Run with: npx tsx scripts/capture-screenshots.ts
  *
  * What it does:
- * 1. Checks Azure CLI authentication
+ * 1. Checks azd authentication
  * 2. Starts the azure-logs-test project with `azd app run`
  * 3. Waits for services to be ready and Azure logs to populate
  * 4. Validates that all required UI elements are visible
@@ -61,16 +61,26 @@ function cleanup(): void {
 }
 
 async function checkAzureAuth(): Promise<boolean> {
-  console.log('🔐 Checking Azure CLI authentication...');
+  console.log('🔐 Checking Azure authentication...');
+  const { execSync } = await import('child_process');
+
+  // Mirror the runtime chain in NewLogAnalyticsCredential: azd first, then
+  // DefaultAzureCredential, which still accepts an Azure CLI login. Checking
+  // only azd here would reject credentials the app itself would have used.
   try {
-    const { execSync } = await import('child_process');
-    execSync('az account show', { stdio: 'pipe' });
-    console.log('  ✓ Azure CLI authenticated\n');
+    execSync('azd auth login --check-status', { stdio: 'pipe' });
+    console.log('  ✓ azd authenticated\n');
     return true;
-  } catch (error) {
-    console.error('  ❌ Azure CLI not authenticated');
-    console.error('  Please run: az login');
-    return false;
+  } catch {
+    try {
+      execSync('az account show', { stdio: 'pipe' });
+      console.log('  ✓ Azure CLI authenticated\n');
+      return true;
+    } catch {
+      console.error('  ❌ Not authenticated');
+      console.error('  Please run: azd auth login');
+      return false;
+    }
   }
 }
 
@@ -79,12 +89,12 @@ async function main(): Promise<void> {
   console.log('  📸 azd app Dashboard Screenshot Capture');
   console.log('═══════════════════════════════════════════════════════════\n');
 
-  // Check Azure CLI authentication first
+  // Check azd authentication first
   const isAzureAuthenticated = await checkAzureAuth();
   if (!isAzureAuthenticated) {
     console.error('\n❌ Azure authentication required for azure-logs-test project');
-    console.error('   This project uses Azure resources and requires Azure CLI authentication.');
-    console.error('   Run "az login" to authenticate, then try again.\n');
+    console.error('   This project uses Azure resources and requires azd authentication.');
+    console.error('   Run "azd auth login" to authenticate, then try again.\n');
     process.exit(1);
   }
 

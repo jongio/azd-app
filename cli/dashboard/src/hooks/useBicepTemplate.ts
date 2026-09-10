@@ -106,7 +106,7 @@ function bicepErrorMessage(err: unknown): string {
   if (err instanceof ConnectError) {
     switch (err.code) {
       case Code.FailedPrecondition:
-        return 'Azure credentials are not available. Sign in with `az login` and try again.'
+        return 'Azure credentials are not available. Sign in with `azd auth login` and try again.'
       case Code.NotFound:
         return "No Azure resources found. Deploy your application with 'azd up' first."
       case Code.Unavailable:

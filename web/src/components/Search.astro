@@ -363,7 +363,7 @@
         return;
       }
 
-      // Build DOM nodes for each result — no innerHTML, no string interpolation
+      // Build DOM nodes for each result: no innerHTML, no string interpolation
       const anchors = await Promise.all(
         searchResults.results.slice(0, 10).map(async (r: any) => {
           const data = await r.data();

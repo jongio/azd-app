@@ -112,7 +112,7 @@ describe('useBicepTemplate', () => {
     })
 
     expect(result.current.error).toMatch(/azure credentials/i)
-    expect(result.current.error).toMatch(/az login/i)
+    expect(result.current.error).toMatch(/azd auth login/i)
   })
 
   it('maps Code.Unavailable to the discovery message', async () => {

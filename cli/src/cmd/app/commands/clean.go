@@ -126,7 +126,7 @@ func runClean(opts *cleanOptions) error {
 		opts.writer = os.Stdout
 	}
 	if opts.olderThan < 0 {
-		return fmt.Errorf("--older-than must be zero or greater")
+		return newInvalidFlagUsageError("--older-than must be zero or greater", "Pass a non-negative duration, for example --older-than 24h.")
 	}
 
 	searchRoot, err := getSearchRoot()

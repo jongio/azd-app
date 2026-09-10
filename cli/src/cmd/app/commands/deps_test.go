@@ -3006,8 +3006,8 @@ func TestDetectProjectsFromAzureYaml_NoAzureYaml(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error when no azure.yaml exists")
 	}
-	if !strings.Contains(err.Error(), "azure.yaml not found") {
-		t.Errorf("Expected 'azure.yaml not found' error, got: %v", err)
+	if !strings.Contains(err.Error(), "no azure.yaml found") {
+		t.Errorf("Expected a project-not-found error, got: %v", err)
 	}
 }
 

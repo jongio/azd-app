@@ -51,7 +51,7 @@ func loadAzureYaml() (string, *AzureYaml, error) {
 	}
 
 	if azureYamlPath == "" {
-		return "", nil, fmt.Errorf("no azure.yaml found in current directory or parents - run 'azd app reqs --generate' to create one")
+		return "", nil, newProjectNotFoundError()
 	}
 
 	// Validate path to azure.yaml — enforce containment within cwd so a

@@ -124,7 +124,7 @@ func (c *AzdTokenCredential) GetToken(ctx context.Context, options policy.TokenR
 }
 
 // CredentialChain provides Azure credentials with multiple fallback options.
-// It tries credentials in order: azd token, Azure CLI, environment variables, managed identity.
+// It tries the azd token first, then the Azure Developer CLI, then DefaultAzureCredential.
 type CredentialChain struct {
 	credential azcore.TokenCredential
 	source     string
@@ -145,11 +145,12 @@ func (c *CredentialChain) GetToken(ctx context.Context, options policy.TokenRequ
 
 // NewCredentialChain creates a new credential chain that tries multiple credential sources.
 // Priority order:
-// 1. AZD_ACCESS_TOKEN environment variable (from azd extension context)
-// 2. Azure Developer CLI credentials (from 'azd auth login')
-// 3. Azure CLI credentials (from 'az login')
-// 3. Environment variables (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_CLIENT_SECRET)
-// 4. Managed Identity (when running in Azure)
+//  1. AZD_ACCESS_TOKEN environment variable (from azd extension context)
+//  2. Azure Developer CLI credentials (from 'azd auth login')
+//  3. DefaultAzureCredential, which covers environment variables, workload identity,
+//     managed identity, Azure CLI and Azure PowerShell. See the azidentity docs for
+//     the authoritative sub-order; it is not flattened here so this comment cannot
+//     drift from the SDK.
 func NewCredentialChain() (*CredentialChain, error) {
 	// Try azd extension token first
 	if token := os.Getenv("AZD_ACCESS_TOKEN"); token != "" {
@@ -204,10 +205,10 @@ func NewAzureCredential() (azcore.TokenCredential, error) {
 // 3. DefaultAzureCredential defaults to the last requested scope
 //
 // WORKAROUND:
-//   - We rely on Azure CLI (via DefaultAzureCredential) which can handle
-//     multiple scopes by caching separate tokens per resource
+//   - We rely on the azd credential chain (via DefaultAzureCredential) which can
+//     handle multiple scopes by caching separate tokens per resource
 //   - The azlogs.Client automatically requests the correct scope internally
-//   - Users must be logged in via `az login` for this to work reliably
+//   - Users must be signed in via `azd auth login` for this to work reliably
 //
 // FUTURE FIX:
 // - Azure SDK for Go should expose scope configuration on azlogs.Client

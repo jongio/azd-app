@@ -486,7 +486,7 @@ This format is designed to be:
 **CLI:**
 - Run `azd app health` to see health status
 - Use `--verbose` flag for extended information
-- Export with `--format json` for programmatic access
+- Export with `--output json` for programmatic access
 
 **MCP (Model Context Protocol):**
 - AI assistants can query health status

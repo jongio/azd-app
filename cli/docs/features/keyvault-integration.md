@@ -57,9 +57,10 @@ Key Vault resolution uses **DefaultAzureCredential**, which tries the following 
 1. Environment variables (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`)
 2. Workload Identity (Kubernetes)
 3. Managed Identity (Azure VMs/services)
-4. Azure CLI (`az login`)
-5. Azure PowerShell
-6. Interactive browser
+4. Azure Developer CLI (`azd auth login`)
+5. Azure CLI (`az login`)
+6. Azure PowerShell
+7. Interactive browser
 
 **This is the same authentication mechanism used by azd** - no additional setup is required if you're already authenticated with Azure!
 
@@ -257,7 +258,7 @@ azd app run
 
 **Solution**: Authenticate with Azure:
 ```bash
-az login
+azd auth login
 ```
 
 ### "failed to get secret X from vault Y"

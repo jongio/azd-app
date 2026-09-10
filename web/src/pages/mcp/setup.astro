@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * MCP Setup Guides
  * 
@@ -128,7 +129,7 @@ const copilotSteps = [
               showCopy={true}
             />
             <div class="setup-note">
-              <span class="setup-note-icon" aria-hidden="true">💡</span>
+              <span class="setup-note-icon" aria-hidden="true"><Icon name="lightbulb" /></span>
               <p>
                 This file tells VS Code how to connect to the azd-app MCP server. 
                 The server starts automatically when you open Copilot Chat.
@@ -450,21 +451,21 @@ const copilotSteps = [
       <h2 class="setup-next-title">Next Steps</h2>
       <div class="setup-next-cards">
         <a href={`${baseUrl}mcp/ai-debugging/`} class="setup-next-card">
-          <span class="setup-next-card-icon" aria-hidden="true">🔍</span>
+          <span class="setup-next-card-icon" aria-hidden="true"><Icon name="search" /></span>
           <div class="setup-next-card-content">
             <h3>AI Debugging Guide</h3>
             <p>Learn how to debug issues using AI</p>
           </div>
         </a>
         <a href={`${baseUrl}mcp/prompts/`} class="setup-next-card">
-          <span class="setup-next-card-icon" aria-hidden="true">💬</span>
+          <span class="setup-next-card-icon" aria-hidden="true"><Icon name="message-circle" /></span>
           <div class="setup-next-card-content">
             <h3>Prompt Library</h3>
             <p>Copy-paste prompts for common tasks</p>
           </div>
         </a>
         <a href={`${baseUrl}mcp/tools/`} class="setup-next-card">
-          <span class="setup-next-card-icon" aria-hidden="true">🔧</span>
+          <span class="setup-next-card-icon" aria-hidden="true"><Icon name="wrench" /></span>
           <div class="setup-next-card-content">
             <h3>Tools Reference</h3>
             <p>All 10 MCP tools explained</p>

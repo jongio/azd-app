@@ -168,7 +168,7 @@ func runDepsCheck(opts *DepsOptions, w io.Writer) error {
 	}
 
 	if result.Missing > 0 {
-		return fmt.Errorf("%d of %d service(s) missing dependencies; run 'azd app deps' to install", result.Missing, result.TotalChecked)
+		return newCheckFailedError(fmt.Sprintf("%d of %d service(s) missing dependencies", result.Missing, result.TotalChecked), "Run `azd app deps` to install them.")
 	}
 	return nil
 }

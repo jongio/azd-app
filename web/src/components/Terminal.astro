@@ -160,7 +160,7 @@ const ariaLabel = lines.length > 0 && lines[0].type === 'command'
   /* Content */
   .terminal-content {
     padding: var(--terminal-padding, 1rem);
-    font-family: var(--font-family-mono);
+    font-family: var(--azd-font-mono);
     font-size: var(--terminal-font-size, 0.875rem);
     line-height: var(--terminal-line-height, 1.6);
     overflow: auto;
@@ -266,8 +266,8 @@ const ariaLabel = lines.length > 0 && lines[0].type === 'command'
   @media (max-width: 640px) {
     .terminal {
       border-radius: 0;
-      margin-left: calc(-1 * var(--spacing-4, 1rem));
-      margin-right: calc(-1 * var(--spacing-4, 1rem));
+      margin-left: calc(-1 * var(--space-4, 1rem));
+      margin-right: calc(-1 * var(--space-4, 1rem));
       border-left: none;
       border-right: none;
     }

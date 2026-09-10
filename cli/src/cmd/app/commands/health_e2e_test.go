@@ -372,7 +372,7 @@ func TestHealthCommandE2E_ErrorCases(t *testing.T) {
 		}
 
 		outputStr := string(output)
-		if !strings.Contains(outputStr, "invalid") && !strings.Contains(outputStr, "format") {
+		if !strings.Contains(outputStr, "invalid") && !strings.Contains(outputStr, "output") {
 			t.Error("Error message should mention invalid format")
 		}
 

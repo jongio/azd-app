@@ -128,7 +128,7 @@ describe('DiagnosticsModal', () => {
     getAzureLogsHealthMock.mockResolvedValueOnce(
       buildHealthResponse('degraded', [
         { name: 'Workspace Check', status: 'pass', message: 'Workspace configured' },
-        { name: 'Auth Check', status: 'fail', message: 'Authentication failed', fix: 'az login' },
+        { name: 'Auth Check', status: 'fail', message: 'Authentication failed', fix: 'azd auth login' },
       ]),
     )
 

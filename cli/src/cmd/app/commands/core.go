@@ -158,7 +158,7 @@ func executeReqs() error {
 	}
 	if !allSatisfied {
 		cliout.Info("%s If you recently installed any missing tools, run 'azd app reqs --fix' to refresh PATH", cliout.IconBulb)
-		return fmt.Errorf("requirement check failed")
+		return newCheckFailedError("requirement check failed", "Review the unmet requirements above, then run `azd app reqs` again.")
 	}
 
 	cliout.Success("All reqs satisfied!")

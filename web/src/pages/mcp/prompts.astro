@@ -1,4 +1,5 @@
 ---
+import Icon from '@jongio/azd-web-core/components/Icon.astro';
 /**
  * MCP Prompt Library
  * 
@@ -13,7 +14,7 @@ const promptCategories = [
   {
     id: "diagnostics",
     name: "Diagnostics",
-    icon: "🔍",
+    icon: "search",
     description: "Find and diagnose issues in your services",
     prompts: [
       {
@@ -56,7 +57,7 @@ const promptCategories = [
   {
     id: "service-management",
     name: "Service Management",
-    icon: "⚙️",
+    icon: "settings",
     description: "Start, stop, and manage your services",
     prompts: [
       {
@@ -94,7 +95,7 @@ const promptCategories = [
   {
     id: "logs",
     name: "Log Analysis",
-    icon: "📝",
+    icon: "file-pen",
     description: "Search and analyze log output",
     prompts: [
       {
@@ -137,7 +138,7 @@ const promptCategories = [
   {
     id: "configuration",
     name: "Configuration",
-    icon: "🔧",
+    icon: "wrench",
     description: "Understand and debug configuration",
     prompts: [
       {
@@ -175,7 +176,7 @@ const promptCategories = [
   {
     id: "debugging",
     name: "Debugging Scenarios",
-    icon: "🐛",
+    icon: "bug",
     description: "Common debugging situations",
     prompts: [
       {
@@ -213,7 +214,7 @@ const promptCategories = [
   {
     id: "workflows",
     name: "Development Workflows",
-    icon: "🔄",
+    icon: "refresh-cw",
     description: "Common development tasks",
     prompts: [
       {
@@ -272,7 +273,7 @@ const promptCategories = [
       <div class="prompts-nav-list">
         {promptCategories.map((cat) => (
           <a href={`#${cat.id}`} class="prompts-nav-item">
-            <span aria-hidden="true">{cat.icon}</span>
+            <span><Icon name={cat.icon} size={18} /></span>
             <span>{cat.name}</span>
           </a>
         ))}
@@ -284,7 +285,7 @@ const promptCategories = [
       {promptCategories.map((category) => (
         <section class="prompts-category" id={category.id}>
           <header class="prompts-category-header">
-            <span class="prompts-category-icon" aria-hidden="true">{category.icon}</span>
+            <span class="prompts-category-icon"><Icon name={category.icon} size={24} /></span>
             <div class="prompts-category-info">
               <h2 class="prompts-category-title">{category.name}</h2>
               <p class="prompts-category-description">{category.description}</p>
@@ -324,21 +325,21 @@ const promptCategories = [
       <h2 class="prompts-tips-title">Tips for Better Prompts</h2>
       <div class="prompts-tips-grid">
         <div class="prompts-tip">
-          <span class="prompts-tip-icon" aria-hidden="true">📝</span>
+          <span class="prompts-tip-icon" aria-hidden="true"><Icon name="file-pen" /></span>
           <div class="prompts-tip-content">
             <h3>Replace placeholders</h3>
             <p>Replace <code>[service-name]</code> with your actual service name from azure.yaml</p>
           </div>
         </div>
         <div class="prompts-tip">
-          <span class="prompts-tip-icon" aria-hidden="true">🎯</span>
+          <span class="prompts-tip-icon" aria-hidden="true"><Icon name="target" /></span>
           <div class="prompts-tip-content">
             <h3>Be specific</h3>
             <p>Add context like time ranges, error messages, or specific endpoints</p>
           </div>
         </div>
         <div class="prompts-tip">
-          <span class="prompts-tip-icon" aria-hidden="true">🔗</span>
+          <span class="prompts-tip-icon" aria-hidden="true"><Icon name="link" /></span>
           <div class="prompts-tip-content">
             <h3>Chain prompts</h3>
             <p>Follow up with "why?" or "how do I fix that?" for deeper insights</p>
@@ -352,15 +353,15 @@ const promptCategories = [
       <h2 class="prompts-related-title">Related</h2>
       <div class="prompts-related-grid">
         <a href={`${baseUrl}mcp/ai-debugging/`} class="prompts-related-card">
-          <span aria-hidden="true">🔍</span>
+          <span aria-hidden="true"><Icon name="search" /></span>
           <span>AI Debugging Guide</span>
         </a>
         <a href={`${baseUrl}mcp/tools/`} class="prompts-related-card">
-          <span aria-hidden="true">🔧</span>
+          <span aria-hidden="true"><Icon name="wrench" /></span>
           <span>Tools Reference</span>
         </a>
         <a href={`${baseUrl}mcp/setup/`} class="prompts-related-card">
-          <span aria-hidden="true">⚙️</span>
+          <span aria-hidden="true"><Icon name="settings" /></span>
           <span>Setup Guide</span>
         </a>
       </div>
