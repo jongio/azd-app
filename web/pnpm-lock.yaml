@@ -5,13 +5,13 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  yaml@>=2.0.0 <2.8.3: '>=2.8.3'
-  js-yaml@>=4.0.0 <4.3.2: '>=4.3.2 <5'
-  svgo@>=4.0.0 <4.1.0: '>=4.1.0'
-  smol-toml@<=1.7.0: '>=1.7.1'
   fast-uri@>=3.0.0 <=3.1.3: '>=3.1.4'
+  js-yaml@>=4.0.0 <4.3.2: '>=4.3.2 <5'
   nanoid@<3.3.17: '>=3.3.17 <4'
   postcss@<=8.5.17: '>=8.5.18'
+  smol-toml@<=1.7.0: '>=1.7.1'
+  svgo@>=4.0.0 <4.1.0: '>=4.1.0'
+  yaml@>=2.0.0 <2.8.3: '>=2.8.3'
 
 importers:
 
@@ -21,8 +21,8 @@ importers:
         specifier: ^8.0.1
         version: 8.0.1(@astrojs/markdown-satteri@0.4.1)(astro@7.3.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@26.1.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
       '@jongio/azd-web-core':
-        specifier: ^3.0.1
-        version: 3.0.1(astro@7.3.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@26.1.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))(tailwindcss@4.3.3)
+        specifier: github:jongio/azd-web-core#v3.0.1
+        version: https://codeload.github.com/jongio/azd-web-core/tar.gz/e08cea5f1ccd4583aec130a5c8c4ad543966ddc5(astro@7.3.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@26.1.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))(tailwindcss@4.3.3)
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.1.3(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
@@ -547,8 +547,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@jongio/azd-web-core@3.0.1':
-    resolution: {integrity: sha512-p/E6XdsG2UZHl3TkQJNBcK7D144MYYQwDaYX+tIkwceElx2n13u/jkh5y47lZVCool/Mi+5ve/ijyO4LGvMlbA==, tarball: https://npm.pkg.github.com/download/@jongio/azd-web-core/3.0.1/3d14e6953ce323868dfb7951434101871162fbb4}
+  '@jongio/azd-web-core@https://codeload.github.com/jongio/azd-web-core/tar.gz/e08cea5f1ccd4583aec130a5c8c4ad543966ddc5':
+    resolution: {gitHosted: true, integrity: sha512-PZduTLxlaKerRDJX/AcvxbfMph4++vIO0DPPvvsM1Qskd3GLfhnBv3wyM9Xaxtvf2ldzIbTo6KzwlKEDFJZwfA==, tarball: https://codeload.github.com/jongio/azd-web-core/tar.gz/e08cea5f1ccd4583aec130a5c8c4ad543966ddc5}
+    version: 3.0.1
     engines: {node: '>=18'}
     peerDependencies:
       astro: ^5.0.0 || ^6.0.0 || ^7.0.0
@@ -2074,7 +2075,7 @@ snapshots:
   '@img/sharp-win32-x64@0.35.4':
     optional: true
 
-  '@jongio/azd-web-core@3.0.1(astro@7.3.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@26.1.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))(tailwindcss@4.3.3)':
+  '@jongio/azd-web-core@https://codeload.github.com/jongio/azd-web-core/tar.gz/e08cea5f1ccd4583aec130a5c8c4ad543966ddc5(astro@7.3.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@26.1.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))(tailwindcss@4.3.3)':
     dependencies:
       '@lucide/astro': 1.30.0(astro@7.3.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@26.1.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
       astro: 7.3.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@26.1.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0)
