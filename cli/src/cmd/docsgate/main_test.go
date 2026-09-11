@@ -149,10 +149,12 @@ func fixtureRepo(t *testing.T, documented bool) string {
 	if documented {
 		reference += "\n## `azd app run`\n\n### Flags\n\n| `--detach` | | bool | | Detach |\n"
 		require.NoError(t, os.WriteFile(
-			filepath.Join(root, "cli", "docs", "commands", "run.md"), []byte("# azd app run"), 0o600))
+			filepath.Join(root, "cli", "docs", "commands", "run.md"), []byte("# azd app run"), 0o600,
+		))
 	}
 	require.NoError(t, os.WriteFile(
-		filepath.Join(root, "cli", "docs", "cli-reference.md"), []byte(reference), 0o600))
+		filepath.Join(root, "cli", "docs", "cli-reference.md"), []byte(reference), 0o600,
+	))
 
 	return root
 }
@@ -165,7 +167,8 @@ func TestRun(t *testing.T) {
 
 		code, err := run(
 			[]string{"--repo-root", fixtureRepo(t, true)},
-			strings.NewReader(fixtureMetadata), &out)
+			strings.NewReader(fixtureMetadata), &out,
+		)
 
 		require.NoError(t, err)
 		assert.Equal(t, 0, code)
@@ -177,7 +180,8 @@ func TestRun(t *testing.T) {
 
 		code, err := run(
 			[]string{"--repo-root", fixtureRepo(t, false)},
-			strings.NewReader(fixtureMetadata), &out)
+			strings.NewReader(fixtureMetadata), &out,
+		)
 
 		// A gate failure is a verdict, not a crash. Reporting it as an error too
 		// would print a second, redundant message on stderr.

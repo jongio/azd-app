@@ -2,7 +2,7 @@
   "name": "reqs-generate-partial-reqs",
   "version": "1.0.0",
   "description": "Test: azure.yaml with partial reqs",
-  "packageManager": "pnpm@11.20.0",
+  "packageManager": "pnpm@12.3.4",
   "scripts": {
     "test": "echo 'No tests'"
   }

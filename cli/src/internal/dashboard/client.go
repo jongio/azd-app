@@ -312,13 +312,14 @@ func filterSince(all []service.LogEntry, since time.Time) []service.LogEntry {
 	return filtered
 }
 
+//lint:ignore SA1019 The dashboard client still implements the legacy logs command contract.
+type legacyAzureStatus = service.AzureStatus //nolint:staticcheck // Compatibility alias for the deprecated client response.
+
 // GetAzureStatus mirrors the legacy service.AzureStatus shape logs.go /
 // info.go consume, by probing GetAzureServices and deriving the minimum
 // fields those call sites read (Mode / Enabled / Connected / ResourceCount).
 // Returns a disabled-shape response when Azure is not configured.
-//
-//nolint:staticcheck // service.AzureStatus is deprecated but kept for API compat.
-func (c *Client) GetAzureStatus(ctx context.Context) (*service.AzureStatus, error) {
+func (c *Client) GetAzureStatus(ctx context.Context) (*legacyAzureStatus, error) {
 	ctx, cancel := context.WithTimeout(ctx, constants.DashboardAPITimeout)
 	defer cancel()
 
@@ -326,7 +327,7 @@ func (c *Client) GetAzureStatus(ctx context.Context) (*service.AzureStatus, erro
 	if err != nil {
 		// Azure not configured or handler errored -- matches the "return
 		// disabled" branch of the old REST client.
-		return &service.AzureStatus{
+		return &legacyAzureStatus{
 			Mode:      service.LogModeLocal,
 			Connected: false,
 			Enabled:   false,
@@ -334,7 +335,7 @@ func (c *Client) GetAzureStatus(ctx context.Context) (*service.AzureStatus, erro
 	}
 
 	services := resp.Msg.GetServices()
-	return &service.AzureStatus{
+	return &legacyAzureStatus{
 		Mode:          service.LogModeAzure,
 		Enabled:       len(services) > 0,
 		Connected:     len(services) > 0,

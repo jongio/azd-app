@@ -60,7 +60,11 @@ const localStorageMock = {
     return keys[index] ?? null
   }),
 }
-globalThis.localStorage = localStorageMock
+Object.defineProperty(globalThis, 'localStorage', {
+  value: localStorageMock,
+  writable: true,
+  configurable: true,
+})
 
 // Mock WebSocket
 class WebSocketMock {

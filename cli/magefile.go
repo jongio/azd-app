@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -721,7 +722,8 @@ func VerifyNoLocalReplace() error {
 		}
 		return fmt.Errorf(
 			"go.mod still replaces azd-core:\n  %s\n"+
-				"Remove the replace and pin a released azd-core version before shipping", line)
+				"Remove the replace and pin a released azd-core version before shipping", line,
+		)
 	}
 	return nil
 }
@@ -2499,26 +2501,37 @@ func runWebsiteE2ETests(updateSnapshots bool) error {
 		fmt.Println("⚠️  Failed to install Playwright browsers - continuing anyway...")
 	}
 
-	// Start the preview server in the background
-	fmt.Println("Starting preview server...")
-	serverCmd := exec.Command("npx", "astro", "preview", "--host", "127.0.0.1", "--port", "4321")
-	serverCmd.Dir = absWebsiteDir
-	serverCmd.Stdout = os.Stdout
-	serverCmd.Stderr = os.Stderr
-	if err := serverCmd.Start(); err != nil {
-		return fmt.Errorf("failed to start preview server: %w", err)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return fmt.Errorf("failed to reserve preview server port: %w", err)
 	}
-	defer func() {
-		if serverCmd.Process != nil {
-			_ = serverCmd.Process.Kill()
+	previewPort := listener.Addr().(*net.TCPAddr).Port
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d/azd-app/", previewPort)
+
+	distDir := filepath.Join(absWebsiteDir, "dist")
+	if _, err := os.Stat(distDir); err != nil {
+		_ = listener.Close()
+		return fmt.Errorf("website build output is unavailable: %w", err)
+	}
+
+	// Serve the static build directly. This avoids platform-specific process
+	// cleanup and guarantees that the selected port remains reserved.
+	fmt.Println("Starting preview server...")
+	server := &http.Server{
+		Handler: http.StripPrefix("/azd-app/", http.FileServer(http.Dir(distDir))),
+	}
+	go func() {
+		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "preview server failed: %v\n", err)
 		}
 	}()
+	defer server.Close()
 
 	// Wait for server to be ready
 	fmt.Println("Waiting for server to be ready...")
 	serverReady := false
 	for i := 0; i < 30; i++ {
-		resp, err := http.Get("http://localhost:4321/azd-app/")
+		resp, err := http.Get(baseURL)
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode == 200 {
@@ -2542,7 +2555,7 @@ func runWebsiteE2ETests(updateSnapshots bool) error {
 	testCmd.Dir = absWebsiteDir
 	// Set CI=true to skip visual regression (screenshot comparison) since
 	// baseline snapshots are platform-specific and gitignored
-	testCmd.Env = append(os.Environ(), "CI=true")
+	testCmd.Env = append(os.Environ(), "CI=true", "PLAYWRIGHT_BASE_URL="+baseURL)
 	testCmd.Stdout = os.Stdout
 	testCmd.Stderr = os.Stderr
 	if err := testCmd.Run(); err != nil {

@@ -13,7 +13,7 @@ export default defineConfig({
   snapshotPathTemplate: '{testDir}/{testFileDir}/{testFileName}-snapshots/{arg}{ext}',
   use: {
     // Note: Trailing slash is required for proper URL resolution with relative paths
-    baseURL: 'http://localhost:4321/azd-app/',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:4321/azd-app/',
     trace: 'on-first-retry',
     headless: true,
   },

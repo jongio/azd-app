@@ -59,6 +59,9 @@ const (
 	logLevelDebug          = "debug"
 )
 
+//lint:ignore SA1019 The logs command still implements the legacy dashboard client contract.
+type legacyAzureStatus = service.AzureStatus //nolint:staticcheck // Compatibility alias for the deprecated client response.
+
 // DashboardClient defines the interface for dashboard operations needed by logs.
 // This interface enables testing by allowing mock implementations.
 type DashboardClient interface {
@@ -66,7 +69,7 @@ type DashboardClient interface {
 	GetServices(ctx context.Context) ([]*serviceinfo.ServiceInfo, error)
 	StreamLogs(ctx context.Context, serviceName string, logs chan<- service.LogEntry) error
 	GetAzureLogs(ctx context.Context, services []string, tail int, since time.Time) ([]service.LogEntry, error)
-	GetAzureStatus(ctx context.Context) (*service.AzureStatus, error) //nolint:staticcheck // backward-compatible API
+	GetAzureStatus(ctx context.Context) (*legacyAzureStatus, error)
 	StreamAzureLogs(ctx context.Context, logs chan<- service.LogEntry) error
 }
 

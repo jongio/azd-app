@@ -31,6 +31,9 @@ export default defineConfig({
           if (id.includes('node_modules/clsx') || id.includes('tailwind-merge') || id.includes('class-variance-authority') || id.includes('ansi-to-html')) {
             return 'vendor-utils'
           }
+          if (id.includes('@connectrpc') || id.includes('@bufbuild/protobuf')) {
+            return 'vendor-rpc'
+          }
         },
       },
     },

@@ -110,7 +110,8 @@ func resolveOpenServiceURL(projectDir, serviceName, extraPath string) (string, e
 	if found {
 		return "", fmt.Errorf(
 			"service %q has no known URL. Start it with 'azd app run', or set local.customUrl or ports in azure.yaml",
-			serviceName)
+			serviceName,
+		)
 	}
 
 	sort.Strings(names)

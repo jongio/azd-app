@@ -1,7 +1,7 @@
 {
   "name": "web-watch",
   "version": "1.0.0",
-  "packageManager": "pnpm@11.20.0",
+  "packageManager": "pnpm@12.3.4",
   "scripts": {
     "dev": "nodemon --exec ts-node src/index.ts",
     "start": "node dist/index.js",

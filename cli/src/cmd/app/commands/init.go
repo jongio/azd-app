@@ -918,7 +918,8 @@ func enrichAzureYaml(azureYamlPath string, services []DetectedService) error {
 	if servicesNode == nil {
 		// Add a services key to the root
 		servicesNode = &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
-		root.Content = append(root.Content,
+		root.Content = append(
+			root.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "services", Tag: "!!str"},
 			servicesNode,
 		)
@@ -995,7 +996,8 @@ func findMappingValue(mapping *yaml.Node, key string) *yaml.Node {
 
 // appendScalarToMapping adds a key: value pair to a mapping node.
 func appendScalarToMapping(mapping *yaml.Node, key string, value string) {
-	mapping.Content = append(mapping.Content,
+	mapping.Content = append(
+		mapping.Content,
 		&yaml.Node{Kind: yaml.ScalarNode, Value: key, Tag: "!!str"},
 		&yaml.Node{Kind: yaml.ScalarNode, Value: value, Tag: "!!str"},
 	)
@@ -1007,7 +1009,8 @@ func appendPortsToMapping(mapping *yaml.Node, ports []string) {
 	for _, port := range ports {
 		seq.Content = append(seq.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: port, Tag: "!!str"})
 	}
-	mapping.Content = append(mapping.Content,
+	mapping.Content = append(
+		mapping.Content,
 		&yaml.Node{Kind: yaml.ScalarNode, Value: "ports", Tag: "!!str"},
 		seq,
 	)
@@ -1040,13 +1043,15 @@ func addServiceToNode(servicesNode *yaml.Node, svc DetectedService) {
 		for _, use := range svc.Uses {
 			usesSeq.Content = append(usesSeq.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: use, Tag: "!!str"})
 		}
-		svcMapping.Content = append(svcMapping.Content,
+		svcMapping.Content = append(
+			svcMapping.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Value: "uses", Tag: "!!str"},
 			usesSeq,
 		)
 	}
 
-	servicesNode.Content = append(servicesNode.Content,
+	servicesNode.Content = append(
+		servicesNode.Content,
 		&yaml.Node{Kind: yaml.ScalarNode, Value: svc.Name, Tag: "!!str"},
 		svcMapping,
 	)
