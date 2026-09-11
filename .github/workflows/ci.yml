@@ -62,7 +62,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
-          version: 9
+          version: 12
 
       - name: Install Mage
         run: go install github.com/magefile/mage@v1.17.2
@@ -105,7 +105,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
-          version: 9
+          version: 12
 
       - name: Build dashboard
         working-directory: cli/dashboard
@@ -321,7 +321,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
-          version: 9
+          version: 12
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -385,4 +385,3 @@ jobs:
             cli/tests/projects/integration/health-test/*.log
             cli/.azure/**/*.log
           if-no-files-found: ignore
-

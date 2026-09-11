@@ -68,7 +68,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
-          version: 9
+          version: 12
 
       - name: Install dashboard dependencies
         working-directory: cli/dashboard
