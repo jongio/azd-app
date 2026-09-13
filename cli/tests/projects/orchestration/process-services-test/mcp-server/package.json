@@ -1,14 +1,14 @@
 {
   "name": "mcp-server",
   "version": "1.0.0",
-  "packageManager": "pnpm@12.3.4",
+  "packageManager": "pnpm@12.4.1",
   "scripts": {
     "start": "node dist/server.js",
     "dev": "ts-node src/server.ts",
     "build": "tsc"
   },
   "devDependencies": {
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.5.1",
     "ts-node": "^10.9.2",
     "typescript": "^7.0.2"
   }
