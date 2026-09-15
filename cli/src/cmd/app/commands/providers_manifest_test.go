@@ -41,7 +41,8 @@ func TestProvidersMatchManifestDetectsDrift(t *testing.T) {
 			"  - name: local\n"+
 			"    type: service-target\n"+
 			"  - name: nonexistent\n"+
-			"    type: service-target\n"), 0o600))
+			"    type: service-target\n",
+	), 0o600))
 
 	err := azdext.VerifyProvidersMatchManifest(ConfigureExtensionHost, drifted)
 	require.Error(t, err, "a provider declared in the manifest but never registered must be reported")

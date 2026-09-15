@@ -29,7 +29,7 @@ Monorepo with three major components:
 ### Web (Astro)
 
 - **Framework**: Astro 6 with MDX, Tailwind CSS v4, Expressive Code
-- **Package manager**: pnpm (version 9+)
+- **Package manager**: pnpm (version 12+)
 - **TypeScript**: strict mode, v5.9.3
 - **Build**: `astro build && pagefind --site dist`
 - **Testing**: Playwright e2e with snapshot updates
@@ -75,7 +75,7 @@ Conventional Commits strictly enforced:
 ## CI/CD
 
 - **Main CI**: `.github/workflows/ci.yml` — preflight, lint, test on ubuntu/windows/macos matrix
-- **Go version**: `cli/go.mod`, Node: 22, pnpm: 9
+- **Go version**: `cli/go.mod`, Node: 22, pnpm: 12
 - **Race detector**: Enabled on Linux/Windows, disabled on macOS
 - **Coverage**: codecov integration with threshold enforcement
 - **Security**: CodeQL + govulncheck (push/PR/weekly schedule)

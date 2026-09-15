@@ -10,7 +10,7 @@ Before contributing, ensure you have the following installed:
 
 - **Go**: The version declared in [`cli/go.mod`](cli/go.mod) or later
 - **Node.js**: 22.0.0 or later
-- **pnpm**: 9.0.0 or later  
+- **pnpm**: 12.0.0 or later
 - **PowerShell**: 7.4 or later (recommended: 7.5.4 for full compatibility)
 - **TypeScript**: 5.9.3 (installed via npm when building dashboard)
 - **Azure Developer CLI (azd)**: Latest version
@@ -19,7 +19,7 @@ You can verify your versions:
 ```bash
 go version                  # Must satisfy cli/go.mod
 node --version             # Should be v22.0.0+
-pnpm --version             # Should be 9.0.0+
+pnpm --version             # Should be 12.0.0+
 pwsh --version            # Should be 7.4+ or 7.5.4
 tsc --version             # Should be 5.9.3 (after pnpm install in dashboard/)
 azd version               # Should be latest

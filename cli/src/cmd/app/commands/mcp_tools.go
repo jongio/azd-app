@@ -597,7 +597,8 @@ func buildRunWaitResult(res runWaitResult, pid, timeoutSeconds int) map[string]a
 		result["status"] = "timeout"
 		result["message"] = fmt.Sprintf(
 			"Timed out after %ds waiting for services to become ready. See services for the current state of each one.",
-			timeoutSeconds)
+			timeoutSeconds,
+		)
 	} else {
 		result["status"] = "ready"
 		result["message"] = "All services are ready."

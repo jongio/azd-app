@@ -16,10 +16,11 @@ export default defineConfig({
     css: true,
     watch: false,
     testTimeout: 10000,
-    // Use forks pool: avoids worker thread timeouts on Windows where thread-based
-    // workers can stall under CPU contention (vitest issue #4734).
-    pool: 'forks',
-    maxWorkers: 4,
+    // Vitest 5 workers can exceed their startup timeout on Windows while
+    // creating concurrent jsdom environments. A single thread preserves
+    // per-file isolation and keeps worker startup deterministic.
+    pool: 'threads',
+    maxWorkers: 1,
     exclude: ['node_modules', 'e2e'],
     coverage: {
       provider: 'v8',

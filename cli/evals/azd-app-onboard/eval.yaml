@@ -12,14 +12,14 @@ description: |
 tags:
   skill: azd-app-onboard
 
-environment:
+agent_environment:
   skills:
     - ../../src/internal/skills/azd-app-onboard
 
 defaults:
   runs: 5
   timeout: "10m"
-  model: claude-sonnet-4.6
+  model: gpt-5.4
 
 scoring:
   threshold: 0.8
