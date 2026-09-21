@@ -14,7 +14,7 @@ require (
 	github.com/invopop/jsonschema v0.14.0
 	github.com/jongio/azd-core v0.6.0
 	github.com/magefile/mage v1.17.2
-	github.com/mark3labs/mcp-go v1.0.0
+	github.com/mark3labs/mcp-go v1.1.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/prometheus/client_golang v1.24.1
