@@ -12,7 +12,7 @@ language: go
 # The azd host version this extension requires. Every gRPC service and azdext
 # API it uses ships with that release, so this must track the azure-dev module
 # version in go.mod. TestRequiredAzdVersionTracksTheSdk enforces that.
-requiredAzdVersion: ">= 1.34.0"
+requiredAzdVersion: ">= 1.34.1"
 
 capabilities:
   - custom-commands

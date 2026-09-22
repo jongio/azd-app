@@ -14,8 +14,8 @@
     "express": "^5.2.1"
   },
   "devDependencies": {
-    "jest": "^30.5.1",
-    "supertest": "^7.2.2"
+    "jest": "^30.5.2",
+    "supertest": "^7.3.0"
   },
   "jest": {
     "testEnvironment": "node",
@@ -32,6 +32,6 @@
     ]
   },
   "overrides": {
-    "brace-expansion": "^5.0.9"
+    "brace-expansion": "^5.0.12"
   }
 }
