@@ -8,11 +8,11 @@ minimumReleaseAgeExclude:
   - '@testing-library/user-event@14.6.3'
   - baseline-browser-mapping@2.11.22
   - electron-to-chromium@1.5.426
-  - lucide-react@1.44.0
+  - lucide-react@1.44.0 || 1.48.0
   - magic-string@1.3.1
   - nanoid@3.3.19
   - update-browserslist-db@1.3.3
-  - vite@8.3.0
+  - vite@8.3.0 || 8.3.1
   - '@testing-library/dom@10.4.2'
   - tailwind-merge@3.7.0
   - jsdom@30.1.1
