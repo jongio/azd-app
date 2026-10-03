@@ -17,6 +17,6 @@ minimumReleaseAgeExclude:
   - '@astrojs/markdown-satteri@0.4.2'
   - '@astrojs/mdx@8.0.2'
   - '@napi-rs/wasm-runtime@1.2.4'
-  - astro@7.3.4
+  - astro@7.3.4 || 7.3.5
   - smol-toml@1.9.0
   - undici@8.11.0
