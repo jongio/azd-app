@@ -154,7 +154,7 @@ describe('log-utils', () => {
     })
 
     it('should produce an href value that contains no raw double-quotes (CWE-79 regression)', () => {
-      // Normal localhost URL, verify the attribute value itself is quote-free
+      // Normal localhost URL; verify the attribute value itself is quote-free.
       const result = convertAnsiToHtml('Server at http://localhost:3000/')
       const hrefMatch = result.match(/href="([^"]*)"/)
       expect(hrefMatch).toBeTruthy()

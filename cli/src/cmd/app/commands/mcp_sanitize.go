@@ -143,7 +143,7 @@ var sensitivePrefixes = []string{
 // pattern; otherwise it returns value unchanged.
 //
 // This function is used exclusively in MCP tool responses where the result
-// reaches an LLM context window. Full redaction is intentional, even a
+// reaches an LLM context window. Full redaction is intentional; even a
 // partial leak (e.g. first/last two chars) is unacceptable for LLM output.
 //
 // For CLI display, see redactSecretValue in core_helpers.go which applies

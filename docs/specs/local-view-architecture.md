@@ -178,7 +178,7 @@ is a Bubble-Tea-style interactive multi-panel view, which can be added as a 17th
   (process crashed, port unbound, healthy→unhealthy, slow start, degraded), classifies severity
   (`Critical` / `Warning` / `Info`), rate-limits, and exposes a listener API. Already wired to
   dashboard WebSocket broadcast and OS notifications. This is the eventing spine that any
-  surface, CLI, dashboard, TUI, MCP, can subscribe to.
+  surface (CLI, dashboard, TUI, or MCP) can subscribe to.
 
 ### 5.3 Azure Integration
 

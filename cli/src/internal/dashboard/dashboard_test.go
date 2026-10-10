@@ -372,10 +372,10 @@ func TestTimeoutContext(t *testing.T) {
 //
 // Acceptance criteria:
 //
-//	AC1, /api/shutdown receives Cache-Control: no-store
-//	AC2, Connect-RPC path (/azdapp.v1.*) receives Cache-Control: no-store
-//	AC3, root path (/) does NOT receive Cache-Control: no-store
-//	AC4, static asset paths do NOT receive Cache-Control: no-store
+//	AC1: /api/shutdown receives Cache-Control: no-store
+//	AC2: Connect-RPC path (/azdapp.v1.*) receives Cache-Control: no-store
+//	AC3: root path (/) does NOT receive Cache-Control: no-store
+//	AC4: static asset paths do NOT receive Cache-Control: no-store
 func TestSecurityHeaders_CacheControl(t *testing.T) {
 	tests := []struct {
 		name    string

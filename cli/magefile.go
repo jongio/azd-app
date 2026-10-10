@@ -1702,7 +1702,7 @@ func quietTestCoverage() error {
 // quietTestOnly runs tests without coverage profiling for maximum speed.
 // Skipping -coverprofile eliminates code instrumentation overhead.
 // Uses -vet=off because golangci-lint (which includes vet) runs as a separate
-// parallel step, no need to run vet twice.
+// parallel step, so there is no need to run vet twice.
 // Use 'mage testCoverage' when you need coverage reports.
 func quietTestOnly() error {
 	pkgPath := goSrcPattern
@@ -1934,7 +1934,7 @@ func websiteTestE2EDevServer() error {
 	// Clean up stale dev servers from interrupted runs.
 	killProcessOnPort(4321)
 
-	// Use dev server, avoids the full Astro production build.
+	// Use the dev server to avoid the full Astro production build.
 	// Pages compile on first request; startup is faster than build+preview under contention.
 	serverCmd := exec.Command("npx", "astro", "dev", "--host", "127.0.0.1", "--port", "4321")
 	serverCmd.Dir = absWebsiteDir

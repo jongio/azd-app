@@ -18,7 +18,7 @@ azd app init [flags]
 Creates a complete `azure.yaml` from scratch based on detected project structure, including services, ports, commands, prerequisites, and infrastructure dependencies.
 
 ### Existing Project (azure.yaml exists)
-Non-destructively enriches the existing file, adds missing `ports`, `command`, `language`, and `uses` fields to services without overwriting anything already configured.
+The command non-destructively enriches the existing file by adding missing `ports`, `command`, `language`, and `uses` fields to services without overwriting anything already configured.
 
 ## Examples
 

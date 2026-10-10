@@ -186,7 +186,7 @@ func logModeToProto(m service.LogMode) v1.LogMode {
 
 // protoToLogMode converts a proto LogMode to the internal string-based
 // LogMode. UNSPECIFIED is rejected (returns an error) because every
-// SetMode caller must declare a concrete intent, silently treating
+// SetMode caller must declare a concrete intent; silently treating
 // UNSPECIFIED as a default would mask client bugs.
 func protoToLogMode(m v1.LogMode) (service.LogMode, error) {
 	switch m {

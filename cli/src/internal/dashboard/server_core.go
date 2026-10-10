@@ -275,7 +275,7 @@ func (s *Server) Stop() error {
 	// so any in-flight stream handlers have already started exiting.
 	s.broadcast.StopAll()
 
-	// Now safe, no more handlers running
+	// Cleanup is now safe because no handlers are still running.
 	if s.configClient != nil {
 		s.configClient.Close()
 		s.configClient = nil

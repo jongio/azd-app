@@ -223,7 +223,7 @@ func TestSaveServiceQuery_NonPrintableByteRejected(t *testing.T) {
 }
 
 // =============================================================================
-// auditMutation, smoke: must not panic or error; slog output verified
+// auditMutation smoke test: must not panic or error; slog output verified
 // structurally by the slog default handler.
 // =============================================================================
 

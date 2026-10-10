@@ -147,7 +147,7 @@ describe('getEffectiveLocalUrl', () => {
       expect(result.defaultUrl).toBe('http://localhost:3000')
     })
 
-    it('blocks javascript: customUrl, falls back to url', () => {
+    it('blocks javascript: customUrl and falls back to url', () => {
       const result = getEffectiveLocalUrl(localInfo({
         url: 'http://localhost:3000',
         customUrl: 'javascript:alert(document.cookie)',
@@ -156,7 +156,7 @@ describe('getEffectiveLocalUrl', () => {
       expect(result.source).toBe('url')
     })
 
-    it('blocks data: customUrl, falls back to url', () => {
+    it('blocks data: customUrl and falls back to url', () => {
       const result = getEffectiveLocalUrl(localInfo({
         url: 'http://localhost:3000',
         customUrl: 'data:text/html,<script>alert(1)</script>',

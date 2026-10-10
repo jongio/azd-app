@@ -329,8 +329,8 @@ export function App({
        *
        * The full-screen blocking overlay only renders when the backend is
        * genuinely unreachable (reconnect attempts exhausted). Transient
-       * reconnect cycles: `Connection lost. Reconnecting in Ns...` and
-       * bare `Backend connection lost` during attempts 4-5: must not
+       * reconnect cycles, including `Connection lost. Reconnecting in Ns...`
+       * and bare `Backend connection lost` during attempts 4-5, must not
        * block the UI; the page stays interactive and recovers silently
        * when the stream re-attaches. The exhaustion signal is the single
        * `Click to reconnect` substring that useHealthStream sets exactly

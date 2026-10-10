@@ -36,7 +36,7 @@ All planned rows are automated. Mapping to implemented tests:
 | T23 | AC5 | `docker.TestValidatePullPolicy`; `service.TestService_PullPolicy` | automated |
 | T24 | AC6 | existing `service` orchestrator/graph tests (uses ordering unchanged) | automated |
 | T25 | AC7 | `service.TestV11SchemaDocumentsContainerFields` | automated |
-| T26 | AC8 | `service.TestStartContainerService_WebsiteStyleTopology` (docker): full path: command + 3 ports + named volume + project network, verified via docker inspect | automated |
+| T26 | AC8 | Docker full path: `service.TestStartContainerService_WebsiteStyleTopology` (command + 3 ports + named volume + project network), verified via docker inspect | automated |
 | T27 | AC9 | `service.TestService_RunsAsLocalProcess`: routing predicate (image=container; docker.*+command=process) | automated |
 | T28 | AC9 | `service.TestDetectServiceRuntime_DockerServiceWithCommandRunsAsProcess` / `_DockerServiceWithoutCommandStaysContainer`: routing + backward compat | automated |
 | T29 | AC10 | `testing.TestValidateService_ExplicitCommand_UnsupportedLanguage` / `_DefaultsFrameworkToCustom` / `TestValidateService_DockerNoExplicitCommand_Skipped`; `TestHasExplicitCommand`: explicit `test:` makes a docker/unset-language service testable; no-command service still skipped | automated |

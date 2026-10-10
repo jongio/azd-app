@@ -206,7 +206,7 @@ func (s *Server) setupRoutes() {
 		// Try to open the file from the embedded FS.
 		f, err := distFS.Open(strings.TrimPrefix(path, "/"))
 		if err != nil {
-			// File doesn't exist, serve index.html for client-side routing.
+			// File doesn't exist, so serve index.html for client-side routing.
 			// This handles routes like /console, /services, /environment, /metrics.
 			if indexReadErr != nil {
 				http.NotFound(w, r)

@@ -172,7 +172,7 @@ Notes:
 - **DNS by service name.** `BLOB_SERVER: azurite` resolves to the azurite
   container over the shared network. No `container_name` or host IP is needed.
 - **Startup ordering via `uses`.** Listing `uses: ["azurite"]` makes `eventhubs`
-  start only after `azurite` reports healthy; the equivalent of Docker Compose
+  start only after `azurite` reports healthy, equivalent to Docker Compose's
   `depends_on` with `condition: service_healthy`.
 - **Persistent containers.** Container services keep running across `azd app run`
   sessions (stopped with the app's shutdown but reused on the next run). The

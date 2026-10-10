@@ -39,7 +39,7 @@ project) can adopt `azd app run` for local dev.
 
 ## Goals
 
-1. Support `volumes:` on container services, named volumes and bind mounts,
+1. Support `volumes:` on container services, including named volumes and bind mounts,
    with relative bind paths resolved against the project directory.
 2. Pass a container `command:` (string **or** array) through to `docker run`.
 3. Publish **all** ports listed for a container service, not just the primary.
@@ -120,7 +120,7 @@ they can resolve each other by service name (compose-equivalent).
 - **Creation**: idempotent `EnsureNetwork` (`docker network create`, tolerating
   "already exists") performed by each container as it starts. Safe under
   parallel level startup because the "already exists" error is treated as
-  success, no serialization needed.
+  success, so no serialization is needed.
 - **Attachment**: each container runs with `--network <net>` and
   `--network-alias <serviceName>`, so `BLOB_SERVER: azurite` resolves to the
   azurite container regardless of its `azd-<name>` container name. A **reused**
@@ -203,8 +203,8 @@ language**:
 
 A monorepo commonly points several services at one directory (e.g. `project: .`
 on each, backed by a single root `package.json`). The deps step collected one
-install task **per service**, so the same directory was installed, and rendered
-as its own progress bar, once per service (N identical `website (npm)` bars).
+install task **per service**, so the same directory was installed and rendered
+as its own progress bar once per service (N identical `website (npm)` bars).
 Project collection (`detectProjectsFromAzureYaml`) now **dedupes by resolved
 project directory**, so a shared directory is collected, installed, and shown
 **once**. `azd app deps --dry-run` and `azd app run`'s install phase are

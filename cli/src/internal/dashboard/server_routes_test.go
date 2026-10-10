@@ -274,7 +274,7 @@ func TestShutdownOriginCheck(t *testing.T) {
 func TestIndexHTMLInjectsSessionToken(t *testing.T) {
 	const token = "cafebabe12345678cafebabe12345678"
 
-	// Minimal index.html with the placeholder, mirrors the real template.
+	// Minimal index.html with the placeholder; it mirrors the real template.
 	indexHTML := []byte(`<!DOCTYPE html><html><head><meta name="azd-session-token" content=""></head><body></body></html>`)
 	tokenized := injectSessionToken(indexHTML, token)
 

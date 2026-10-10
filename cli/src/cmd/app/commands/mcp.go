@@ -130,7 +130,7 @@ This server complements azd's core MCP capabilities:
 			newServiceConfigResource(),
 		)
 
-	// Register all tools via AddTool, builder handles rate limiting + ToolArgs parsing
+	// Register all tools via AddTool; the builder handles rate limiting + ToolArgs parsing.
 	registerAllTools(builder)
 
 	s := builder.Build()

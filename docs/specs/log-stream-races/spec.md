@@ -94,8 +94,8 @@ gated on `connected` because Log Analytics genuinely needs the backend reachable
 
 - The `OnBufferAdded` listener channel (capacity 16) can fill if many services
   start simultaneously. The non-blocking send means the notification is dropped,
-  but the service still exists in the LogManager, a worst case requires one more
-  reconnect cycle to discover it. Acceptable for the expected service count (<20).
+  but the service still exists in the LogManager; in the worst case, a reconnect
+  cycle is needed to discover it. This is acceptable for the expected service count (<20).
 - Backfill entries and live-stream entries can overlap (duplicate delivery) for
   entries that arrive between subscribe and backfill-snapshot. The ring buffer's
   drop-oldest semantics and the dashboard's append-only log list mean duplicates

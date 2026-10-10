@@ -27,7 +27,7 @@ const (
 	storeFileName = "trusted-workspaces.json"
 
 	// storeFileMode is the permission bits applied to the trust-store file.
-	// Owner-read/write only, trust records contain local paths that should
+	// Owner-read/write only: trust records contain local paths that should
 	// not be world-readable.
 	storeFileMode = 0o600
 
