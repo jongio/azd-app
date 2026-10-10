@@ -2,6 +2,7 @@ package docsgate
 
 import (
 	"fmt"
+	"path"
 	"sort"
 	"strings"
 )
@@ -40,6 +41,8 @@ type changeRule struct {
 	Prefixes []string
 	// Suffix, when set, further narrows the watched files.
 	Suffix string
+	// FilenamePrefix, when set, narrows the watched basenames.
+	FilenamePrefix string
 	// Exclude drops files whose path contains any of these substrings.
 	Exclude []string
 	// Surface is the human readable name used in the failure message.
@@ -60,12 +63,13 @@ var changeRules = []changeRule{
 		Hint:     "update cli/docs/cli-reference.md or the matching cli/docs/commands/*.md",
 	},
 	{
-		Name:     "mcp-tools",
-		Prefixes: []string{"cli/src/internal/mcp/"},
-		Suffix:   ".go",
-		Exclude:  []string{"_test.go"},
-		Surface:  "MCP tool surface",
-		Hint:     "update web/src/pages/mcp/ or cli/docs/",
+		Name:           "mcp-tools",
+		Prefixes:       []string{"cli/src/cmd/app/commands/"},
+		Suffix:         ".go",
+		FilenamePrefix: "mcp",
+		Exclude:        []string{"_test.go"},
+		Surface:        "MCP tool surface",
+		Hint:           "update web/src/pages/mcp/ or cli/docs/",
 	},
 	{
 		Name:     "dashboard-ui",
@@ -114,6 +118,9 @@ func (r changeRule) matches(changed []string) []string {
 			continue
 		}
 		if r.Suffix != "" && !strings.HasSuffix(file, r.Suffix) {
+			continue
+		}
+		if r.FilenamePrefix != "" && !strings.HasPrefix(path.Base(file), r.FilenamePrefix) {
 			continue
 		}
 		if containsAny(file, r.Exclude) {

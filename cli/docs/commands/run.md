@@ -41,6 +41,19 @@ azd app run [flags]
 | `--skip-secret-scan` | | bool | `false` | Skip the advisory scan for hardcoded secrets in tracked config |
 | `--skip-exposure-check` | | bool | `false` | Skip the warning shown when a service binds to all network interfaces |
 
+## Select an azd environment
+
+Use the global `--environment` (`-e`) flag to load a named azd environment:
+
+```bash
+azd app run -e stage
+```
+
+If the name does not exist, the command fails with the available environments
+(including the default) and a creation command: `azd env new <name>`. Run without
+`-e` to use the default environment. Errors loading an existing environment are
+reported as loading failures, not as missing environments.
+
 ## Dashboard Browser Launch
 
 By default, the dashboard URL is displayed but the browser is not opened automatically. Use the `--web` flag to open the dashboard in your system's default browser.

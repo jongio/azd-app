@@ -309,6 +309,10 @@ excluded automatically.
 MCP tools, or the dashboard but no documentation, the gate asks you to confirm
 that was deliberate.
 
+The MCP rule watches `mcp*.go` files under `cli/src/cmd/app/commands/`, excluding
+tests, and points authors to `web/src/pages/mcp/`. Regression tests verify that
+every watched directory exists and that the real MCP source files trigger it.
+
 ### Skipping a change finding
 
 If a change genuinely has no user-visible effect, record why in the pull request

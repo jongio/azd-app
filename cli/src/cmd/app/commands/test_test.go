@@ -9,7 +9,6 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/orchestrator"
 	testrunner "github.com/jongio/azd-app/cli/src/internal/testing"
-	"github.com/jongio/azd-core/cliout"
 	"github.com/spf13/cobra"
 )
 
@@ -568,6 +567,7 @@ func TestLoadAzdEnvironment(t *testing.T) {
 // configured command was being ignored, which is what made the execution bug
 // look like it was still present after it had been fixed.
 func TestDisplayValidationSummary_ExplicitCommandReportedOverFramework(t *testing.T) {
+	setTestOutputFormat(t, "default")
 	out, err := captureStdout(t, func() error {
 		displayValidationSummary([]testrunner.ServiceValidation{
 			{Name: "api", CanTest: true, Framework: "pytest", Command: "uv run pytest -q"},
@@ -588,6 +588,7 @@ func TestDisplayValidationSummary_ExplicitCommandReportedOverFramework(t *testin
 
 // A service with no explicit command still reports its detected framework.
 func TestDisplayValidationSummary_FrameworkReportedWhenNoCommand(t *testing.T) {
+	setTestOutputFormat(t, "default")
 	out, err := captureStdout(t, func() error {
 		displayValidationSummary([]testrunner.ServiceValidation{
 			{Name: "web", CanTest: true, Framework: "vitest", TestFiles: 3},
@@ -608,6 +609,7 @@ func TestDisplayValidationSummary_FrameworkReportedWhenNoCommand(t *testing.T) {
 
 // Skipped services report why they were skipped and are excluded from the count.
 func TestDisplayValidationSummary_ReportsSkippedServices(t *testing.T) {
+	setTestOutputFormat(t, "default")
 	out, err := captureStdout(t, func() error {
 		displayValidationSummary([]testrunner.ServiceValidation{
 			{Name: "api", CanTest: true, Command: "go test ./..."},
@@ -629,10 +631,7 @@ func TestDisplayValidationSummary_ReportsSkippedServices(t *testing.T) {
 
 // JSON output is a machine contract, so the human summary must stay out of it.
 func TestDisplayValidationSummary_SilentInJSONMode(t *testing.T) {
-	if err := cliout.SetFormat("json"); err != nil {
-		t.Fatalf("SetFormat: %v", err)
-	}
-	t.Cleanup(func() { _ = cliout.SetFormat("default") })
+	setTestOutputFormat(t, "json")
 
 	out, err := captureStdout(t, func() error {
 		displayValidationSummary([]testrunner.ServiceValidation{

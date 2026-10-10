@@ -11,7 +11,6 @@ import (
 	"github.com/jongio/azd-app/cli/src/internal/skills"
 	internalversion "github.com/jongio/azd-app/cli/src/internal/version"
 	"github.com/jongio/azd-core/cliout"
-	"github.com/jongio/azd-core/env"
 	"github.com/spf13/cobra"
 )
 
@@ -75,7 +74,7 @@ func newRootCmd() *cobra.Command {
 		// loader shells out to the same `azd env get-values` (without even an -e
 		// flag). See TestDetachedChildSkipsEnvironmentLoad.
 		if extCtx.Environment != "" && !isDetachedChild() {
-			if err := env.LoadAzdEnvironment(cmd.Context(), extCtx.Environment); err != nil {
+			if err := loadSelectedEnvironment(cmd.Context(), extCtx.Environment); err != nil {
 				return fmt.Errorf("failed to load environment '%s': %w", extCtx.Environment, err)
 			}
 		}

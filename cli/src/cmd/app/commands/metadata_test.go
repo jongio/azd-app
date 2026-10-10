@@ -34,7 +34,7 @@ func runMetadataCommand(t *testing.T) map[string]any {
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
-	cmd.SetArgs(nil)
+	cmd.SetArgs([]string{})
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("metadata command failed: %v", err)
@@ -340,6 +340,7 @@ func TestMetadataCommandReportsWriteFailure(t *testing.T) {
 	command := NewMetadataCommand(newMetadataTestRoot)
 	command.SetOut(failingWriter{})
 	command.SetErr(failingWriter{})
+	command.SetArgs([]string{})
 
 	err := command.Execute()
 	if err == nil {
