@@ -6,7 +6,7 @@ displayName: App Extension
 description: A collection of developer productivity commands for Azure Developer CLI
 usage: azd app <command> [options]
 # Keep this version aligned with the latest registry.json entry.
-version: 0.20.0
+version: 0.21.0
 language: go
 
 # The azd host version this extension requires. Every gRPC service and azdext
