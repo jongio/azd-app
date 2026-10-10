@@ -94,8 +94,9 @@ test-results/
 # Playwright snapshots (platform-specific)
 **/*.spec.ts-snapshots/
 
-# Demo project - preserve its own lockfile
+# Demo and evaluation projects - preserve lockfiles
 !cli/demo/api/package-lock.json
+!cli/evals/package-lock.json
 
 # .NET
 obj/
@@ -129,6 +130,7 @@ services.json
 # Test fixtures - preserve lock files and manifests in tests/
 !tests/projects/**/package.json
 !tests/projects/**/package-lock.json
+!cli/tests/projects/**/package-lock.json
 !tests/projects/**/pnpm-lock.yaml
 !tests/projects/**/yarn.lock
 !tests/projects/**/requirements.txt

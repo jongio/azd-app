@@ -13,6 +13,6 @@
     "grade": "vally grade --eval-spec"
   },
   "devDependencies": {
-    "@microsoft/vally-cli": "^0.17.0"
+    "@microsoft/vally-cli": "^0.18.0"
   }
 }
