@@ -15,11 +15,6 @@ on:
     types: [opened, synchronize, reopened, closed]
     # No paths filter - generate preview site for all PRs
 
-# Allow only one concurrent deployment per ref, cancel in-progress for the same ref
-concurrency:
-  group: pages-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: write
   pull-requests: write
@@ -31,6 +26,10 @@ jobs:
     if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Cancel superseded builds without interrupting gh-pages deployments.
+    concurrency:
+      group: pages-build-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

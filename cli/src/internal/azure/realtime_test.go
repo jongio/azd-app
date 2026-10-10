@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -561,6 +562,21 @@ func TestStreamer_ContextCancellation(t *testing.T) {
 	}
 }
 
+type stopTestTransport struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (s *stopTestTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	close(s.started)
+	select {
+	case <-s.release:
+		return nil, fmt.Errorf("test connection closed")
+	case <-req.Context().Done():
+		return nil, req.Context().Err()
+	}
+}
+
 func TestStreamer_Stop(t *testing.T) {
 	config := StreamerConfig{
 		ServiceName: "test",
@@ -568,21 +584,28 @@ func TestStreamer_Stop(t *testing.T) {
 	}
 
 	streamer := NewContainerAppStreamer(config)
+	transport := &stopTestTransport{started: make(chan struct{}), release: make(chan struct{})}
+	streamer.httpClient = &http.Client{Transport: transport}
 	logs := make(chan LogEntry, 10)
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Start streaming in goroutine
-	done := make(chan error)
+	done := make(chan error, 1)
 	go func() {
 		done <- streamer.Start(ctx, logs)
 	}()
 
-	// Give it time to start
-	time.Sleep(10 * time.Millisecond)
+	select {
+	case <-transport.started:
+	case <-time.After(time.Second):
+		t.Fatal("streamer did not start a request")
+	}
 
 	// Stop
 	err := streamer.Stop()
+	close(transport.release)
 	assert.NoError(t, err)
 	assert.False(t, streamer.IsConnected())
 

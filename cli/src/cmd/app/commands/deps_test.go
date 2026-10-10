@@ -7,7 +7,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/jongio/azd-core/cliout"
 	types "github.com/jongio/azd-core/projecttype"
 	"github.com/spf13/cobra"
 )
@@ -604,7 +603,7 @@ func TestFilterProjectsByService_InvalidAzureYaml(t *testing.T) {
 // Task 3: Test showDryRunSummary
 func TestShowDryRunSummary_TextMode(t *testing.T) {
 	// Ensure we're in text mode
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	tmpDir := t.TempDir()
 
@@ -627,7 +626,7 @@ func TestShowDryRunSummary_TextMode(t *testing.T) {
 
 func TestShowDryRunSummary_EmptyProjects(t *testing.T) {
 	// Ensure we're in text mode
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	tmpDir := t.TempDir()
 
@@ -641,7 +640,7 @@ func TestShowDryRunSummary_EmptyProjects(t *testing.T) {
 // Task 4: Test handleNoProjectsCase
 func TestHandleNoProjectsCase_EmptyWorkspace(t *testing.T) {
 	// Ensure we're in text mode
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	tmpDir := t.TempDir()
 
@@ -654,7 +653,7 @@ func TestHandleNoProjectsCase_EmptyWorkspace(t *testing.T) {
 
 func TestHandleNoProjectsCase_ServiceFilterNoMatch(t *testing.T) {
 	// Ensure we're in text mode
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	tmpDir := t.TempDir()
 
@@ -751,7 +750,7 @@ func TestParseAzureYaml_EmptyFile(t *testing.T) {
 // Task 6: Test cleanDependencies and cleanDirectory
 func TestCleanDirectory_ExistingDirectory(t *testing.T) {
 	// Ensure we're in text mode
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	tmpDir := t.TempDir()
 
@@ -781,7 +780,7 @@ func TestCleanDirectory_ExistingDirectory(t *testing.T) {
 
 func TestCleanDirectory_NonExistentDirectory(t *testing.T) {
 	// Ensure we're in text mode
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	// Clean non-existent directory should not error
 	err := cleanDirectory("/nonexistent/path/node_modules")
@@ -792,7 +791,7 @@ func TestCleanDirectory_NonExistentDirectory(t *testing.T) {
 
 func TestCleanDependencies_AllTypes(t *testing.T) {
 	// Ensure we're in text mode
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	tmpDir := t.TempDir()
 
@@ -840,7 +839,7 @@ func TestCleanDependencies_AllTypes(t *testing.T) {
 
 func TestCleanDependencies_EmptyProjects(t *testing.T) {
 	// Ensure we're in text mode
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	// Empty projects should not error
 	err := cleanDependencies(nil, nil, nil)
@@ -1177,7 +1176,7 @@ func TestDepsResult_Fields(t *testing.T) {
 // Additional tests for higher coverage
 
 func TestShowDryRunSummary_OnlyNodeProjects(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	nodeProjects := []types.NodeProject{
@@ -1192,7 +1191,7 @@ func TestShowDryRunSummary_OnlyNodeProjects(t *testing.T) {
 }
 
 func TestShowDryRunSummary_OnlyPythonProjects(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	pythonProjects := []types.PythonProject{
@@ -1207,7 +1206,7 @@ func TestShowDryRunSummary_OnlyPythonProjects(t *testing.T) {
 }
 
 func TestShowDryRunSummary_OnlyDotnetProjects(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	dotnetProjects := []types.DotnetProject{
@@ -1284,7 +1283,7 @@ services:
 }
 
 func TestHandleNoProjectsCase_WithLogicApps(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// This tests the logic apps detection path
@@ -1295,7 +1294,7 @@ func TestHandleNoProjectsCase_WithLogicApps(t *testing.T) {
 }
 
 func TestCleanDependencies_NodeProjectsOnly(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create node project with node_modules
@@ -1319,7 +1318,7 @@ func TestCleanDependencies_NodeProjectsOnly(t *testing.T) {
 }
 
 func TestCleanDependencies_PythonProjectsOnly(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create python project with .venv
@@ -1343,7 +1342,7 @@ func TestCleanDependencies_PythonProjectsOnly(t *testing.T) {
 }
 
 func TestCleanDependencies_DotnetProjectsOnly(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create dotnet project with obj and bin
@@ -1372,7 +1371,7 @@ func TestCleanDependencies_DotnetProjectsOnly(t *testing.T) {
 }
 
 func TestCleanDirectory_WithNestedFiles(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create nested directory structure
@@ -1831,8 +1830,7 @@ func TestInstallAllFiltered_EmptyProjects(t *testing.T) {
 // Test showDryRunSummary JSON mode
 func TestShowDryRunSummary_JSONMode(t *testing.T) {
 	// Set JSON mode
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	tmpDir := t.TempDir()
 
@@ -1857,8 +1855,7 @@ func TestShowDryRunSummary_JSONMode(t *testing.T) {
 // Test handleNoProjectsCase JSON mode
 func TestHandleNoProjectsCase_JSONMode(t *testing.T) {
 	// Set JSON mode
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	tmpDir := t.TempDir()
 
@@ -1871,8 +1868,7 @@ func TestHandleNoProjectsCase_JSONMode(t *testing.T) {
 
 func TestHandleNoProjectsCase_JSONMode_WithServiceFilter(t *testing.T) {
 	// Set JSON mode
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	tmpDir := t.TempDir()
 
@@ -1885,8 +1881,7 @@ func TestHandleNoProjectsCase_JSONMode_WithServiceFilter(t *testing.T) {
 // Test handleDepsError JSON mode
 func TestHandleDepsError_JSONMode(t *testing.T) {
 	// Set JSON mode
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	originalErr := &testError{msg: "test error"}
 	err := handleDepsError(originalErr, "failed to do something")
@@ -1898,7 +1893,7 @@ func TestHandleDepsError_JSONMode(t *testing.T) {
 
 // Test cleanDirectory error path (when RemoveAll fails)
 func TestCleanDirectory_SuccessPath(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create a valid dependency directory to clean (must be in validDirs whitelist)
@@ -1915,7 +1910,7 @@ func TestCleanDirectory_SuccessPath(t *testing.T) {
 
 // Test DependencyInstaller InstallAllFiltered with projects
 func TestInstallAllFiltered_WithNodeProjects(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create a node project
@@ -1948,7 +1943,7 @@ func TestInstallAllFiltered_WithNodeProjects(t *testing.T) {
 }
 
 func TestInstallAllFiltered_WithPythonProjects(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create a python project
@@ -1978,7 +1973,7 @@ func TestInstallAllFiltered_WithPythonProjects(t *testing.T) {
 }
 
 func TestInstallAllFiltered_WithDotnetProjects(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create a dotnet project
@@ -2010,7 +2005,7 @@ func TestInstallAllFiltered_WithDotnetProjects(t *testing.T) {
 }
 
 func TestInstallAllFiltered_MixedProjects(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create directories
@@ -2047,7 +2042,7 @@ func TestInstallAllFiltered_MixedProjects(t *testing.T) {
 
 // Test handleNoProjectsCase with Logic Apps
 func TestHandleNoProjectsCase_LogicAppsWorkspace(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	// This test verifies the logic apps detection path runs without error
 	tmpDir := t.TempDir()
 
@@ -2130,7 +2125,7 @@ func TestIsSubdirectory_WindowsPaths(t *testing.T) {
 
 // Test cleanDependencies with directories that don't exist
 func TestCleanDependencies_NonExistentDirectories(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create project directories but NOT the dependency directories
@@ -2217,8 +2212,7 @@ func TestDepsOptions_ServicesList(t *testing.T) {
 
 // Test cleanDirectory JSON mode
 func TestCleanDirectory_JSONMode(t *testing.T) {
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	tmpDir := t.TempDir()
 
@@ -2241,8 +2235,7 @@ func TestCleanDirectory_JSONMode(t *testing.T) {
 
 // Test cleanDependencies JSON mode
 func TestCleanDependencies_JSONMode(t *testing.T) {
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	tmpDir := t.TempDir()
 
@@ -2268,7 +2261,7 @@ func TestCleanDependencies_JSONMode(t *testing.T) {
 
 // Test handleNoProjectsCase with empty function apps
 func TestHandleNoProjectsCase_EmptyFunctionApps(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	tmpDir := t.TempDir()
 
@@ -2311,7 +2304,7 @@ func TestGetSearchRoot_ErrorCase(t *testing.T) {
 
 // Test installProject with different scenarios
 func TestInstallProject_Success(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	di := NewDependencyInstaller("/test")
 
@@ -2335,7 +2328,7 @@ func TestInstallProject_Success(t *testing.T) {
 }
 
 func TestInstallProject_Failure(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	di := NewDependencyInstaller("/test")
 
@@ -2354,8 +2347,7 @@ func TestInstallProject_Failure(t *testing.T) {
 }
 
 func TestInstallProject_JSONMode(t *testing.T) {
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	di := NewDependencyInstaller("/test")
 
@@ -2369,7 +2361,7 @@ func TestInstallProject_JSONMode(t *testing.T) {
 }
 
 func TestInstallProject_RelativePath(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 
 	// Test with search root and subdirectory
 	searchRoot := "/workspace"
@@ -2445,7 +2437,7 @@ func TestDetectAllProjects_WithNestedProjects(t *testing.T) {
 
 // Test handleNoProjectsCase with Logic Apps workspace (function app variant)
 func TestHandleNoProjectsCase_WithFunctionApps(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create a function app structure (not logic apps)
@@ -2468,7 +2460,7 @@ func TestHandleNoProjectsCase_WithFunctionApps(t *testing.T) {
 
 // Test handleNoProjectsCase with Logic Apps ONLY workspace (should suppress message)
 func TestHandleNoProjectsCase_LogicAppsOnly(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create a Logic Apps structure with workflows directory
@@ -2505,7 +2497,7 @@ func TestHandleNoProjectsCase_LogicAppsOnly(t *testing.T) {
 
 // Test handleNoProjectsCase with mixed Function Apps (Logic Apps + other)
 func TestHandleNoProjectsCase_MixedFunctionApps(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create a Logic Apps structure
@@ -2553,8 +2545,7 @@ func TestHandleNoProjectsCase_MixedFunctionApps(t *testing.T) {
 
 // Test handleNoProjectsCase JSON mode with no service filter
 func TestHandleNoProjectsCase_JSONMode_NoFilter(t *testing.T) {
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	tmpDir := t.TempDir()
 
@@ -2567,8 +2558,7 @@ func TestHandleNoProjectsCase_JSONMode_NoFilter(t *testing.T) {
 
 // Test cleanDirectory with JSON mode and non-existent directory
 func TestCleanDirectory_JSONMode_NonExistent(t *testing.T) {
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	// Use valid directory name that would pass validation if it existed
 	err := cleanDirectory("/nonexistent/path/node_modules")
@@ -2579,8 +2569,7 @@ func TestCleanDirectory_JSONMode_NonExistent(t *testing.T) {
 
 // Test cleanDirectory with JSON mode and existing directory
 func TestCleanDirectory_JSONMode_Existing(t *testing.T) {
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	tmpDir := t.TempDir()
 	// Use valid dependency directory name
@@ -2607,8 +2596,7 @@ func TestCleanDirectory_JSONMode_Existing(t *testing.T) {
 
 // Test cleanDependencies JSON mode with all project types
 func TestCleanDependencies_JSONMode_AllTypes(t *testing.T) {
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	tmpDir := t.TempDir()
 
@@ -2822,8 +2810,7 @@ func TestNewDepsCommand_PreRunE_SelfFlag(t *testing.T) {
 
 // Test cleanDependencies with success in JSON mode
 func TestCleanDependencies_JSONMode_Success(t *testing.T) {
-	_ = cliout.SetFormat("json")
-	defer func() { _ = cliout.SetFormat("text") }()
+	setTestOutputFormat(t, "json")
 
 	tmpDir := t.TempDir()
 
@@ -2844,7 +2831,7 @@ func TestCleanDependencies_JSONMode_Success(t *testing.T) {
 
 // Test cleanDependencies text mode success message
 func TestCleanDependencies_TextMode_SuccessMessage(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Create node project with node_modules
@@ -2865,7 +2852,7 @@ func TestCleanDependencies_TextMode_SuccessMessage(t *testing.T) {
 
 // Test cleanDirectory text mode with ItemSuccess output
 func TestCleanDirectory_TextMode_Success(t *testing.T) {
-	_ = cliout.SetFormat("text")
+	setTestOutputFormat(t, "default")
 	tmpDir := t.TempDir()
 
 	// Use valid dependency directory name

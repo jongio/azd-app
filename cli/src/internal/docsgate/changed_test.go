@@ -1,6 +1,9 @@
 package docsgate
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,7 +31,7 @@ func TestCheckChangedFiles(t *testing.T) {
 		},
 		{
 			name:    "any doc edit satisfies every rule",
-			changed: []string{"cli/src/cmd/app/commands/run.go", "cli/src/internal/mcp/tools.go", "README.md"},
+			changed: []string{"cli/src/cmd/app/commands/run.go", "cli/src/cmd/app/commands/mcp_tools.go", "README.md"},
 		},
 		{
 			name:    "website edit satisfies the rules",
@@ -44,8 +47,16 @@ func TestCheckChangedFiles(t *testing.T) {
 		},
 		{
 			name:      "mcp change fires its own rule",
-			changed:   []string{"cli/src/internal/mcp/server.go"},
-			wantRules: []string{"mcp-tools"},
+			changed:   []string{"cli/src/cmd/app/commands/mcp_tools.go"},
+			wantRules: []string{"cli-commands", "mcp-tools"},
+		},
+		{
+			name:    "mcp tests are ignored",
+			changed: []string{"cli/src/cmd/app/commands/mcp_tools_test.go"},
+		},
+		{
+			name:    "mcp change with MCP docs is satisfied",
+			changed: []string{"cli/src/cmd/app/commands/mcp_tools.go", "web/src/pages/mcp/tools.astro"},
 		},
 		{
 			name:      "dashboard change fires regardless of extension",
@@ -56,7 +67,7 @@ func TestCheckChangedFiles(t *testing.T) {
 			name: "several surfaces fire independently",
 			changed: []string{
 				"cli/src/cmd/app/commands/run.go",
-				"cli/src/internal/mcp/server.go",
+				"cli/src/cmd/app/commands/mcp_resources.go",
 				"cli/dashboard/src/App.tsx",
 			},
 			wantRules: []string{"cli-commands", "dashboard-ui", "mcp-tools"},
@@ -79,6 +90,41 @@ func TestCheckChangedFiles(t *testing.T) {
 			}
 			assert.ElementsMatch(t, tc.wantRules, got)
 		})
+	}
+}
+
+func TestChangeRulePrefixesExist(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "..")
+	for _, rule := range changeRules {
+		t.Run(rule.Name, func(t *testing.T) {
+			for _, prefix := range rule.Prefixes {
+				info, err := os.Stat(filepath.Join(root, filepath.FromSlash(prefix)))
+				require.NoError(t, err, "watched prefix %q must exist", prefix)
+				assert.True(t, info.IsDir(), "watched prefix %q must be a directory", prefix)
+			}
+		})
+	}
+}
+
+func TestMCPRuleMatchesRealFiles(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "..")
+	files, err := filepath.Glob(filepath.Join(root, "cli", "src", "cmd", "app", "commands", "mcp*.go"))
+	require.NoError(t, err)
+	require.NotEmpty(t, files)
+	for _, file := range files {
+		rel, err := filepath.Rel(root, file)
+		require.NoError(t, err)
+		rel = filepath.ToSlash(rel)
+		findings := CheckChangedFiles([]string{rel})
+		if strings.HasSuffix(rel, "_test.go") {
+			assert.Empty(t, findings)
+			continue
+		}
+		var rules []string
+		for _, finding := range findings {
+			rules = append(rules, finding.Command)
+		}
+		assert.Contains(t, rules, "mcp-tools", rel)
 	}
 }
 
