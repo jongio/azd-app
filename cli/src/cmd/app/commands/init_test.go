@@ -338,7 +338,11 @@ services:
 		Ports:    []string{"3000"},
 	}}
 
-	require.NoError(t, enrichAzureYaml(yamlPath, services))
+	output, err := captureStdout(t, func() error {
+		return enrichAzureYaml(yamlPath, services)
+	})
+	require.NoError(t, err)
+	assert.Contains(t, output, "No changes needed: azure.yaml already has complete service configuration")
 
 	actual, err := os.ReadFile(yamlPath)
 	require.NoError(t, err)
@@ -357,7 +361,9 @@ func TestInitCommand_DryRunDoesNotWriteAzureYaml(t *testing.T) {
 	cmd := NewInitCommand()
 	cmd.SetArgs([]string{"--dry-run"})
 
-	require.NoError(t, cmd.Execute())
+	output, err := captureStdout(t, cmd.Execute)
+	require.NoError(t, err)
+	assert.Contains(t, output, "Dry run: no files modified")
 	assert.NoFileExists(t, filepath.Join(dir, "azure.yaml"))
 }
 
