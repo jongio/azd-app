@@ -161,7 +161,7 @@ func (c *ExecClient) ConnectNetwork(network, container string, aliases []string)
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		stderrStr := strings.TrimSpace(stderr.String())
-		// Already attached — treat as success (idempotent).
+		// Already attached, treat as success (idempotent).
 		if isAlreadyConnectedError(stderrStr) {
 			return nil
 		}

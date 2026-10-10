@@ -51,7 +51,7 @@ interface Harness {
 /**
  * Build a transport whose StreamHealth handler yields events queued via
  * the returned controller. The queue uses an inner promise per pending
- * event so the handler can suspend until tests push something — this is
+ * event so the handler can suspend until tests push something: this is
  * the same shape `cli/src/internal/rpc/health.go` produces (one async
  * source -> one yield per source event) but in TS test land.
  */

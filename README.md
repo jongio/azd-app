@@ -66,7 +66,7 @@ Monitor all your services in one place with live status updates and health check
 ![Dashboard Resources](web/public/screenshots/dashboard-resources-cards.png)
 
 ### 📝 Unified Logs
-Stream and filter logs from all services—both local and Azure. Search, highlight, and export with ease. Switch between local and cloud logs with a single click.
+Stream and filter logs from all services, both local and Azure. Search, highlight, and export with ease. Switch between local and cloud logs with a single click.
 
 ![Console Logs](web/public/screenshots/dashboard-console.png)
 
@@ -252,7 +252,7 @@ retired and being archived; it still resolves for existing installs but is no lo
 maintained. **azd exec** is no longer needed at all, because `azd exec` shipped as a
 built-in azd command in v1.25.1.
 
-🌐 **Extension Hub**: [jongio.github.io/azd-extensions](https://jongio.github.io/azd-extensions/) — Browse all extensions, quick install, and registry info.
+🌐 **Extension Hub**: [jongio.github.io/azd-extensions](https://jongio.github.io/azd-extensions/). Browse all extensions, quick install, and registry info.
 
 ---
 

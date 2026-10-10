@@ -230,7 +230,7 @@ func ensureWorkspaceTrusted(azureYamlPath string) error {
 
 	response = strings.ToLower(strings.TrimSpace(response))
 	if response == "n" || response == "no" {
-		return fmt.Errorf("workspace not trusted — exiting without executing any commands")
+		return fmt.Errorf("workspace not trusted, exiting without executing any commands")
 	}
 
 	if err := store.TrustWorkspace(projectDir); err != nil {

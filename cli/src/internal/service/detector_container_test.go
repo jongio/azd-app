@@ -114,7 +114,7 @@ func TestDetectServiceRuntime_DockerServiceWithCommandRunsAsProcess(t *testing.T
 
 func TestDetectServiceRuntime_DockerServiceWithoutCommandStaysContainer(t *testing.T) {
 	// Without a local command, a docker.image service keeps the (deploy default)
-	// container behavior — unchanged.
+	// container behavior, unchanged.
 	svc := Service{
 		Host:     "containerapp",
 		Language: "docker",

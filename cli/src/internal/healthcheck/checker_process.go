@@ -310,6 +310,6 @@ func parseErrorDetailsFromBody(body []byte) string {
 		}
 	}
 
-	// JSON parsing failed or no recognised error field — sanitize and return body text
+	// JSON parsing failed or no recognised error field; sanitize and return body text
 	return sanitizeResponseBody(string(body), 200)
 }

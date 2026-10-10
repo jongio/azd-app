@@ -505,7 +505,7 @@ export const ServiceStatusSchema: GenEnum<ServiceStatus> = /*@__PURE__*/
  * HealthState mirrors internal/healthcheck health states.
  * 
  * Wire stability: enum values are append-only. DEGRADED was added after the
- * initial draft when wiring HealthService — the existing dashboard summary
+ * initial draft when wiring HealthService; the existing dashboard summary
  * distinguishes degraded from unhealthy, and dropping that distinction would
  * silently lose information. Older clients that don't recognise the value
  * will see HEALTH_STATE_UNSPECIFIED (proto3 unknown-enum semantics) rather

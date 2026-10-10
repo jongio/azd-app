@@ -51,7 +51,7 @@ services:
 // a service project set to an absolute path outside the project root must be rejected.
 func TestParseAzureYaml_ValidatePath_AbsoluteOutsideRootRejected(t *testing.T) {
 	root := t.TempDir()
-	// Use the parent of root as the escape target — it always exists.
+	// Use the parent of root as the escape target; it always exists.
 	outsideDir := filepath.ToSlash(filepath.Dir(root))
 
 	content := "name: test\nservices:\n  api:\n    project: " + outsideDir + "\n    host: appservice\n"

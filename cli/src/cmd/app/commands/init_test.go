@@ -318,6 +318,55 @@ services:
 	assert.Contains(t, content, "5173")
 }
 
+func TestEnrichAzureYaml_CompleteServiceNeedsNoChanges(t *testing.T) {
+	dir := t.TempDir()
+	yamlPath := filepath.Join(dir, "azure.yaml")
+	original := `name: myapp
+services:
+  api:
+    language: ts
+    project: ./api
+    ports:
+      - "3000"
+`
+	require.NoError(t, os.WriteFile(yamlPath, []byte(original), 0o644))
+
+	services := []DetectedService{{
+		Name:     "api",
+		Language: "ts",
+		Project:  "./api",
+		Ports:    []string{"3000"},
+	}}
+
+	output, err := captureStdout(t, func() error {
+		return enrichAzureYaml(yamlPath, services)
+	})
+	require.NoError(t, err)
+	assert.Contains(t, output, "No changes needed: azure.yaml already has complete service configuration")
+
+	actual, err := os.ReadFile(yamlPath)
+	require.NoError(t, err)
+	assert.Equal(t, original, string(actual))
+}
+
+func TestInitCommand_DryRunDoesNotWriteAzureYaml(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, "package.json"),
+		[]byte(`{"scripts":{"dev":"vite"},"devDependencies":{"vite":"^5.0.0"}}`),
+		0o644,
+	))
+
+	cmd := NewInitCommand()
+	cmd.SetArgs([]string{"--dry-run"})
+
+	output, err := captureStdout(t, cmd.Execute)
+	require.NoError(t, err)
+	assert.Contains(t, output, "Dry run: no files modified")
+	assert.NoFileExists(t, filepath.Join(dir, "azure.yaml"))
+}
+
 func TestDetectServiceDependencies_NoFalsePositives(t *testing.T) {
 	dir := t.TempDir()
 	// package.json with "pg" appearing in description/URLs but NOT as a dependency

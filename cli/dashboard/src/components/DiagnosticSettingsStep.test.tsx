@@ -11,7 +11,7 @@ import userEvent from '@testing-library/user-event'
 // Replace the Connect-backed hook with a tiny shim that still consumes
 // `globalThis.fetch` so the pre-existing fetch-mock staged payloads keep
 // driving the UI. The shim maps the legacy `/api/azure/diagnostic-settings/
-// check` JSON payload onto the hook's result shape verbatim — which
+// check` JSON payload onto the hook's result shape verbatim, which
 // matches what the real hook surfaces once it's decoded the proto.
 vi.mock('@/hooks/useDiagnosticSettings', async () => {
   const React = await import('react')

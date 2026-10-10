@@ -10,7 +10,7 @@ azd app stop
 
 ## Description
 
-Sends a shutdown signal to the running `azd app run` process. This triggers graceful shutdown including prestop/poststop hooks, port release, and process cleanup — identical to pressing Ctrl+C in the run terminal.
+Sends a shutdown signal to the running `azd app run` process. This triggers graceful shutdown including prestop/poststop hooks, port release, and process cleanup, identical to pressing Ctrl+C in the run terminal.
 
 Run this from **any terminal** in the project directory while `azd app run` is active in another terminal.
 
@@ -25,8 +25,8 @@ Run this from **any terminal** in the project directory while `azd app run` is a
 
 The stop command supports `prestop` and `poststop` hooks defined in `azure.yaml`:
 
-- **`prestop`** — Runs before services are stopped (e.g., drain connections, flush caches)
-- **`poststop`** — Runs after all services are stopped (e.g., cleanup temp files, remove tunnels)
+- **`prestop`**: Runs before services are stopped (e.g., drain connections, flush caches)
+- **`poststop`**: Runs after all services are stopped (e.g., cleanup temp files, remove tunnels)
 
 Hook failures are non-fatal: services will still be stopped even if a hook fails.
 

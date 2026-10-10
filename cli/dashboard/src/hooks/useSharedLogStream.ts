@@ -1,5 +1,5 @@
 /**
- * useSharedLogStream — singleton multiplexer over the live local-log
+ * useSharedLogStream: singleton multiplexer over the live local-log
  * stream so a dashboard with N panes opens one upstream connection
  * instead of N. Each pane subscribes for one service (or "all"); the
  * manager fans incoming entries out to every matching subscriber.

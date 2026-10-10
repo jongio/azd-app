@@ -48,7 +48,7 @@ func ParseAzureYaml(workingDir string) (*AzureYaml, error) {
 	// silently removes ".." components from the string, so security.ValidatePath
 	// (which searches for ".." literals) would pass even when the resolved path
 	// escapes the project root.  We use ValidatePathContainment instead, which
-	// uses filepath.Rel on the fully-resolved absolute paths — the only correct
+	// uses filepath.Rel on the fully-resolved absolute paths; the only correct
 	// approach.
 	azureYamlDir := filepath.Dir(azureYamlPath)
 	// Resolve symlinks on azureYamlDir so that paths joined below are in the

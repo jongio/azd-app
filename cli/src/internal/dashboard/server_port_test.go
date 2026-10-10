@@ -240,7 +240,7 @@ func TestPersistentDashboardPort_PortConflictFallback(t *testing.T) {
 // ── Nonce tests ───────────────────────────────────────────────────────────────
 
 // TestPortFileNonce_PathNotPredictableFromDir verifies that the port file path
-// cannot be derived from the project directory alone — it must contain a nonce
+// cannot be derived from the project directory alone; it must contain a nonce
 // beyond the deterministic project hash (CWE-340).
 func TestPortFileNonce_PathNotPredictableFromDir(t *testing.T) {
 	nonceDirBase = t.TempDir()
@@ -249,7 +249,7 @@ func TestPortFileNonce_PathNotPredictableFromDir(t *testing.T) {
 	projectDir := t.TempDir()
 	hash := azdconfig.ProjectHash(projectDir)
 
-	// "predictable" path — the old, deterministic format with no nonce.
+	// "predictable" path; the old, deterministic format with no nonce.
 	predictedPath := filepath.Join(os.TempDir(), fmt.Sprintf(".azd-app-dashboard-%s.port", hash))
 
 	path, err := portFilePath(projectDir)

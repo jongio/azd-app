@@ -162,8 +162,8 @@ services:
 }
 
 // TestDetectServiceRuntime_LocalProcessCopiesEnvironment verifies that a service
-// which runs as a local process — including a docker/appservice service routed to
-// a local `command` (RunsAsLocalProcess) — receives its azure.yaml `environment:`
+// which runs as a local process, including a docker/appservice service routed to
+// a local `command` (RunsAsLocalProcess), receives its azure.yaml `environment:`
 // block in runtime.Env. Regression test: the env copy previously existed only in
 // the container path, so local-process services silently dropped their env (e.g.
 // APP_BASE_URL), which surfaced as a masked 500 in the running application.
@@ -180,7 +180,7 @@ func TestDetectServiceRuntime_LocalProcessCopiesEnvironment(t *testing.T) {
 	}
 
 	// A docker/appservice service with an explicit local `command` runs as a
-	// local process (RunsAsLocalProcess), not a container — so it takes the
+	// local process (RunsAsLocalProcess), not a container, so it takes the
 	// non-container path in DetectServiceRuntime.
 	azureYamlContent := `name: test-app
 services:

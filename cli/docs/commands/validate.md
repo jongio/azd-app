@@ -22,7 +22,7 @@ azd app validate
 |------|-------|------|---------|-------------|
 | `--output` | `-o` | string | `default` | Output format: 'default' or 'json' (inherited from parent) |
 
-The command takes no positional arguments. `azure.yaml` is located the same way `azd app run` locates it — by searching the current directory and its parents.
+The command takes no positional arguments. `azure.yaml` is located the same way `azd app run` locates it, by searching the current directory and its parents.
 
 ## Execution Flow
 

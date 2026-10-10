@@ -620,7 +620,7 @@ func (lb *LogBuffer) Close() error {
 
 // inferLogLevel attempts to infer the log level from a log message.
 func inferLogLevel(message string, isStderr bool) LogLevel {
-	// Structured logs (JSON with an explicit level/severity) are authoritative —
+	// Structured logs (JSON with an explicit level/severity) are authoritative, so
 	// honor the emitter's own level instead of guessing from the text. This is
 	// what keeps a line like {"level":"info","role":"trace-worker"} at INFO
 	// rather than matching the substring "trace" and dropping it to DEBUG.
