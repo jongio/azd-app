@@ -7,11 +7,10 @@ import (
 	"os/exec"
 )
 
-// setProcessGroupImpl is a no-op on Windows.
+// setProcessGroupImpl hides the console window on Windows.
 // Windows doesn't use process groups the same way Unix does.
 func setProcessGroupImpl(cmd *exec.Cmd) {
-	// Windows handles process groups differently
-	// The kill command uses Win32_Process to find children
+	hideConsoleWindow(cmd)
 }
 
 // syscallSignal0Impl returns nil on Windows as signal 0 is not used.
