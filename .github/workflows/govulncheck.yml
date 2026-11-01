@@ -52,9 +52,9 @@ jobs:
     # Only production dependencies are scanned (--prod); devDependencies are excluded.
     #
     # Allow-list: to suppress a specific advisory that cannot be fixed immediately,
-    # add --ignore-cves with the GHSA ID and a tracking comment:
+    # add --ignore with the GHSA ID and a tracking comment:
     #
-    #   pnpm audit --prod --audit-level=high --ignore-cves GHSA-xxxx-xxxx-xxxx
+    #   pnpm audit --prod --audit-level=high --ignore GHSA-xxxx-xxxx-xxxx
     #     # reason: only affects build tooling, not shipped code; tracked in issue #NNN
     steps:
       - name: Checkout code
@@ -86,6 +86,14 @@ jobs:
 
       - name: Audit web dependencies
         working-directory: web
-        run: pnpm audit --prod --audit-level=high
+        # reason: astro static-site build tooling (zod, astro -> unifont -> undici), not shipped CLI/runtime code; awaiting 7-day release age window
+        run: >-
+          pnpm audit --prod --audit-level=high
+          --ignore GHSA-mrhx-c7xc-m3w5
+          --ignore GHSA-xjj6-f33q-929c
+          --ignore GHSA-qq8j-7v2v-3rwp
+          --ignore GHSA-4w7w-5xrc-9h26
+          --ignore GHSA-2m5v-pch6-74hx
+          --ignore GHSA-qrxm-fqhp-jwvm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
