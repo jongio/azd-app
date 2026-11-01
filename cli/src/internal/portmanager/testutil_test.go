@@ -184,7 +184,8 @@ func (s *TestServer) IsRunning() bool {
 		// Use timeout to prevent hanging in edge cases
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "powershell", "-Command", fmt.Sprintf("Get-Process -Id %d -ErrorAction SilentlyContinue", s.PID))
+		cmd := exec.CommandContext(ctx, "powershell", "-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", fmt.Sprintf("Get-Process -Id %d -ErrorAction SilentlyContinue", s.PID))
+		hideConsoleWindow(cmd)
 		if err := cmd.Run(); err != nil {
 			return false
 		}
@@ -347,7 +348,8 @@ func getNetstatOutput(port int) string {
 	var cmd *exec.Cmd
 
 	if runtime.GOOS == osWindows {
-		cmd = exec.CommandContext(context.Background(), "powershell", "-Command", fmt.Sprintf("netstat -ano | Select-String ':%d '", port))
+		cmd = exec.CommandContext(context.Background(), "powershell", "-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", fmt.Sprintf("netstat -ano | Select-String ':%d '", port))
+		hideConsoleWindow(cmd)
 	} else {
 		// Try ss first, then netstat
 		cmd = exec.CommandContext(context.Background(), "sh", "-c", fmt.Sprintf("ss -tlnp 2>/dev/null | grep ':%d ' || netstat -tlnp 2>/dev/null | grep ':%d '", port, port))

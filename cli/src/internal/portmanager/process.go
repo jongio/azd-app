@@ -33,7 +33,7 @@ func buildGetProcessOnPortCommand(port int) (cmd string, args []string) {
 				}
 			}
 		`, port)
-		return "powershell", []string{"-Command", psScript}
+		return "powershell", []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", psScript}
 	}
 	// Unix: Use lsof -t -i:port which is proven to work reliably in Codespaces
 	// The -t flag outputs only PIDs (terse mode)
@@ -50,7 +50,7 @@ func buildGetProcessNameCommand(pid int) (cmd string, args []string) {
 				Write-Output $proc.ProcessName
 			}
 		`, pid)
-		return "powershell", []string{"-Command", psScript}
+		return "powershell", []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", psScript}
 	}
 	return "sh", []string{"-c", fmt.Sprintf("ps -p %d -o comm=", pid)}
 }
@@ -90,6 +90,17 @@ func (pm *PortManager) getProcessInfoOnPort(port int) (*ProcessInfo, error) {
 	return &ProcessInfo{PID: pid, Name: name}, nil
 }
 
+// newProcessCommand creates an exec.Cmd configured for non-interactive background execution
+// with stdin detached and console windows hidden on Windows.
+func newProcessCommand(ctx context.Context, name string, args ...string) *exec.Cmd {
+	// #nosec G204 -- callers pass hard-coded commands ("powershell", "taskkill", "sh") with validated integer arguments
+	execCmd := exec.CommandContext(ctx, name, args...)
+	// Don't inherit stdin - prevents blocking in non-interactive environments
+	execCmd.Stdin = nil
+	hideConsoleWindow(execCmd)
+	return execCmd
+}
+
 // getProcessOnPort retrieves the PID of the process listening on the specified port.
 func (pm *PortManager) getProcessOnPort(port int) (int, error) {
 	if port <= 0 || port > 65535 {
@@ -102,10 +113,7 @@ func (pm *PortManager) getProcessOnPort(port int) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
 
-	// #nosec G204 -- cmd is either "powershell" or "sh" (hard-coded), port is validated int
-	execCmd := exec.CommandContext(ctx, cmd, args...)
-	// Don't inherit stdin - prevents blocking in non-interactive environments
-	execCmd.Stdin = nil
+	execCmd := newProcessCommand(ctx, cmd, args...)
 	output, err := execCmd.Output()
 	if err != nil {
 		// Check if it was a timeout
@@ -136,10 +144,7 @@ func (pm *PortManager) getProcessName(pid int) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
 
-	// #nosec G204 -- cmd is either "powershell" or "sh" (hard-coded), pid is validated int
-	execCmd := exec.CommandContext(ctx, cmd, args...)
-	// Don't inherit stdin - prevents blocking in non-interactive environments
-	execCmd.Stdin = nil
+	execCmd := newProcessCommand(ctx, cmd, args...)
 	output, err := execCmd.Output()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
@@ -185,10 +190,7 @@ func (pm *PortManager) KillProcessOnPort(port int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), killProcessTimeout)
 	defer cancel()
 
-	// #nosec G204 -- Command injection safe: cmd is hard-coded ("taskkill", "sh"),
-	// and PID is validated integer from strconv.Atoi in getProcessOnPort (no user input)
-	execCmd := exec.CommandContext(ctx, cmd, args...)
-	execCmd.Stdin = nil // Don't inherit stdin - prevents blocking
+	execCmd := newProcessCommand(ctx, cmd, args...)
 
 	// Capture output for diagnostics
 	var stdout, stderr strings.Builder

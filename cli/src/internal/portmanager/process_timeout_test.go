@@ -240,11 +240,12 @@ func TestContextTimeoutIsRespected(t *testing.T) {
 
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "powershell", "-Command", "Start-Sleep -Seconds 60")
+		cmd = exec.CommandContext(ctx, "powershell", "-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", "Start-Sleep -Seconds 60")
 	} else {
 		cmd = exec.CommandContext(ctx, "sh", "-c", "sleep 60")
 	}
 	cmd.Stdin = nil
+	hideConsoleWindow(cmd)
 
 	start := time.Now()
 	err := cmd.Run()
