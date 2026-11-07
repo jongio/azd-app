@@ -18,6 +18,9 @@ concurrency:
   group: update-azd-core
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: cli
@@ -34,20 +37,26 @@ jobs:
     steps:
       - name: Resolve inputs
         id: inputs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
+          PAYLOAD_BRANCH: ${{ github.event.client_payload.branch }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BRANCH: ${{ inputs.branch }}
         run: |
-          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            echo "version=${{ github.event.client_payload.version }}" >> $GITHUB_OUTPUT
-            echo "branch=${{ github.event.client_payload.branch }}" >> $GITHUB_OUTPUT
+          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
+            echo "version=$PAYLOAD_VERSION" >> "$GITHUB_OUTPUT"
+            echo "branch=$PAYLOAD_BRANCH" >> "$GITHUB_OUTPUT"
           else
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
-            echo "branch=${{ inputs.branch }}" >> $GITHUB_OUTPUT
+            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+            echo "branch=$INPUT_BRANCH" >> "$GITHUB_OUTPUT"
           fi
         working-directory: .
 
       - name: Validate version
+        env:
+          VERSION: ${{ steps.inputs.outputs.version }}
         run: |
-          VERSION="${{ steps.inputs.outputs.version }}"
-
           if [ -z "$VERSION" ]; then
             echo "ERROR: version is required"
             exit 1
@@ -67,16 +76,20 @@ jobs:
 
       - name: Create branch
         if: ${{ !steps.inputs.outputs.branch }}
+        env:
+          VERSION: ${{ steps.inputs.outputs.version }}
         run: |
-          BRANCH="update-azd-core-${{ steps.inputs.outputs.version }}"
+          BRANCH="update-azd-core-${VERSION}"
           git checkout -b "$BRANCH"
-          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
         working-directory: .
 
       - name: Set branch env
         if: ${{ steps.inputs.outputs.branch }}
+        env:
+          TARGET_BRANCH: ${{ steps.inputs.outputs.branch }}
         run: |
-          echo "BRANCH=${{ steps.inputs.outputs.branch }}" >> $GITHUB_ENV
+          echo "BRANCH=$TARGET_BRANCH" >> "$GITHUB_ENV"
         working-directory: .
 
       - name: Set up Go
@@ -87,15 +100,16 @@ jobs:
           cache-dependency-path: cli/go.sum
 
       - name: Update azd-core
+        env:
+          VERSION: ${{ steps.inputs.outputs.version }}
         run: |
-          VERSION="${{ steps.inputs.outputs.version }}"
           GOWORK=off go get "github.com/jongio/azd-core@${VERSION}"
           GOWORK=off go mod tidy
 
       - name: Commit and push
+        env:
+          VERSION: ${{ steps.inputs.outputs.version }}
         run: |
-          VERSION="${{ steps.inputs.outputs.version }}"
-
           if git diff --quiet HEAD -- go.mod go.sum; then
             echo "Already up to date"
             exit 0
@@ -111,8 +125,8 @@ jobs:
         if: ${{ !steps.inputs.outputs.branch }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.inputs.outputs.version }}
         run: |
-          VERSION="${{ steps.inputs.outputs.version }}"
           gh pr create \
             --title "chore: update azd-core to ${VERSION}" \
             --body "Update azd-core to ${VERSION}"

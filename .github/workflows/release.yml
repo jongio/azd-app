@@ -189,6 +189,7 @@ jobs:
         with:
           name: binaries
           path: cli/bin/
+          retention-days: 7
 
   release:
     name: Release
