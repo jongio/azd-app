@@ -21,7 +21,7 @@
   "dependencies": {
     "@connectrpc/connect": "^2.2.0",
     "@connectrpc/connect-web": "^2.2.0",
-    "@radix-ui/react-dropdown-menu": "^2.1.24",
+    "@radix-ui/react-dropdown-menu": "^2.1.25",
     "@radix-ui/react-tooltip": "^1.2.16",
     "ansi-to-html": "^0.7.2",
     "class-variance-authority": "^0.7.1",
