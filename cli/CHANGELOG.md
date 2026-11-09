@@ -1,3 +1,15 @@
+## [0.21.1] - 2026-11-09
+
+- deps: bump @radix-ui/react-dropdown-menu in /cli/dashboard (#677) (60b8c8bf8)
+- deps: bump connectrpc.com/connect from 1.21.0 to 1.21.1 in /cli (#680) (31c64286b)
+- ci: bump actions/download-artifact from 8.0.1 to 8.0.2 (#666) (67aded538)
+- ci: bump actions/setup-node from 7.0.0 to 7.1.0 (#668) (6dbdf3e33)
+- deps: bump github.com/azure/azure-dev/cli/azd in /cli (#682) (b2b6184b3)
+- ci: standardize workflow env vars, timeouts, and artifact retention (#684) (5fa2f12a7)
+- fix(portmanager): hide Windows console windows when checking or killing ports (#683) (64e96cf8d)
+- fix: address maintenance issues and test reliability (#665) (a052d020e)
+- chore: update registry for v0.21.0 (1becd10b4)
+
 ## [0.21.0] - 2026-10-10
 
 - deps: patch sample dependencies and harden Node runtime images (#663) (1ace36152)
