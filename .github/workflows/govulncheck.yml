@@ -52,16 +52,16 @@ jobs:
     # Only production dependencies are scanned (--prod); devDependencies are excluded.
     #
     # Allow-list: to suppress a specific advisory that cannot be fixed immediately,
-    # add --ignore-cves with the GHSA ID and a tracking comment:
+    # add --ignore with the GHSA ID and a tracking comment:
     #
-    #   pnpm audit --prod --audit-level=high --ignore-cves GHSA-xxxx-xxxx-xxxx
+    #   pnpm audit --prod --audit-level=high --ignore GHSA-xxxx-xxxx-xxxx
     #     # reason: only affects build tooling, not shipped code; tracked in issue #NNN
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
 
@@ -86,6 +86,14 @@ jobs:
 
       - name: Audit web dependencies
         working-directory: web
-        run: pnpm audit --prod --audit-level=high
+        # reason: astro static-site build tooling (zod, astro -> unifont -> undici), not shipped CLI/runtime code; awaiting 7-day release age window
+        run: >-
+          pnpm audit --prod --audit-level=high
+          --ignore GHSA-mrhx-c7xc-m3w5
+          --ignore GHSA-xjj6-f33q-929c
+          --ignore GHSA-qq8j-7v2v-3rwp
+          --ignore GHSA-4w7w-5xrc-9h26
+          --ignore GHSA-2m5v-pch6-74hx
+          --ignore GHSA-qrxm-fqhp-jwvm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -25,6 +25,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.event.workflow_run.head_branch || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: cli
@@ -34,6 +37,9 @@ jobs:
   check-permission:
     name: Check Build Permission
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pull-requests: read
     # Only run if:
     # 1. CI workflow succeeded, OR
     # Only run if:
@@ -166,9 +172,11 @@ jobs:
       - name: Get PR details
         id: pr
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          INPUT_PR_NUMBER: ${{ needs.check-permission.outputs.pr_number }}
         with:
           script: |
-            let prNumber = '${{ needs.check-permission.outputs.pr_number }}';
+            let prNumber = process.env.INPUT_PR_NUMBER || '';
             
             // If no PR number from permission check, try to find it from the current branch
             if (!prNumber) {
@@ -203,6 +211,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.sha || steps.pr.outputs.sha }}
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -212,7 +221,7 @@ jobs:
           cache-dependency-path: cli/go.sum
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
 
@@ -224,9 +233,14 @@ jobs:
       - name: Calculate PR version
         id: version
         working-directory: cli
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
+          if ! [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::Invalid PR number format"
+            exit 1
+          fi
           BASE_VERSION=$(grep '^version:' extension.yaml | awk '{print $2}')
-          PR_NUMBER="${{ steps.pr.outputs.number }}"
           PR_VERSION="${BASE_VERSION}-pr${PR_NUMBER}"
           # Use the standard azd extension tag format so azd x publish generates correct URLs
           STANDARD_TAG="azd-ext-jongio-azd-app_${PR_VERSION}"
@@ -260,16 +274,22 @@ jobs:
 
       - name: Update extension.yaml with PR version
         working-directory: cli
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-pr[0-9]+$ ]]; then
+            echo "::error::Invalid version format"
+            exit 1
+          fi
           # Temporarily update version (won't commit)
-          sed -i "s/^version: .*/version: ${VERSION}/" extension.yaml
+          sed -i "s|^version: .*|version: ${VERSION}|" extension.yaml
 
       - name: Build binaries
         working-directory: cli
+        env:
+          EXTENSION_ID: jongio.azd.app
+          EXTENSION_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          export EXTENSION_ID="jongio.azd.app"
-          export EXTENSION_VERSION="${{ steps.version.outputs.version }}"
           azd x build --all
 
       - name: Package
@@ -280,13 +300,14 @@ jobs:
         working-directory: cli
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PR_NUM: ${{ steps.pr.outputs.number }}
+          REPO: ${{ github.repository }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
           TAG="azd-ext-jongio-azd-app_${VERSION}"
-          PR_NUM="${{ steps.pr.outputs.number }}"
           
           # Delete existing release and tag to ensure we're not reusing cached artifacts
-          gh release delete "$TAG" --repo "${{ github.repository }}" --yes --cleanup-tag 2>/dev/null || true
+          gh release delete "$TAG" --repo "$REPO" --yes --cleanup-tag 2>/dev/null || true
           
           # Extra safety: force delete the tag if it still exists
           git push --delete origin "$TAG" 2>/dev/null || true
@@ -296,7 +317,7 @@ jobs:
           
           # Create pre-release with all binaries (same pattern as release.yml but with --prerelease)
           gh release create "$TAG" \
-            --repo "${{ github.repository }}" \
+            --repo "$REPO" \
             --title "PR #${PR_NUM} Preview (v${VERSION})" \
             --notes "PR #${PR_NUM} preview build. Test using the one-line installer from the PR comment." \
             --prerelease \
@@ -306,31 +327,31 @@ jobs:
         working-directory: cli
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          REPO: ${{ github.repository }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          
           # Generate registry (saves to /tmp/pr-registry.json for the install scripts)
           echo '{"extensions":[]}' > /tmp/pr-registry.json
           azd x publish \
             --registry /tmp/pr-registry.json \
             --version "$VERSION" \
-            --repo "${{ github.repository }}"
+            --repo "$REPO"
           
           # Upload registry to the release so install scripts can download it
           TAG="azd-ext-jongio-azd-app_${VERSION}"
-          gh release upload "$TAG" --repo "${{ github.repository }}" /tmp/pr-registry.json --clobber
+          gh release upload "$TAG" --repo "$REPO" /tmp/pr-registry.json --clobber
 
       - name: Generate installation instructions
         id: instructions
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PR_NUM: ${{ steps.pr.outputs.number }}
+          TAG: ${{ steps.version.outputs.tag }}
+          REPO: ${{ github.repository }}
+          COMMIT: ${{ steps.pr.outputs.sha }}
+          BRANCH: ${{ github.ref_name }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          PR_NUM="${{ steps.pr.outputs.number }}"
-          TAG="${{ steps.version.outputs.tag }}"
-          REPO="${{ github.repository }}"
-          COMMIT="${{ steps.pr.outputs.sha }}"
-          SHORT_COMMIT=$(echo $COMMIT | cut -c1-7)
-          # Use the branch where the scripts actually exist
-          BRANCH="${{ github.ref_name }}"
+          SHORT_COMMIT=$(echo "$COMMIT" | cut -c1-7)
           WEBSITE_URL="https://jongio.github.io/azd-app/pr/$PR_NUM/"
           
           cat > ../instructions.md <<EOF
@@ -381,11 +402,13 @@ jobs:
 
       - name: Comment on PR
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
         with:
           script: |
             const fs = require('fs');
             const instructions = fs.readFileSync('instructions.md', 'utf8');
-            const prNumber = '${{ steps.pr.outputs.number }}';
+            const prNumber = process.env.PR_NUMBER;
             
             // Find existing comment
             const comments = await github.rest.issues.listComments({
@@ -422,6 +445,7 @@ jobs:
   cleanup:
     name: Cleanup PR Registry
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.event.action == 'closed' && github.event_name == 'pull_request_target'
     permissions:
       contents: write
@@ -433,15 +457,19 @@ jobs:
       - name: Delete PR registry release
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
-          PR_NUM=${{ github.event.pull_request.number }}
-          
+          if ! [[ "$PR_NUM" =~ ^[0-9]+$ ]]; then
+            echo "::error::Invalid PR number format"
+            exit 1
+          fi
           # Find and delete releases matching this PR
-          gh release list --repo ${{ github.repository }} --json tagName,name --limit 100 | \
+          gh release list --repo "$REPO" --json tagName,name --limit 100 | \
             jq -r ".[] | select(.tagName | contains(\"-pr${PR_NUM}\")) | .tagName" | \
             while read tag; do
               echo "Deleting release: $tag"
-              gh release delete "$tag" --repo ${{ github.repository }} --yes || true
+              gh release delete "$tag" --repo "$REPO" --yes || true
               # Delete tag
               git push --delete origin "$tag" 2>/dev/null || true
             done
