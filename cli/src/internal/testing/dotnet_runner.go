@@ -3,6 +3,7 @@ package testing
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,14 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/executor"
+)
+
+type dotnetRunnerMode int
+
+const (
+	dotnetRunnerVSTest dotnetRunnerMode = iota
+	dotnetRunnerMTPNative
+	dotnetRunnerMTPMSBuild
 )
 
 const (
@@ -89,68 +98,126 @@ func (r *DotnetTestRunner) buildTestCommand(testType string, coverage bool) (str
 		}
 	}
 
-	// Find test project(s)
+	// Find test project(s) and select the single target project
 	testProjects := r.findTestProjects()
+	selectedProject := ""
 	if len(testProjects) > 0 {
-		// Use the first test project found
-		args = append(args, testProjects[0])
+		selectedProject = testProjects[0]
 	}
 
-	// Add filter for test type
+	var filter string
 	if testType != testFilterAll {
-		filter := r.getTestFilter(testType)
+		filter = r.getTestFilter(testType)
+	}
+
+	switch r.detectRunnerMode(selectedProject) {
+	case dotnetRunnerMTPNative:
+		if selectedProject != "" {
+			args = append(args, "--project", selectedProject)
+		}
 		if filter != "" {
 			args = append(args, "--filter", filter)
 		}
-	}
-
-	if r.usesMicrosoftTestingPlatform(testProjects) {
 		if coverage {
-			args = append(args, "--", "--coverage", "--coverage-output-format", "cobertura")
+			args = append(args, "--coverage", "--coverage-output-format", "cobertura")
 		}
 		return dotnetCommand, args
+
+	case dotnetRunnerMTPMSBuild:
+		if selectedProject != "" {
+			args = append(args, selectedProject)
+		}
+		if filter != "" || coverage {
+			args = append(args, "--")
+			if filter != "" {
+				args = append(args, "--filter", filter)
+			}
+			if coverage {
+				args = append(args, "--coverage", "--coverage-output-format", "cobertura")
+			}
+		}
+		return dotnetCommand, args
+
+	default:
+		if selectedProject != "" {
+			args = append(args, selectedProject)
+		}
+		if filter != "" {
+			args = append(args, "--filter", filter)
+		}
+		if coverage {
+			args = append(args, "--collect", "XPlat Code Coverage")
+		}
+		args = append(args, "--logger", "console;verbosity=normal")
+		return dotnetCommand, args
 	}
-
-	// Add coverage flag (VSTest)
-	if coverage {
-		args = append(args, "--collect", "XPlat Code Coverage")
-	}
-
-	// Add logger for better output (VSTest)
-	args = append(args, "--logger", "console;verbosity=normal")
-
-	return dotnetCommand, args
 }
 
-// usesMicrosoftTestingPlatform detects whether the .NET test runner is configured
-// for Microsoft.Testing.Platform (via global.json or project properties), which
-// rejects VSTest-only --logger / --collect options.
-func (r *DotnetTestRunner) usesMicrosoftTestingPlatform(testProjects []string) bool {
-	for _, proj := range testProjects {
-		if data, err := os.ReadFile(proj); err == nil {
-			content := strings.ToLower(string(data))
-			if strings.Contains(content, "<usemicrosofttestingplatformrunner>true") ||
-				strings.Contains(content, "<testingplatformdotnettestsupport>true") {
-				return true
-			}
-		}
+type dotnetGlobalJSON struct {
+	Test *struct {
+		Runner string `json:"runner"`
+	} `json:"test"`
+}
+
+// detectRunnerMode determines whether the selected test project runs via
+// native .NET 10 Microsoft.Testing.Platform (opted in via the nearest global.json),
+// MSBuild MTP compatibility mode (project-level TestingPlatformDotnetTestSupport /
+// UseMicrosoftTestingPlatformRunner), or classic VSTest.
+func (r *DotnetTestRunner) detectRunnerMode(selectedProject string) dotnetRunnerMode {
+	searchStart := r.projectDir
+	if selectedProject != "" {
+		searchStart = filepath.Dir(selectedProject)
+	}
+	if globalJSONSelectsMTP(searchStart) {
+		return dotnetRunnerMTPNative
 	}
 
-	dir := filepath.Clean(r.projectDir)
-	for depth := 0; depth < 4 && dir != ""; depth++ {
-		if data, err := os.ReadFile(filepath.Join(dir, "global.json")); err == nil {
-			if strings.Contains(string(data), "Microsoft.Testing.Platform") {
-				return true
+	if selectedProject != "" && projectEnablesMTP(selectedProject) {
+		return dotnetRunnerMTPMSBuild
+	}
+
+	return dotnetRunnerVSTest
+}
+
+// globalJSONSelectsMTP walks upward to the filesystem root and inspects ONLY
+// the nearest global.json file, matching .NET SDK global.json discovery rules.
+func globalJSONSelectsMTP(startDir string) bool {
+	if strings.TrimSpace(startDir) == "" {
+		return false
+	}
+	dir, err := filepath.Abs(startDir)
+	if err != nil {
+		dir = filepath.Clean(startDir)
+	}
+
+	for {
+		candidate := filepath.Join(dir, "global.json")
+		if data, readErr := os.ReadFile(candidate); readErr == nil {
+			var parsed dotnetGlobalJSON
+			if jsonErr := json.Unmarshal(data, &parsed); jsonErr == nil && parsed.Test != nil {
+				return strings.EqualFold(strings.TrimSpace(parsed.Test.Runner), "Microsoft.Testing.Platform")
 			}
+			// Nearest global.json exists without test.runner=Microsoft.Testing.Platform;
+			// .NET does not merge ancestor global.json files.
+			return false
 		}
+
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			break
+			return false
 		}
 		dir = parent
 	}
+}
 
-	return false
+func projectEnablesMTP(projectPath string) bool {
+	data, err := os.ReadFile(projectPath)
+	if err != nil {
+		return false
+	}
+	content := strings.ToLower(string(data))
+	return strings.Contains(content, "<usemicrosofttestingplatformrunner>true") ||
+		strings.Contains(content, "<testingplatformdotnettestsupport>true")
 }
 
 // getTestFilter returns the test filter expression for the test type.

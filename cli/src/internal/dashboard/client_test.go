@@ -5,8 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	v1 "github.com/jongio/azd-app/cli/src/gen/proto/azdapp/v1"
 	"github.com/jongio/azd-app/cli/src/internal/azdconfig"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestReadDashboardPortFromAzdConfig(t *testing.T) {
@@ -156,5 +159,37 @@ func TestNewClientUsesCrossProcessPortAndTokenFiles(t *testing.T) {
 	}
 	if client.baseURL != "http://localhost:45678" {
 		t.Errorf("NewClient() baseURL = %q, want %q", client.baseURL, "http://localhost:45678")
+	}
+}
+
+func TestProtoToServiceInfo_PreservesTerminalStatusAndExitCode(t *testing.T) {
+	endTime := time.Date(2026, 11, 11, 22, 0, 0, 0, time.UTC)
+	meta, err := structpb.NewStruct(map[string]any{
+		"rawStatus":   "built",
+		"exitCode":    float64(0),
+		"endTime":     endTime.Format(time.RFC3339Nano),
+		"serviceType": "process",
+		"serviceMode": "build",
+	})
+	if err != nil {
+		t.Fatalf("NewStruct error: %v", err)
+	}
+
+	got := protoToServiceInfo(&v1.ServiceInfo{
+		Name:     "builder",
+		Status:   v1.ServiceStatus_SERVICE_STATUS_UNSPECIFIED,
+		Metadata: meta,
+	})
+	if got == nil || got.Local == nil {
+		t.Fatal("expected LocalServiceInfo to be reconstructed from terminal metadata")
+	}
+	if got.Local.RawStatus != "built" {
+		t.Fatalf("RawStatus = %q, want %q", got.Local.RawStatus, "built")
+	}
+	if got.Local.ExitCode == nil || *got.Local.ExitCode != 0 {
+		t.Fatalf("ExitCode = %v, want 0", got.Local.ExitCode)
+	}
+	if got.Local.EndTime == nil || !got.Local.EndTime.Equal(endTime) {
+		t.Fatalf("EndTime = %v, want %v", got.Local.EndTime, endTime)
 	}
 }

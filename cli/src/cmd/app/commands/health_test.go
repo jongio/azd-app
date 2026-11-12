@@ -345,6 +345,9 @@ func TestDetectChanges(t *testing.T) {
 func TestSeedHealthRegistryFromServices(t *testing.T) {
 	projectDir := t.TempDir()
 	startTime := time.Now().Add(-30 * time.Second).Truncate(time.Second)
+	endTime := startTime.Add(5 * time.Second)
+	zeroExit := 0
+	customFailExit := 42
 
 	// No dashboard running should be a safe no-op.
 	seedHealthRegistryFromDashboard(context.Background(), projectDir)
@@ -353,8 +356,16 @@ func TestSeedHealthRegistryFromServices(t *testing.T) {
 		nil,
 		{Name: "no-local"},
 		{
-			Name:  "stopped-svc",
+			Name:  "never-started",
 			Local: &serviceinfo.LocalServiceInfo{Status: "not-running"},
+		},
+		{
+			Name: "stopped-with-retained-pid",
+			Local: &serviceinfo.LocalServiceInfo{
+				Status: "not-running",
+				PID:    9876,
+				Port:   4321,
+			},
 		},
 		{
 			Name:      "worker",
@@ -362,10 +373,23 @@ func TestSeedHealthRegistryFromServices(t *testing.T) {
 			Framework: "csharp",
 			Local: &serviceinfo.LocalServiceInfo{
 				Status:      "running",
+				RawStatus:   "running",
 				PID:         4242,
 				ServiceType: "process",
 				ServiceMode: "daemon",
 				StartTime:   &startTime,
+			},
+		},
+		{
+			Name: "completed-build",
+			Local: &serviceinfo.LocalServiceInfo{
+				Status:      "",
+				RawStatus:   "built",
+				ServiceType: "process",
+				ServiceMode: "build",
+				ExitCode:    &zeroExit,
+				StartTime:   &startTime,
+				EndTime:     &endTime,
 			},
 		},
 		{
@@ -374,22 +398,35 @@ func TestSeedHealthRegistryFromServices(t *testing.T) {
 			Framework: "go",
 			Local: &serviceinfo.LocalServiceInfo{
 				Status:      "error",
+				RawStatus:   "error",
 				PID:         5150,
+				ExitCode:    &customFailExit,
 				ServiceType: "process",
 				ServiceMode: "task",
 				StartTime:   &startTime,
+				EndTime:     &endTime,
 			},
 		},
 	})
 
 	reg := registry.GetRegistry(projectDir)
-	if _, exists := reg.GetService("stopped-svc"); exists {
-		t.Fatal("expected non-running service without PID/port to be skipped")
+	if _, exists := reg.GetService("never-started"); exists {
+		t.Fatal("expected never-started service without PID/port/exitCode to be skipped")
+	}
+
+	stoppedSvc, exists := reg.GetService("stopped-with-retained-pid")
+	if !exists || stoppedSvc.Status != "stopped" {
+		t.Fatalf("expected stopped service with retained PID to normalize to 'stopped', got: %+v", stoppedSvc)
+	}
+
+	completedBuild, exists := reg.GetService("completed-build")
+	if !exists || completedBuild.Status != "built" || completedBuild.ExitCode == nil || *completedBuild.ExitCode != 0 || !completedBuild.EndTime.Equal(endTime) {
+		t.Fatalf("expected completed-build to preserve Status='built', ExitCode=0, EndTime=%v; got: %+v", endTime, completedBuild)
 	}
 
 	failedTask, exists := reg.GetService("failed-task")
-	if !exists || failedTask.ExitCode == nil || *failedTask.ExitCode != 1 {
-		t.Fatalf("expected failed-task to seed ExitCode=1, got: %+v", failedTask)
+	if !exists || failedTask.ExitCode == nil || *failedTask.ExitCode != 42 {
+		t.Fatalf("expected failed-task to preserve exact ExitCode=42, got: %+v", failedTask)
 	}
 
 	worker, exists := reg.GetService("worker")

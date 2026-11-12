@@ -314,6 +314,19 @@ func serviceInfoToProto(info *serviceinfo.ServiceInfo, projectDir string) *v1.Se
 		if local.ServiceMode != "" {
 			metadata["serviceMode"] = local.ServiceMode
 		}
+		rawStatus := local.RawStatus
+		if rawStatus == "" {
+			rawStatus = local.Status
+		}
+		if rawStatus != "" {
+			metadata["rawStatus"] = rawStatus
+		}
+		if local.ExitCode != nil {
+			metadata["exitCode"] = float64(*local.ExitCode)
+		}
+		if local.EndTime != nil && !local.EndTime.IsZero() {
+			metadata["endTime"] = local.EndTime.UTC().Format("2006-01-02T15:04:05.999999999Z07:00")
+		}
 		if local.URL != "" && local.CustomURL != "" {
 			// Preserve the auto-discovered URL alongside the override so
 			// the UI can show both ("ngrok URL active; localhost:5000").

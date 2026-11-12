@@ -318,7 +318,21 @@ func seedHealthRegistryFromServices(projectDir string, services []*serviceinfo.S
 		if svc == nil || svc.Local == nil {
 			continue
 		}
-		if svc.Local.PID <= 0 && svc.Local.Port <= 0 && svc.Local.Status != "running" && svc.Local.Status != "error" && svc.Local.Status != "built" && svc.Local.Status != "completed" {
+		status := strings.TrimSpace(svc.Local.RawStatus)
+		if status == "" {
+			status = strings.TrimSpace(svc.Local.Status)
+		}
+		if status == "not-running" {
+			if svc.Local.PID <= 0 && svc.Local.Port <= 0 && svc.Local.ExitCode == nil {
+				continue
+			}
+			// A service registered in the dashboard with a retained PID/port/exit code
+			// whose proto status mapped to "not-running" was intentionally stopped;
+			// normalize back to "stopped" so HealthChecker skips probing it.
+			status = "stopped"
+		}
+		if svc.Local.PID <= 0 && svc.Local.Port <= 0 && svc.Local.ExitCode == nil &&
+			status != "running" && status != "stopped" && status != "error" && status != "built" && status != "completed" {
 			continue
 		}
 		entry := &registry.ServiceRegistryEntry{
@@ -327,20 +341,19 @@ func seedHealthRegistryFromServices(projectDir string, services []*serviceinfo.S
 			Port:      svc.Local.Port,
 			Language:  svc.Language,
 			Framework: svc.Framework,
-			Status:    svc.Local.Status,
+			Status:    status,
 			Type:      svc.Local.ServiceType,
 			Mode:      svc.Local.ServiceMode,
 		}
-		switch svc.Local.Status {
-		case "error":
-			exitCode := 1
-			entry.ExitCode = &exitCode
-		case "built", "completed":
-			exitCode := 0
-			entry.ExitCode = &exitCode
+		if svc.Local.ExitCode != nil {
+			code := *svc.Local.ExitCode
+			entry.ExitCode = &code
 		}
 		if svc.Local.StartTime != nil {
 			entry.StartTime = *svc.Local.StartTime
+		}
+		if svc.Local.EndTime != nil {
+			entry.EndTime = *svc.Local.EndTime
 		}
 		_ = reg.Register(entry)
 	}

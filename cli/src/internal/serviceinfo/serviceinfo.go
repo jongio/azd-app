@@ -103,12 +103,15 @@ type ServiceInfo struct {
 // LocalServiceInfo contains local development information.
 type LocalServiceInfo struct {
 	Status      string     `json:"status"`              // "running", "not-running", "unknown"
+	RawStatus   string     `json:"rawStatus,omitempty"` // Canonical registry status ("stopped", "built", "completed", "error", etc.)
 	Health      string     `json:"health"`              // "healthy", "unhealthy", "unknown"
 	URL         string     `json:"url,omitempty"`       // Auto-discovered local URL
 	CustomURL   string     `json:"customUrl,omitempty"` // User-configured custom URL (e.g., ngrok)
 	Port        int        `json:"port,omitempty"`
 	PID         int        `json:"pid,omitempty"`
+	ExitCode    *int       `json:"exitCode,omitempty"`
 	StartTime   *time.Time `json:"startTime,omitempty"`
+	EndTime     *time.Time `json:"endTime,omitempty"`
 	LastChecked *time.Time `json:"lastChecked,omitempty"`
 	ServiceType string     `json:"serviceType,omitempty"` // "http", "tcp", "process", "container"
 	ServiceMode string     `json:"serviceMode,omitempty"` // "watch", "build", "daemon", "task" (for type=process)
@@ -387,6 +390,7 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 
 			existing.Local = &LocalServiceInfo{
 				Status:      runningSvc.Status,
+				RawStatus:   runningSvc.Status,
 				Health:      "", // Health is computed dynamically via health checks, not stored in registry
 				URL:         runningSvc.URL,
 				Port:        runningSvc.Port,
@@ -395,6 +399,14 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 				LastChecked: &runningSvc.LastChecked,
 				ServiceType: runningSvc.Type,
 				ServiceMode: runningSvc.Mode,
+			}
+			if runningSvc.ExitCode != nil {
+				code := *runningSvc.ExitCode
+				existing.Local.ExitCode = &code
+			}
+			if !runningSvc.EndTime.IsZero() {
+				endTime := runningSvc.EndTime
+				existing.Local.EndTime = &endTime
 			}
 
 			if existingCustomURL != "" {

@@ -66,9 +66,13 @@ func buildLocalInfo(p *v1.ServiceInfo, meta map[string]*structpb.Value) *service
 	autoURL := metaString(meta, "autoUrl")
 	serviceType := metaString(meta, "serviceType")
 	serviceMode := metaString(meta, "serviceMode")
+	rawStatus := metaString(meta, "rawStatus")
+	exitCode := metaIntPtr(meta, "exitCode")
+	endTime := metaTimePtr(meta, "endTime")
 	lastCheckedStr := metaString(meta, "lastChecked")
 
-	hasState := status != "" || health != "" || port != 0 || pid != 0 ||
+	hasState := status != "" || rawStatus != "" || health != "" || port != 0 || pid != 0 ||
+		exitCode != nil || endTime != nil ||
 		url != "" || autoURL != "" || serviceType != "" ||
 		serviceMode != "" || lastCheckedStr != "" || p.GetStartTime() != nil ||
 		p.GetCpuPercent() != 0 || p.GetMemoryBytes() != 0
@@ -79,9 +83,12 @@ func buildLocalInfo(p *v1.ServiceInfo, meta map[string]*structpb.Value) *service
 
 	local := &serviceinfo.LocalServiceInfo{
 		Status:      status,
+		RawStatus:   rawStatus,
 		Health:      health,
 		Port:        port,
 		PID:         pid,
+		ExitCode:    exitCode,
+		EndTime:     endTime,
 		ServiceType: serviceType,
 		ServiceMode: serviceMode,
 		CPUPercent:  p.GetCpuPercent(),
@@ -256,6 +263,35 @@ func metaString(meta map[string]*structpb.Value, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(v.GetStringValue())
+}
+
+func metaIntPtr(meta map[string]*structpb.Value, key string) *int {
+	if meta == nil {
+		return nil
+	}
+	v, ok := meta[key]
+	if !ok || v == nil {
+		return nil
+	}
+	if _, isNumber := v.GetKind().(*structpb.Value_NumberValue); !isNumber {
+		return nil
+	}
+	n := int(v.GetNumberValue())
+	return &n
+}
+
+func metaTimePtr(meta map[string]*structpb.Value, key string) *time.Time {
+	s := metaString(meta, key)
+	if s == "" {
+		return nil
+	}
+	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+		return &t
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return &t
+	}
+	return nil
 }
 
 func metaSubMap(meta map[string]*structpb.Value, key string) map[string]*structpb.Value {
