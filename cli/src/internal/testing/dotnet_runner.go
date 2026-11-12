@@ -195,7 +195,7 @@ func globalJSONSelectsMTP(startDir string) bool {
 		candidate := filepath.Join(dir, "global.json")
 		if data, readErr := os.ReadFile(candidate); readErr == nil {
 			var parsed dotnetGlobalJSON
-			if jsonErr := json.Unmarshal(data, &parsed); jsonErr == nil && parsed.Test != nil {
+			if jsonErr := json.Unmarshal(stripJSONC(data), &parsed); jsonErr == nil && parsed.Test != nil {
 				return strings.EqualFold(strings.TrimSpace(parsed.Test.Runner), "Microsoft.Testing.Platform")
 			}
 			// Nearest global.json exists without test.runner=Microsoft.Testing.Platform;
@@ -211,15 +211,138 @@ func globalJSONSelectsMTP(startDir string) bool {
 	}
 }
 
-func projectEnablesMTP(projectPath string) bool {
-	data, err := os.ReadFile(projectPath)
-	if err != nil {
-		return false
+// stripJSONC removes // line comments, /* */ block comments, and trailing commas
+// outside JSON string literals so .NET global.json files with comments unmarshal cleanly.
+func stripJSONC(src []byte) []byte {
+	out := make([]byte, 0, len(src))
+	inString := false
+	for i := 0; i < len(src); i++ {
+		c := src[i]
+		if inString {
+			out = append(out, c)
+			if c == '\\' && i+1 < len(src) {
+				i++
+				out = append(out, src[i])
+			} else if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		if c == '"' {
+			inString = true
+			out = append(out, c)
+			continue
+		}
+		if c == '/' && i+1 < len(src) {
+			if src[i+1] == '/' {
+				i += 2
+				for i < len(src) && src[i] != '\n' {
+					i++
+				}
+				if i < len(src) {
+					out = append(out, '\n')
+				}
+				continue
+			}
+			if src[i+1] == '*' {
+				i += 2
+				for i+1 < len(src) && !(src[i] == '*' && src[i+1] == '/') {
+					i++
+				}
+				i++ // consume '/'
+				continue
+			}
+		}
+		out = append(out, c)
 	}
 
+	// Second pass: drop trailing commas before '}' or ']'.
+	cleaned := make([]byte, 0, len(out))
+	inString = false
+	for i := 0; i < len(out); i++ {
+		c := out[i]
+		if inString {
+			cleaned = append(cleaned, c)
+			if c == '\\' && i+1 < len(out) {
+				i++
+				cleaned = append(cleaned, out[i])
+			} else if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		if c == '"' {
+			inString = true
+			cleaned = append(cleaned, c)
+			continue
+		}
+		if c == ',' {
+			j := i + 1
+			for j < len(out) && (out[j] == ' ' || out[j] == '\t' || out[j] == '\r' || out[j] == '\n') {
+				j++
+			}
+			if j < len(out) && (out[j] == '}' || out[j] == ']') {
+				continue
+			}
+		}
+		cleaned = append(cleaned, c)
+	}
+	return cleaned
+}
+
+func projectEnablesMTP(projectPath string) bool {
+	absProj, err := filepath.Abs(projectPath)
+	if err != nil {
+		absProj = filepath.Clean(projectPath)
+	}
+
+	enabled := false
+	visited := map[string]bool{}
+
+	// MSBuild automatically imports the nearest Directory.Build.props before evaluating
+	// the project's own properties (and that props file may explicitly <Import> parent/sibling props).
+	if nearestProps := findNearestDirectoryBuildProps(filepath.Dir(absProj)); nearestProps != "" {
+		evaluateMSBuildMTPFile(nearestProps, &enabled, visited)
+	}
+	evaluateMSBuildMTPFile(absProj, &enabled, visited)
+
+	return enabled
+}
+
+func findNearestDirectoryBuildProps(startDir string) string {
+	dir := filepath.Clean(startDir)
+	for {
+		entries, err := os.ReadDir(dir)
+		if err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && strings.EqualFold(entry.Name(), "Directory.Build.props") {
+					return filepath.Join(dir, entry.Name())
+				}
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
+func evaluateMSBuildMTPFile(filePath string, enabled *bool, visited map[string]bool) {
+	cleanPath := filepath.Clean(filePath)
+	if visited[cleanPath] {
+		return
+	}
+	visited[cleanPath] = true
+
+	data, err := os.ReadFile(cleanPath)
+	if err != nil {
+		return
+	}
+
+	baseDir := filepath.Dir(cleanPath)
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	inPropertyGroup := false
-	enabled := false
 
 	for {
 		tok, decErr := decoder.Token()
@@ -227,11 +350,18 @@ func projectEnablesMTP(projectPath string) bool {
 			break
 		}
 		if decErr != nil {
-			return false
+			return
 		}
 
 		switch elem := tok.(type) {
 		case xml.StartElement:
+			if strings.EqualFold(elem.Name.Local, "Import") && !hasXMLConditionAttr(elem.Attr) {
+				if imported := resolveMSBuildImportPath(baseDir, elem.Attr); imported != "" {
+					evaluateMSBuildMTPFile(imported, enabled, visited)
+				}
+				_ = decoder.Skip()
+				continue
+			}
 			if strings.EqualFold(elem.Name.Local, "PropertyGroup") {
 				if hasXMLConditionAttr(elem.Attr) {
 					_ = decoder.Skip()
@@ -250,9 +380,9 @@ func projectEnablesMTP(projectPath string) bool {
 				if err := decoder.DecodeElement(&val, &elem); err == nil {
 					trimmed := strings.TrimSpace(val)
 					if strings.EqualFold(trimmed, "true") {
-						enabled = true
+						*enabled = true
 					} else if strings.EqualFold(trimmed, "false") {
-						enabled = false
+						*enabled = false
 					}
 				}
 			}
@@ -262,8 +392,29 @@ func projectEnablesMTP(projectPath string) bool {
 			}
 		}
 	}
+}
 
-	return enabled
+func resolveMSBuildImportPath(baseDir string, attrs []xml.Attr) string {
+	var raw string
+	for _, attr := range attrs {
+		if strings.EqualFold(attr.Name.Local, "Project") {
+			raw = strings.TrimSpace(attr.Value)
+			break
+		}
+	}
+	if raw == "" {
+		return ""
+	}
+	// Support common MSBuild $(MSBuildThisFileDirectory) prefix and normalize separators.
+	replaced := strings.ReplaceAll(raw, "$(MSBuildThisFileDirectory)", baseDir+string(filepath.Separator))
+	if strings.Contains(replaced, "$(") {
+		return ""
+	}
+	normalized := filepath.FromSlash(strings.ReplaceAll(replaced, "\\", "/"))
+	if !filepath.IsAbs(normalized) {
+		normalized = filepath.Join(baseDir, normalized)
+	}
+	return filepath.Clean(normalized)
 }
 
 func hasXMLConditionAttr(attrs []xml.Attr) bool {

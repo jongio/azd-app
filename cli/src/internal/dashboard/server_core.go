@@ -202,10 +202,16 @@ func (s *Server) Start() (string, error) {
 
 	url := fmt.Sprintf("http://localhost:%d", port)
 
-	// Store dashboard port in azdconfig for other commands to discover
-	s.registerPortInConfig(port)
-	// Persist the session token so azd app stop can authenticate across processes.
-	writeTokenFile(s.projectDir, s.sessionToken)
+	// Persist trusted discovery state in the owner-only state directory; fail closed if unavailable.
+	if err := s.registerPortInConfig(port); err != nil {
+		_ = s.server.Close()
+		return "", fmt.Errorf("failed to persist dashboard port: %w", err)
+	}
+	if err := writeTokenFile(s.projectDir, s.sessionToken); err != nil {
+		removePortFile(s.projectDir)
+		_ = s.server.Close()
+		return "", fmt.Errorf("failed to persist dashboard session token: %w", err)
+	}
 
 	// Mark as started only after port and token files reflect the bound listener.
 	s.startedMu.Lock()

@@ -150,8 +150,12 @@ func TestNewClientUsesCrossProcessPortAndTokenFiles(t *testing.T) {
 		nonceDirBase = ""
 	})
 
-	writePortFile(projectDir, 45678)
-	writeTokenFile(projectDir, "0123456789abcdef")
+	if err := writePortFile(projectDir, 45678); err != nil {
+		t.Fatalf("writePortFile() error = %v", err)
+	}
+	if err := writeTokenFile(projectDir, "0123456789abcdef"); err != nil {
+		t.Fatalf("writeTokenFile() error = %v", err)
+	}
 
 	client, err := NewClient(context.Background(), projectDir)
 	if err != nil {

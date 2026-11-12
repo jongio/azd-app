@@ -353,9 +353,19 @@ func TestPortFileNonce_LegacyFileCleanedUp(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Remove(legacyPath) })
 
-	writePortFile(projectDir, 12345)
+	if err := writePortFile(projectDir, 12345); err != nil {
+		t.Fatalf("writePortFile() error: %v", err)
+	}
 
 	if _, statErr := os.Stat(legacyPath); !os.IsNotExist(statErr) {
 		t.Errorf("legacy port file still present at %q after writePortFile; expected removal", legacyPath)
+	}
+
+	actualPath, err := portFilePath(projectDir)
+	if err != nil {
+		t.Fatalf("portFilePath() error: %v", err)
+	}
+	if !strings.HasPrefix(filepath.Clean(actualPath), filepath.Clean(nonceDirBase)) {
+		t.Errorf("port file path %q should reside inside owner-only state directory %q", actualPath, nonceDirBase)
 	}
 }
