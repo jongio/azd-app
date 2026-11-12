@@ -272,6 +272,8 @@ func TestMergeServiceInfo(t *testing.T) {
 		},
 	}
 
+	exitCode := 0
+	endTime := time.Date(2026, 11, 11, 20, 0, 0, 0, time.UTC)
 	runningServices := []*registry.ServiceRegistryEntry{
 		{
 			Name:   "api",
@@ -279,6 +281,12 @@ func TestMergeServiceInfo(t *testing.T) {
 			Port:   3000,
 			URL:    "http://localhost:3000",
 			PID:    12345,
+		},
+		{
+			Name:     "web",
+			Status:   "built",
+			ExitCode: &exitCode,
+			EndTime:  endTime,
 		},
 	}
 
@@ -299,17 +307,25 @@ func TestMergeServiceInfo(t *testing.T) {
 		t.Fatalf("Expected 2 services, got %d", len(result))
 	}
 
-	// Find the api service
-	var apiService *ServiceInfo
+	// Find the api and web services
+	var apiService, webService *ServiceInfo
 	for _, svc := range result {
 		if svc.Name == "api" {
 			apiService = svc
-			break
+		}
+		if svc.Name == "web" {
+			webService = svc
 		}
 	}
 
 	if apiService == nil {
 		t.Fatal("api service not found")
+	}
+	if webService == nil || webService.Local == nil {
+		t.Fatal("web service Local info should not be nil")
+	}
+	if webService.Local.RawStatus != "built" || webService.Local.ExitCode == nil || *webService.Local.ExitCode != 0 || webService.Local.EndTime == nil || !webService.Local.EndTime.Equal(endTime) {
+		t.Fatalf("web Local terminal metadata not preserved: %+v", webService.Local)
 	}
 
 	// Verify azure.yaml info is present
