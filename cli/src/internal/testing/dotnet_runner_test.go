@@ -94,6 +94,28 @@ func TestDotnetRunnerBuildTestCommand_WithCoverage(t *testing.T) {
 	}
 }
 
+func TestDotnetRunnerBuildTestCommand_MicrosoftTestingPlatform(t *testing.T) {
+	tmpDir := t.TempDir()
+	globalJSON := `{"sdk":{"version":"10.0.100"},"test":{"runner":"Microsoft.Testing.Platform"}}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "global.json"), []byte(globalJSON), 0o600); err != nil {
+		t.Fatalf("write global.json: %v", err)
+	}
+
+	runner := NewDotnetTestRunner(tmpDir, &ServiceTestConfig{Framework: "xunit"})
+	_, args := runner.buildTestCommand("all", true)
+
+	for _, arg := range args {
+		if arg == "--logger" || arg == "--collect" {
+			t.Fatalf("unexpected VSTest arg %q in MTP command args: %v", arg, args)
+		}
+	}
+
+	joined := filepath.ToSlash(args[len(args)-1])
+	if joined != "cobertura" {
+		t.Fatalf("expected MTP coverage args ending in cobertura, got: %v", args)
+	}
+}
+
 func TestDotnetRunnerParseCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 	config := &ServiceTestConfig{}
@@ -186,6 +208,21 @@ Total tests: 15
 			expectedPassed: 12,
 			expectedFailed: 0,
 			expectedTotal:  15,
+		},
+		{
+			name: "Microsoft.Testing.Platform summary output",
+			output: `Running tests from App.Tests.dll (net10.0|x64)
+App.Tests.dll (net10.0|x64) passed (2s 100ms)
+
+Test run summary: Passed!
+  total: 45
+  failed: 0
+  succeeded: 42
+  skipped: 3
+  duration: 2s 500ms`,
+			expectedPassed: 42,
+			expectedFailed: 0,
+			expectedTotal:  45,
 		},
 	}
 

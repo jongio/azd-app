@@ -13,8 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jongio/azd-app/cli/src/internal/dashboard"
 	"github.com/jongio/azd-app/cli/src/internal/healthcheck"
 	"github.com/jongio/azd-app/cli/src/internal/service"
+	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
+	"github.com/jongio/azd-core/registry"
 
 	"github.com/spf13/cobra"
 )
@@ -241,6 +244,10 @@ func runHealth(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Seed the local in-process registry from the running dashboard (if any) so
+	// standalone CLI health checks observe live PIDs, ports, and start times.
+	seedHealthRegistryFromDashboard(ctx, projectDir)
+
 	// Start metrics server if enabled with proper shutdown
 	var metricsServer *http.Server
 	if config.EnableMetrics {
@@ -286,13 +293,59 @@ func runHealth(cmd *cobra.Command, args []string) error {
 	setupSignalHandler(ctx, cancel)
 
 	if healthStream {
-		return runStreamingMode(ctx, monitor, serviceFilter)
+		return runStreamingMode(ctx, monitor, projectDir, serviceFilter)
 	}
 
 	return runStaticMode(ctx, monitor, serviceFilter)
 }
 
 // validateHealthFlags validates the health command flags
+func seedHealthRegistryFromDashboard(ctx context.Context, projectDir string) {
+	client, err := dashboard.NewClient(ctx, projectDir)
+	if err != nil {
+		return
+	}
+	services, err := client.GetServices(ctx)
+	if err != nil {
+		return
+	}
+	seedHealthRegistryFromServices(projectDir, services)
+}
+
+func seedHealthRegistryFromServices(projectDir string, services []*serviceinfo.ServiceInfo) {
+	reg := registry.GetRegistry(projectDir)
+	for _, svc := range services {
+		if svc == nil || svc.Local == nil {
+			continue
+		}
+		if svc.Local.PID <= 0 && svc.Local.Port <= 0 && svc.Local.Status != "running" && svc.Local.Status != "error" && svc.Local.Status != "built" && svc.Local.Status != "completed" {
+			continue
+		}
+		entry := &registry.ServiceRegistryEntry{
+			Name:      svc.Name,
+			PID:       svc.Local.PID,
+			Port:      svc.Local.Port,
+			Language:  svc.Language,
+			Framework: svc.Framework,
+			Status:    svc.Local.Status,
+			Type:      svc.Local.ServiceType,
+			Mode:      svc.Local.ServiceMode,
+		}
+		switch svc.Local.Status {
+		case "error":
+			exitCode := 1
+			entry.ExitCode = &exitCode
+		case "built", "completed":
+			exitCode := 0
+			entry.ExitCode = &exitCode
+		}
+		if svc.Local.StartTime != nil {
+			entry.StartTime = *svc.Local.StartTime
+		}
+		_ = reg.Register(entry)
+	}
+}
+
 func validateHealthFlags() error {
 	if healthInterval < minHealthInterval {
 		return newInvalidFlagUsageError(
@@ -399,7 +452,7 @@ func healthReportExitError(report *healthcheck.HealthReport) error {
 	return nil
 }
 
-func runStreamingMode(ctx context.Context, monitor *healthcheck.HealthMonitor, serviceFilter []string) error {
+func runStreamingMode(ctx context.Context, monitor *healthcheck.HealthMonitor, projectDir string, serviceFilter []string) error {
 	// Check if output is to a TTY - using simple check
 	isTTY := isatty()
 
@@ -430,6 +483,7 @@ func runStreamingMode(ctx context.Context, monitor *healthcheck.HealthMonitor, s
 			return nil
 
 		case <-ticker.C:
+			seedHealthRegistryFromDashboard(ctx, projectDir)
 			if err := performStreamCheck(ctx, monitor, serviceFilter, &checkCount, &prevReport, isTTY); err != nil {
 				if ctx.Err() != nil {
 					return nil // Context canceled, normal shutdown

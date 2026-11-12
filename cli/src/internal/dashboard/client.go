@@ -8,10 +8,10 @@
 // GetAzureLogs, GetAzureStatus, StreamAzureLogs - is intentionally preserved
 // so logs.go / info.go / MCP handlers did not need rewriting.
 //
-// Auth posture: the client fetches the session token from /api/session-token
-// (served without auth) and attaches it via a Connect interceptor on every
-// RPC call. This matches the server-side NewAuthInterceptor that validates
-// X-Session-Token on all inbound requests.
+// Auth posture: the client reads the owner-only session-token file written by
+// the dashboard process and attaches it via a Connect interceptor on every RPC
+// call. This matches the server-side NewAuthInterceptor that validates
+// X-Session-Token on all inbound requests without exposing the token over HTTP.
 //
 // GetAzureStatus is synthesised on top of the AzureService.GetAzureServices
 // RPC and mirrors the shape of the historical service.AzureStatus struct
@@ -61,17 +61,20 @@ type Client struct {
 // given project directory. Returns an error when no dashboard is running.
 //
 // Port resolution order:
-//  1. azd's gRPC config service (available inside extension subprocesses).
-//  2. Direct read of ~/.azd/config.json (works when the CLI runs standalone).
+//  1. Per-project port file written by the running dashboard.
+//  2. azd's gRPC config service (available inside extension subprocesses).
+//  3. Direct read of ~/.azd/config.json (legacy fallback).
 func NewClient(ctx context.Context, projectDir string) (*Client, error) {
 	projectHash := azdconfig.ProjectHash(projectDir)
 
-	port := 0
-	if configClient, err := azdconfig.NewClient(ctx); err == nil {
-		dashboardPort, portErr := configClient.GetDashboardPort(projectHash)
-		configClient.Close()
-		if portErr == nil && dashboardPort > 0 {
-			port = dashboardPort
+	port := ReadPortFile(projectDir)
+	if port == 0 {
+		if configClient, err := azdconfig.NewClient(ctx); err == nil {
+			dashboardPort, portErr := configClient.GetDashboardPort(projectHash)
+			configClient.Close()
+			if portErr == nil && dashboardPort > 0 {
+				port = dashboardPort
+			}
 		}
 	}
 
@@ -87,17 +90,20 @@ func NewClient(ctx context.Context, projectDir string) (*Client, error) {
 		return nil, errors.New("dashboard not running for project")
 	}
 
-	return newClientForPort(ctx, port)
+	token := ReadTokenFile(projectDir)
+	if token == "" {
+		return nil, errors.New("dashboard session token unavailable")
+	}
+
+	return newClientForPort(port, token)
 }
 
-func newClientForPort(ctx context.Context, port int) (*Client, error) {
-	baseURL := fmt.Sprintf("http://localhost:%d", port)
-
-	// Fetch the session token from the dashboard's unauthenticated endpoint.
-	token, err := fetchSessionToken(ctx, baseURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch session token from dashboard: %w", err)
+func newClientForPort(port int, token string) (*Client, error) {
+	if token == "" {
+		return nil, errors.New("dashboard session token unavailable")
 	}
+
+	baseURL := fmt.Sprintf("http://localhost:%d", port)
 
 	authInterceptor := &clientAuthInterceptor{token: token}
 	opts := connect.WithInterceptors(authInterceptor)
@@ -117,29 +123,6 @@ func newClientForPort(ctx context.Context, port int) (*Client, error) {
 		logs:  azdappv1connect.NewLogsServiceClient(stream, baseURL, opts),
 		azure: azdappv1connect.NewAzureServiceClient(stream, baseURL, opts),
 	}, nil
-}
-
-// fetchSessionToken retrieves the session token from the dashboard's
-// /api/session-token endpoint (served without auth).
-func fetchSessionToken(ctx context.Context, baseURL string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/session-token", nil)
-	if err != nil {
-		return "", err
-	}
-	client := &http.Client{Timeout: constants.DashboardAPITimeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	return string(body), nil
 }
 
 // clientAuthInterceptor attaches the X-Session-Token header to all outgoing

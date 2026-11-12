@@ -49,6 +49,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Website reference pages for `config`, `doctor`, `hooks`, `open`, `ports`, and `remove`**, plus reference docs for the previously undocumented `run --env`, `run --no-deps`, `logs --min-level`, `logs --no-timestamps`, `logs --summary`, `status --exit-code`, and `env --prefix` flags
 
 ### Fixed
+- Dashboard CLI client authenticating against the owner-only `session-token` file and per-project port file instead of the removed `/api/session-token` endpoint, fixing `X-Session-Token` errors in `azd app info` and `azd app logs`
+- Dashboard server startup race where `errChan` and `started` state could lose port-conflict errors or record a stale port in `run.json` before listener binding completed
+- Standalone `azd app health` seeding live service PIDs/ports from a running dashboard, honoring `healthcheck.path` from `azure.yaml`, and skipping registry updates for unregistered services without noisy warnings
+- Service orchestration and stop helpers scoping service-registry lookups to the resolved `projectDir` instead of `os.Getwd()`
+- Environment variable collection skipping Windows hidden per-drive working-directory entries (`=C:=...`) so JSON RPC responses do not emit empty property names
+- `.NET` test runner parsing `Microsoft.Testing.Platform` summary lines (`succeeded:` / `total:`) in `azd app test`
 - `azd app run --detach` dying immediately on Windows when the launching process owns a kill-on-close Job Object ([#555](https://github.com/jongio/azd-app/issues/555))
 - `azd app status` and `azd app stop` having no PID to work with until every service had started
 - `azd app stop` discarding the run state when it failed, leaving a live manager with no handle

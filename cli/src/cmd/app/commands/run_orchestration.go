@@ -36,14 +36,14 @@ func executeAndMonitorServices(ctx context.Context, runtimes []*service.ServiceR
 	}
 
 	// Orchestrate services with dependency ordering
-	result, err := service.OrchestrateServices(ctx, runtimes, azureYaml.Services, envVars, inlineEnvVars, logger, runRestartContainers)
+	result, err := service.OrchestrateServices(ctx, runtimes, azureYaml.Services, envVars, inlineEnvVars, logger, projectDir, runRestartContainers)
 	if err != nil {
 		return fmt.Errorf("service orchestration failed: %w", err)
 	}
 
 	// Validate that all services are ready
 	if err := service.ValidateOrchestration(result); err != nil {
-		service.StopAllServices(result.Processes)
+		service.StopAllServicesInProject(result.Processes, projectDir)
 		return err
 	}
 
@@ -349,9 +349,7 @@ func waitForDashboardURL(projectDir string, dashboardServer *dashboard.Server, t
 			if url := dashboardServer.GetURL(); url != "" {
 				return url
 			}
-		}
-
-		if port := dashboard.ReadPortFile(projectDir); port > 0 {
+		} else if port := dashboard.ReadPortFile(projectDir); port > 0 {
 			return fmt.Sprintf("http://localhost:%d", port)
 		}
 

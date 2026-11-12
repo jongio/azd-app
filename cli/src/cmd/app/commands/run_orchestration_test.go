@@ -52,7 +52,7 @@ func TestWaitForDashboardURL(t *testing.T) {
 		assert.GreaterOrEqual(t, time.Since(start), 30*time.Millisecond)
 	})
 
-	t.Run("returns empty for a not-started server", func(t *testing.T) {
+	t.Run("returns empty for a not-started server even if a stale port file exists", func(t *testing.T) {
 		projectDir := t.TempDir()
 		server := dashboard.GetServer(projectDir) // GetURL() == "" until started
 

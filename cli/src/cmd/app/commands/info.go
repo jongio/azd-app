@@ -123,8 +123,10 @@ func runInfo(cmd *cobra.Command, args []string) error {
 	if err == nil {
 		// Dashboard is running, get live state from it
 		allServices, err = dashboardClient.GetServices(ctx)
-		if err != nil && !cliout.IsJSON() {
-			cliout.Warning("Failed to get services from dashboard: %v", err)
+		if err != nil {
+			if !cliout.IsJSON() {
+				cliout.Warning("Failed to get services from dashboard: %v", err)
+			}
 			// Fall back to azure.yaml only
 			allServices, err = serviceinfo.GetServiceInfo(cwd)
 			if err != nil && !cliout.IsJSON() {

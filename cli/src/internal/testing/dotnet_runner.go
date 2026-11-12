@@ -4,6 +4,7 @@ package testing
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -103,15 +104,53 @@ func (r *DotnetTestRunner) buildTestCommand(testType string, coverage bool) (str
 		}
 	}
 
-	// Add coverage flag
+	if r.usesMicrosoftTestingPlatform(testProjects) {
+		if coverage {
+			args = append(args, "--", "--coverage", "--coverage-output-format", "cobertura")
+		}
+		return dotnetCommand, args
+	}
+
+	// Add coverage flag (VSTest)
 	if coverage {
 		args = append(args, "--collect", "XPlat Code Coverage")
 	}
 
-	// Add logger for better output
+	// Add logger for better output (VSTest)
 	args = append(args, "--logger", "console;verbosity=normal")
 
 	return dotnetCommand, args
+}
+
+// usesMicrosoftTestingPlatform detects whether the .NET test runner is configured
+// for Microsoft.Testing.Platform (via global.json or project properties), which
+// rejects VSTest-only --logger / --collect options.
+func (r *DotnetTestRunner) usesMicrosoftTestingPlatform(testProjects []string) bool {
+	for _, proj := range testProjects {
+		if data, err := os.ReadFile(proj); err == nil {
+			content := strings.ToLower(string(data))
+			if strings.Contains(content, "<usemicrosofttestingplatformrunner>true") ||
+				strings.Contains(content, "<testingplatformdotnettestsupport>true") {
+				return true
+			}
+		}
+	}
+
+	dir := filepath.Clean(r.projectDir)
+	for depth := 0; depth < 4 && dir != ""; depth++ {
+		if data, err := os.ReadFile(filepath.Join(dir, "global.json")); err == nil {
+			if strings.Contains(string(data), "Microsoft.Testing.Platform") {
+				return true
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+
+	return false
 }
 
 // getTestFilter returns the test filter expression for the test type.
@@ -210,21 +249,31 @@ func (r *DotnetTestRunner) parseTestOutput(output string, result *TestResult) {
 			r.parseTotalTests(line, result)
 		}
 
-		// Parse individual result lines
-		// Example: "Passed:    5"
+		// Parse individual result lines (VSTest and Microsoft.Testing.Platform formats)
+		// Example: "Passed:    5" or "succeeded: 5"
+		lowerLine := strings.ToLower(line)
 		if strings.HasPrefix(line, "Passed:") {
 			if num := extractNumber(strings.TrimPrefix(line, "Passed:")); num >= 0 {
 				result.Passed = num
 			}
+		} else if strings.HasPrefix(lowerLine, "succeeded:") {
+			if num := extractNumber(line[len("succeeded:"):]); num >= 0 {
+				result.Passed = num
+			}
 		}
-		if strings.HasPrefix(line, "Failed:") {
-			if num := extractNumber(strings.TrimPrefix(line, "Failed:")); num >= 0 {
+		if strings.HasPrefix(lowerLine, "failed:") {
+			if num := extractNumber(line[len("failed:"):]); num >= 0 {
 				result.Failed = num
 			}
 		}
-		if strings.HasPrefix(line, "Skipped:") {
-			if num := extractNumber(strings.TrimPrefix(line, "Skipped:")); num >= 0 {
+		if strings.HasPrefix(lowerLine, "skipped:") {
+			if num := extractNumber(line[len("skipped:"):]); num >= 0 {
 				result.Skipped = num
+			}
+		}
+		if strings.HasPrefix(lowerLine, "total:") {
+			if num := extractNumber(line[len("total:"):]); num >= 0 {
+				result.Total = num
 			}
 		}
 	}

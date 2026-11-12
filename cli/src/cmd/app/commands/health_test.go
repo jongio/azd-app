@@ -2,12 +2,15 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jongio/azd-app/cli/src/internal/healthcheck"
+	"github.com/jongio/azd-app/cli/src/internal/serviceinfo"
+	"github.com/jongio/azd-core/registry"
 )
 
 func TestHealthCommand(t *testing.T) {
@@ -336,6 +339,68 @@ func TestDetectChanges(t *testing.T) {
 
 	if changes[0].NewStatus != healthcheck.HealthStatusUnhealthy {
 		t.Errorf("Expected new status unhealthy, got %s", changes[0].NewStatus)
+	}
+}
+
+func TestSeedHealthRegistryFromServices(t *testing.T) {
+	projectDir := t.TempDir()
+	startTime := time.Now().Add(-30 * time.Second).Truncate(time.Second)
+
+	// No dashboard running should be a safe no-op.
+	seedHealthRegistryFromDashboard(context.Background(), projectDir)
+
+	seedHealthRegistryFromServices(projectDir, []*serviceinfo.ServiceInfo{
+		nil,
+		{Name: "no-local"},
+		{
+			Name:  "stopped-svc",
+			Local: &serviceinfo.LocalServiceInfo{Status: "not-running"},
+		},
+		{
+			Name:      "worker",
+			Language:  "csharp",
+			Framework: "csharp",
+			Local: &serviceinfo.LocalServiceInfo{
+				Status:      "running",
+				PID:         4242,
+				ServiceType: "process",
+				ServiceMode: "daemon",
+				StartTime:   &startTime,
+			},
+		},
+		{
+			Name:      "failed-task",
+			Language:  "go",
+			Framework: "go",
+			Local: &serviceinfo.LocalServiceInfo{
+				Status:      "error",
+				PID:         5150,
+				ServiceType: "process",
+				ServiceMode: "task",
+				StartTime:   &startTime,
+			},
+		},
+	})
+
+	reg := registry.GetRegistry(projectDir)
+	if _, exists := reg.GetService("stopped-svc"); exists {
+		t.Fatal("expected non-running service without PID/port to be skipped")
+	}
+
+	failedTask, exists := reg.GetService("failed-task")
+	if !exists || failedTask.ExitCode == nil || *failedTask.ExitCode != 1 {
+		t.Fatalf("expected failed-task to seed ExitCode=1, got: %+v", failedTask)
+	}
+
+	worker, exists := reg.GetService("worker")
+	if !exists {
+		t.Fatal("expected running worker service to be registered")
+	}
+	if worker.PID != 4242 || worker.Status != "running" || worker.Type != "process" || worker.Mode != "daemon" {
+		t.Fatalf("unexpected worker registry entry: %+v", worker)
+	}
+	if !worker.StartTime.Equal(startTime) {
+		t.Fatalf("worker StartTime = %v, want %v", worker.StartTime, startTime)
 	}
 }
 

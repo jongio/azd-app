@@ -504,6 +504,33 @@ func TestResolveEnvironment(t *testing.T) {
 	}
 }
 
+func TestParseEnvironEntry(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		entry   string
+		wantKey string
+		wantVal string
+		wantOK  bool
+	}{
+		{name: "standard entry", entry: "PORT=3000", wantKey: "PORT", wantVal: "3000", wantOK: true},
+		{name: "value containing equals", entry: "CONN=a=1;b=2", wantKey: "CONN", wantVal: "a=1;b=2", wantOK: true},
+		{name: "windows drive cwd hidden var", entry: "=C:=C:\\project", wantOK: false},
+		{name: "missing delimiter", entry: "NOEQUALS", wantOK: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key, val, ok := parseEnvironEntry(tt.entry)
+			if ok != tt.wantOK || key != tt.wantKey || val != tt.wantVal {
+				t.Fatalf("parseEnvironEntry(%q) = (%q, %q, %v), want (%q, %q, %v)",
+					tt.entry, key, val, ok, tt.wantKey, tt.wantVal, tt.wantOK)
+			}
+		})
+	}
+}
+
 func TestGenerateServiceURLs(t *testing.T) {
 	t.Parallel()
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -233,7 +234,8 @@ func removeTokenFile(projectDir string) {
 
 // ReadTokenFile reads the session token written by the running dashboard server.
 // Returns an empty string if the file does not exist or cannot be read.
-// Used by azd app stop to authenticate the POST /api/shutdown request.
+// Used by cross-process CLI clients and azd app stop to authenticate dashboard
+// RPC and shutdown requests without exposing the token over HTTP.
 func ReadTokenFile(projectDir string) string {
 	path, err := tokenFilePath(projectDir)
 	if err != nil {
@@ -304,45 +306,41 @@ func (s *Server) retryWithAlternativePort(portMgr *portmanager.PortManager) (int
 		// Release reservation just before binding - this is the atomic handoff
 		_ = reservation.Release()
 
+		ln, bindErr := net.Listen("tcp", s.server.Addr)
+		if bindErr != nil {
+			if err := portMgr.ReleasePort(constants.DashboardServiceName); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
+			}
+			continue
+		}
+
 		errChan := make(chan error, 1)
 		go func() {
-			if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			if err := s.server.Serve(ln); err != nil && err != http.ErrServerClosed {
 				slog.Error("dashboard server error on alternative port", "error", err)
 				errChan <- err
 			}
 		}()
 
-		// Monitor for server errors in background
+		// Monitor for post-startup server errors in background
 		go func(port int) {
 			select {
 			case err := <-errChan:
-				if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
-					slog.Warn("dashboard server encountered port conflict", "port", port, "error", err)
-				} else {
-					slog.Error("dashboard server encountered error after startup", "port", port, "error", err)
-				}
+				slog.Error("dashboard server encountered error after startup", "port", port, "error", err)
 			case <-s.stopChan:
 				return
 			}
 		}(port)
 
-		time.Sleep(100 * time.Millisecond)
-
-		select {
-		case <-errChan:
-			// This port also failed, try next
-			if err := portMgr.ReleasePort(constants.DashboardServiceName); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to release port: %v\n", err)
-			}
-			continue
-		default:
-			// Successfully started - register the new port in azdconfig
-			s.registerPortInConfig(port)
-			// Persist the session token so azd app stop can authenticate.
-			writeTokenFile(s.projectDir, s.sessionToken)
-			fmt.Fprintf(os.Stderr, "✓ Dashboard started on alternative port %d\n\n", port)
-			return port, nil
-		}
+		// Successfully bound - register the new port in azdconfig
+		s.registerPortInConfig(port)
+		// Persist the session token so azd app stop can authenticate.
+		writeTokenFile(s.projectDir, s.sessionToken)
+		s.startedMu.Lock()
+		s.started = true
+		s.startedMu.Unlock()
+		fmt.Fprintf(os.Stderr, "✓ Dashboard started on alternative port %d\n\n", port)
+		return port, nil
 	}
 
 	return 0, fmt.Errorf("failed to find available port for dashboard after 15 attempts")

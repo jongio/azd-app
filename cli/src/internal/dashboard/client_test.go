@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -114,5 +115,46 @@ func TestReadDashboardPortFromAzdConfig_NoFile(t *testing.T) {
 	}
 	if port != 0 {
 		t.Errorf("readDashboardPortFromAzdConfig() port = %v, want 0", port)
+	}
+}
+
+func TestNewClientForPortUsesProvidedSessionToken(t *testing.T) {
+	client, err := newClientForPort(45678, "0123456789abcdef")
+	if err != nil {
+		t.Fatalf("newClientForPort() error = %v", err)
+	}
+	if client.baseURL != "http://localhost:45678" {
+		t.Errorf("newClientForPort() baseURL = %q, want %q", client.baseURL, "http://localhost:45678")
+	}
+}
+
+func TestNewClientForPortRejectsMissingSessionToken(t *testing.T) {
+	client, err := newClientForPort(45678, "")
+	if err == nil {
+		t.Fatal("newClientForPort() error = nil, want missing-token error")
+	}
+	if client != nil {
+		t.Fatalf("newClientForPort() client = %#v, want nil", client)
+	}
+}
+
+func TestNewClientUsesCrossProcessPortAndTokenFiles(t *testing.T) {
+	nonceDirBase = t.TempDir()
+	projectDir := t.TempDir()
+	t.Cleanup(func() {
+		removePortFile(projectDir)
+		removeTokenFile(projectDir)
+		nonceDirBase = ""
+	})
+
+	writePortFile(projectDir, 45678)
+	writeTokenFile(projectDir, "0123456789abcdef")
+
+	client, err := NewClient(context.Background(), projectDir)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	if client.baseURL != "http://localhost:45678" {
+		t.Errorf("NewClient() baseURL = %q, want %q", client.baseURL, "http://localhost:45678")
 	}
 }

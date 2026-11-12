@@ -2,6 +2,7 @@ package healthcheck
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -453,5 +454,102 @@ func TestUpdateRegistry_AllowsStartingForNewServices(t *testing.T) {
 
 	if services[0].Status != "starting" {
 		t.Errorf("Expected status 'starting', got '%s'", services[0].Status)
+	}
+}
+
+func TestUpdateRegistrySkipsUnregisteredServiceWithoutWarning(t *testing.T) {
+	tempDir := t.TempDir()
+	monitor, err := NewHealthMonitor(MonitorConfig{
+		ProjectDir:      tempDir,
+		DefaultEndpoint: "/health",
+		Timeout:         5 * time.Second,
+		Verbose:         true,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create health monitor: %v", err)
+	}
+
+	originalStderr := os.Stderr
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe() error: %v", err)
+	}
+	defer func() {
+		os.Stderr = originalStderr
+		_ = reader.Close()
+		_ = writer.Close()
+	}()
+	os.Stderr = writer
+
+	monitor.updateRegistry([]HealthCheckResult{{
+		ServiceName: "not-registered",
+		Status:      HealthStatusHealthy,
+	}})
+
+	if err := writer.Close(); err != nil {
+		t.Fatalf("stderr writer close error: %v", err)
+	}
+	os.Stderr = originalStderr
+	output, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("stderr read error: %v", err)
+	}
+	if len(output) != 0 {
+		t.Fatalf("unexpected warning for unregistered service: %s", output)
+	}
+}
+
+func TestBuildServiceList_PopulatesEndpointFromHealthcheckPath(t *testing.T) {
+	tempDir := t.TempDir()
+	yamlContent := `name: sample-app
+services:
+  web:
+    project: ./web
+    language: ts
+    host: staticwebapp
+    ports:
+      - "4321"
+    healthcheck:
+      type: http
+      path: /app/
+  api:
+    project: ./api
+    language: go
+    host: containerapp
+    ports:
+      - "8080"
+    healthcheck:
+      type: http
+      path: readyz
+`
+	if err := os.WriteFile(filepath.Join(tempDir, "azure.yaml"), []byte(yamlContent), 0o600); err != nil {
+		t.Fatalf("write azure.yaml: %v", err)
+	}
+
+	monitor, err := NewHealthMonitor(MonitorConfig{
+		ProjectDir:      tempDir,
+		DefaultEndpoint: "/health",
+		Timeout:         5 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("NewHealthMonitor error: %v", err)
+	}
+
+	azureYaml, err := monitor.loadAzureYaml()
+	if err != nil {
+		t.Fatalf("loadAzureYaml error: %v", err)
+	}
+
+	services := monitor.buildServiceList(azureYaml, nil)
+	byName := make(map[string]serviceInfo, len(services))
+	for _, svc := range services {
+		byName[svc.Name] = svc
+	}
+
+	if got := byName["web"].HealthCheck.Test; len(got) != 1 || got[0] != "http://localhost:4321/app/" {
+		t.Fatalf("web HealthCheck.Test = %v, want [http://localhost:4321/app/]", got)
+	}
+	if got := byName["api"].HealthCheck.Test; len(got) != 1 || got[0] != "http://localhost:8080/readyz" {
+		t.Fatalf("api HealthCheck.Test = %v, want [http://localhost:8080/readyz]", got)
 	}
 }
