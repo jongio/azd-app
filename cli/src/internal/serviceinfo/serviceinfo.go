@@ -36,6 +36,14 @@ func init() {
 	environmentCache = make(map[string]string)
 }
 
+func parseEnvironEntry(entry string) (string, string, bool) {
+	parts := strings.SplitN(entry, "=", 2)
+	if len(parts) != 2 || parts[0] == "" {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
+}
+
 // RefreshEnvironmentCache updates the cached environment variables from the current process.
 // This is called by the listen command when azd fires an "environment updated" event.
 // By the time this is called, azd has already updated the process environment.
@@ -44,11 +52,9 @@ func RefreshEnvironmentCache() {
 	newCache := make(map[string]string)
 
 	for _, env := range os.Environ() {
-		parts := strings.SplitN(env, "=", 2)
-		if len(parts) != 2 {
-			continue
+		if key, val, ok := parseEnvironEntry(env); ok {
+			newCache[key] = val
 		}
-		newCache[parts[0]] = parts[1]
 	}
 
 	// Atomic swap using copy-on-write pattern
@@ -97,12 +103,15 @@ type ServiceInfo struct {
 // LocalServiceInfo contains local development information.
 type LocalServiceInfo struct {
 	Status      string     `json:"status"`              // "running", "not-running", "unknown"
+	RawStatus   string     `json:"rawStatus,omitempty"` // Canonical registry status ("stopped", "built", "completed", "error", etc.)
 	Health      string     `json:"health"`              // "healthy", "unhealthy", "unknown"
 	URL         string     `json:"url,omitempty"`       // Auto-discovered local URL
 	CustomURL   string     `json:"customUrl,omitempty"` // User-configured custom URL (e.g., ngrok)
 	Port        int        `json:"port,omitempty"`
 	PID         int        `json:"pid,omitempty"`
+	ExitCode    *int       `json:"exitCode,omitempty"`
 	StartTime   *time.Time `json:"startTime,omitempty"`
+	EndTime     *time.Time `json:"endTime,omitempty"`
 	LastChecked *time.Time `json:"lastChecked,omitempty"`
 	ServiceType string     `json:"serviceType,omitempty"` // "http", "tcp", "process", "container"
 	ServiceMode string     `json:"serviceMode,omitempty"` // "watch", "build", "daemon", "task" (for type=process)
@@ -181,9 +190,8 @@ func getAzureEnvironmentValues() map[string]string {
 
 	// Get environment variables from process (azd injects all env vars when running extensions)
 	for _, line := range os.Environ() {
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) == 2 {
-			envVars[parts[0]] = parts[1]
+		if key, val, ok := parseEnvironEntry(line); ok {
+			envVars[key] = val
 		}
 	}
 
@@ -382,6 +390,7 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 
 			existing.Local = &LocalServiceInfo{
 				Status:      runningSvc.Status,
+				RawStatus:   runningSvc.Status,
 				Health:      "", // Health is computed dynamically via health checks, not stored in registry
 				URL:         runningSvc.URL,
 				Port:        runningSvc.Port,
@@ -390,6 +399,14 @@ func mergeServiceInfo(azureYaml *service.AzureYaml, runningServices []*registry.
 				LastChecked: &runningSvc.LastChecked,
 				ServiceType: runningSvc.Type,
 				ServiceMode: runningSvc.Mode,
+			}
+			if runningSvc.ExitCode != nil {
+				code := *runningSvc.ExitCode
+				existing.Local.ExitCode = &code
+			}
+			if !runningSvc.EndTime.IsZero() {
+				endTime := runningSvc.EndTime
+				existing.Local.EndTime = &endTime
 			}
 
 			if existingCustomURL != "" {

@@ -384,3 +384,27 @@ func splitEnv(env string) []string {
 	}
 	return []string{env}
 }
+
+func TestParseEnvironEntry(t *testing.T) {
+	tests := []struct {
+		name    string
+		entry   string
+		wantKey string
+		wantVal string
+		wantOK  bool
+	}{
+		{name: "standard entry", entry: "SERVICE_API_URL=https://api.example.com", wantKey: "SERVICE_API_URL", wantVal: "https://api.example.com", wantOK: true},
+		{name: "windows drive cwd hidden var", entry: "=D:=D:\\workspace", wantOK: false},
+		{name: "missing delimiter", entry: "MALFORMED", wantOK: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key, val, ok := parseEnvironEntry(tt.entry)
+			if ok != tt.wantOK || key != tt.wantKey || val != tt.wantVal {
+				t.Fatalf("parseEnvironEntry(%q) = (%q, %q, %v), want (%q, %q, %v)",
+					tt.entry, key, val, ok, tt.wantKey, tt.wantVal, tt.wantOK)
+			}
+		})
+	}
+}

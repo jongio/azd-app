@@ -1,11 +1,15 @@
 package dashboard
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
+	v1 "github.com/jongio/azd-app/cli/src/gen/proto/azdapp/v1"
 	"github.com/jongio/azd-app/cli/src/internal/azdconfig"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestReadDashboardPortFromAzdConfig(t *testing.T) {
@@ -114,5 +118,82 @@ func TestReadDashboardPortFromAzdConfig_NoFile(t *testing.T) {
 	}
 	if port != 0 {
 		t.Errorf("readDashboardPortFromAzdConfig() port = %v, want 0", port)
+	}
+}
+
+func TestNewClientForPortUsesProvidedSessionToken(t *testing.T) {
+	client, err := newClientForPort(45678, "0123456789abcdef")
+	if err != nil {
+		t.Fatalf("newClientForPort() error = %v", err)
+	}
+	if client.baseURL != "http://127.0.0.1:45678" {
+		t.Errorf("newClientForPort() baseURL = %q, want %q", client.baseURL, "http://127.0.0.1:45678")
+	}
+}
+
+func TestNewClientForPortRejectsMissingSessionToken(t *testing.T) {
+	client, err := newClientForPort(45678, "")
+	if err == nil {
+		t.Fatal("newClientForPort() error = nil, want missing-token error")
+	}
+	if client != nil {
+		t.Fatalf("newClientForPort() client = %#v, want nil", client)
+	}
+}
+
+func TestNewClientUsesCrossProcessPortAndTokenFiles(t *testing.T) {
+	nonceDirBase = t.TempDir()
+	projectDir := t.TempDir()
+	t.Cleanup(func() {
+		removePortFile(projectDir)
+		removeTokenFile(projectDir)
+		nonceDirBase = ""
+	})
+
+	if err := writePortFile(projectDir, 45678); err != nil {
+		t.Fatalf("writePortFile() error = %v", err)
+	}
+	if err := writeTokenFile(projectDir, "0123456789abcdef"); err != nil {
+		t.Fatalf("writeTokenFile() error = %v", err)
+	}
+
+	client, err := NewClient(context.Background(), projectDir)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	if client.baseURL != "http://127.0.0.1:45678" {
+		t.Errorf("NewClient() baseURL = %q, want %q", client.baseURL, "http://127.0.0.1:45678")
+	}
+}
+
+func TestProtoToServiceInfo_PreservesTerminalStatusAndExitCode(t *testing.T) {
+	endTime := time.Date(2026, 11, 11, 22, 0, 0, 0, time.UTC)
+	meta, err := structpb.NewStruct(map[string]any{
+		"rawStatus":   "built",
+		"exitCode":    float64(0),
+		"endTime":     endTime.Format(time.RFC3339Nano),
+		"serviceType": "process",
+		"serviceMode": "build",
+	})
+	if err != nil {
+		t.Fatalf("NewStruct error: %v", err)
+	}
+
+	got := protoToServiceInfo(&v1.ServiceInfo{
+		Name:     "builder",
+		Status:   v1.ServiceStatus_SERVICE_STATUS_UNSPECIFIED,
+		Metadata: meta,
+	})
+	if got == nil || got.Local == nil {
+		t.Fatal("expected LocalServiceInfo to be reconstructed from terminal metadata")
+	}
+	if got.Local.RawStatus != "built" {
+		t.Fatalf("RawStatus = %q, want %q", got.Local.RawStatus, "built")
+	}
+	if got.Local.ExitCode == nil || *got.Local.ExitCode != 0 {
+		t.Fatalf("ExitCode = %v, want 0", got.Local.ExitCode)
+	}
+	if got.Local.EndTime == nil || !got.Local.EndTime.Equal(endTime) {
+		t.Fatalf("EndTime = %v, want %v", got.Local.EndTime, endTime)
 	}
 }

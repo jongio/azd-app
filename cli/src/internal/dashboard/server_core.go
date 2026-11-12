@@ -4,6 +4,7 @@ package dashboard
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -163,43 +164,11 @@ func (s *Server) Start() (string, error) {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Start server in background
-	errChan := make(chan error, 1)
-	go func() {
-		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("dashboard server error", "error", err)
-			errChan <- err
-		}
-	}()
-
-	// Monitor for server errors in background
-	go func() {
-		select {
-		case err := <-errChan:
-			if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
-				slog.Warn("dashboard server encountered port conflict after startup", "error", err)
-				slog.Warn("another instance may be running; check for other azd app run processes")
-			} else {
-				slog.Error("dashboard server encountered error after startup", "error", err)
-			}
-		case <-s.stopChan:
-			return
-		}
-	}()
-
-	// Give server time to start
-	time.Sleep(constants.ServerStartupDelay)
-
-	// Mark as started
-	s.startedMu.Lock()
-	s.started = true
-	s.startedMu.Unlock()
-
-	// Check if there was an immediate error (like port already in use)
-	select {
-	case err := <-errChan:
-		// Check if this is a port-in-use error
-		if strings.Contains(err.Error(), "bind") || strings.Contains(err.Error(), "address already in use") {
+	// Bind synchronously so any port-in-use failure is detected immediately
+	// before publishing port/token discovery files or marking the server started.
+	ln, bindErr := net.Listen("tcp", s.server.Addr)
+	if bindErr != nil {
+		if strings.Contains(bindErr.Error(), "bind") || strings.Contains(bindErr.Error(), "address already in use") {
 			fmt.Fprintf(os.Stderr, "\n⚠️  Dashboard port %d is already in use.\n", port)
 			fmt.Fprintf(os.Stderr, "This might indicate another 'azd app run' instance is already running for this project.\n")
 			fmt.Fprintf(os.Stderr, "Attempting to find an alternative port...\n\n")
@@ -209,17 +178,45 @@ func (s *Server) Start() (string, error) {
 		if altPort, retryErr := s.retryWithAlternativePort(portMgr); retryErr == nil {
 			return fmt.Sprintf("http://localhost:%d", altPort), nil
 		}
-		return "", fmt.Errorf("dashboard server failed to start: %w", err)
-	default:
-		// Server started successfully
+		return "", fmt.Errorf("dashboard server failed to start: %w", bindErr)
 	}
+
+	// Start serving on the bound listener in background
+	errChan := make(chan error, 1)
+	go func() {
+		if err := s.server.Serve(ln); err != nil && err != http.ErrServerClosed {
+			slog.Error("dashboard server error", "error", err)
+			errChan <- err
+		}
+	}()
+
+	// Monitor for post-bind server errors in background
+	go func() {
+		select {
+		case err := <-errChan:
+			slog.Error("dashboard server encountered error after startup", "error", err)
+		case <-s.stopChan:
+			return
+		}
+	}()
 
 	url := fmt.Sprintf("http://localhost:%d", port)
 
-	// Store dashboard port in azdconfig for other commands to discover
-	s.registerPortInConfig(port)
-	// Persist the session token so azd app stop can authenticate across processes.
-	writeTokenFile(s.projectDir, s.sessionToken)
+	// Persist trusted discovery state in the owner-only state directory; fail closed if unavailable.
+	if err := s.registerPortInConfig(port); err != nil {
+		_ = s.server.Close()
+		return "", fmt.Errorf("failed to persist dashboard port: %w", err)
+	}
+	if err := writeTokenFile(s.projectDir, s.sessionToken); err != nil {
+		removePortFile(s.projectDir)
+		_ = s.server.Close()
+		return "", fmt.Errorf("failed to persist dashboard session token: %w", err)
+	}
+
+	// Mark as started only after port and token files reflect the bound listener.
+	s.startedMu.Lock()
+	s.started = true
+	s.startedMu.Unlock()
 
 	return url, nil
 }

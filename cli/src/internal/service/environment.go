@@ -33,6 +33,17 @@ func ResolveEnvironment(ctx context.Context, service Service, azureEnv map[strin
 }
 
 // EnvSource identifies where an environment variable's value was read from.
+// parseEnvironEntry splits a "KEY=VALUE" entry and rejects malformed entries or
+// Windows hidden per-drive working-directory entries ("=C:=C:\\path") whose key
+// before the first '=' is empty.
+func parseEnvironEntry(entry string) (string, string, bool) {
+	pair := strings.SplitN(entry, "=", 2)
+	if len(pair) != 2 || pair[0] == "" {
+		return "", "", false
+	}
+	return pair[0], pair[1], true
+}
+
 type EnvSource string
 
 // Environment variable sources, ordered from lowest to highest precedence.
@@ -81,9 +92,8 @@ func resolveEnvironmentWithSources(ctx context.Context, service Service, azureEn
 	// values (AZD_SERVER, AZD_ACCESS_TOKEN, AZURE_*, SERVICE_*, custom outputs) into this
 	// process's environment. Services need these to function correctly.
 	for _, e := range os.Environ() {
-		pair := strings.SplitN(e, "=", 2)
-		if len(pair) == 2 {
-			apply(EnvSourceOS, pair[0], pair[1])
+		if key, val, ok := parseEnvironEntry(e); ok {
+			apply(EnvSourceOS, key, val)
 		}
 	}
 

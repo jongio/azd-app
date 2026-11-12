@@ -2,8 +2,14 @@
 package testing
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"encoding/xml"
+	"errors"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -11,6 +17,14 @@ import (
 
 	"github.com/jongio/azd-app/cli/src/internal/detector"
 	"github.com/jongio/azd-app/cli/src/internal/executor"
+)
+
+type dotnetRunnerMode int
+
+const (
+	dotnetRunnerVSTest dotnetRunnerMode = iota
+	dotnetRunnerMTPNative
+	dotnetRunnerMTPMSBuild
 )
 
 const (
@@ -88,30 +102,324 @@ func (r *DotnetTestRunner) buildTestCommand(testType string, coverage bool) (str
 		}
 	}
 
-	// Find test project(s)
+	// Find test project(s) and select the single target project
 	testProjects := r.findTestProjects()
+	selectedProject := ""
 	if len(testProjects) > 0 {
-		// Use the first test project found
-		args = append(args, testProjects[0])
+		selectedProject = testProjects[0]
 	}
 
-	// Add filter for test type
+	var filter string
 	if testType != testFilterAll {
-		filter := r.getTestFilter(testType)
+		filter = r.getTestFilter(testType)
+	}
+
+	switch r.detectRunnerMode(selectedProject) {
+	case dotnetRunnerMTPNative:
+		if selectedProject != "" {
+			args = append(args, "--project", selectedProject)
+		}
 		if filter != "" {
 			args = append(args, "--filter", filter)
 		}
+		if coverage {
+			args = append(args, "--coverage", "--coverage-output-format", "cobertura")
+		}
+		return dotnetCommand, args
+
+	case dotnetRunnerMTPMSBuild:
+		if selectedProject != "" {
+			args = append(args, selectedProject)
+		}
+		if filter != "" || coverage {
+			args = append(args, "--")
+			if filter != "" {
+				args = append(args, "--filter", filter)
+			}
+			if coverage {
+				args = append(args, "--coverage", "--coverage-output-format", "cobertura")
+			}
+		}
+		return dotnetCommand, args
+
+	default:
+		if selectedProject != "" {
+			args = append(args, selectedProject)
+		}
+		if filter != "" {
+			args = append(args, "--filter", filter)
+		}
+		if coverage {
+			args = append(args, "--collect", "XPlat Code Coverage")
+		}
+		args = append(args, "--logger", "console;verbosity=normal")
+		return dotnetCommand, args
+	}
+}
+
+type dotnetGlobalJSON struct {
+	Test *struct {
+		Runner string `json:"runner"`
+	} `json:"test"`
+}
+
+// detectRunnerMode determines whether the selected test project runs via
+// native .NET 10 Microsoft.Testing.Platform (opted in via the nearest global.json
+// resolved from r.projectDir, matching dotnet CLI working-directory discovery),
+// MSBuild MTP compatibility mode (project-level TestingPlatformDotnetTestSupport /
+// UseMicrosoftTestingPlatformRunner), or classic VSTest.
+func (r *DotnetTestRunner) detectRunnerMode(selectedProject string) dotnetRunnerMode {
+	if globalJSONSelectsMTP(r.projectDir) {
+		return dotnetRunnerMTPNative
 	}
 
-	// Add coverage flag
-	if coverage {
-		args = append(args, "--collect", "XPlat Code Coverage")
+	if selectedProject != "" && projectEnablesMTP(selectedProject) {
+		return dotnetRunnerMTPMSBuild
 	}
 
-	// Add logger for better output
-	args = append(args, "--logger", "console;verbosity=normal")
+	return dotnetRunnerVSTest
+}
 
-	return dotnetCommand, args
+// globalJSONSelectsMTP walks upward to the filesystem root and inspects ONLY
+// the nearest global.json file, matching .NET SDK global.json discovery rules.
+func globalJSONSelectsMTP(startDir string) bool {
+	if strings.TrimSpace(startDir) == "" {
+		return false
+	}
+	dir, err := filepath.Abs(startDir)
+	if err != nil {
+		dir = filepath.Clean(startDir)
+	}
+
+	for {
+		candidate := filepath.Join(dir, "global.json")
+		if data, readErr := os.ReadFile(candidate); readErr == nil {
+			var parsed dotnetGlobalJSON
+			if jsonErr := json.Unmarshal(stripJSONC(data), &parsed); jsonErr == nil && parsed.Test != nil {
+				return strings.EqualFold(strings.TrimSpace(parsed.Test.Runner), "Microsoft.Testing.Platform")
+			}
+			// Nearest global.json exists without test.runner=Microsoft.Testing.Platform;
+			// .NET does not merge ancestor global.json files.
+			return false
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return false
+		}
+		dir = parent
+	}
+}
+
+// stripJSONC removes // line comments, /* */ block comments, and trailing commas
+// outside JSON string literals so .NET global.json files with comments unmarshal cleanly.
+func stripJSONC(src []byte) []byte {
+	out := make([]byte, 0, len(src))
+	inString := false
+	for i := 0; i < len(src); i++ {
+		c := src[i]
+		if inString {
+			out = append(out, c)
+			if c == '\\' && i+1 < len(src) {
+				i++
+				out = append(out, src[i])
+			} else if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		if c == '"' {
+			inString = true
+			out = append(out, c)
+			continue
+		}
+		if c == '/' && i+1 < len(src) {
+			if src[i+1] == '/' {
+				i += 2
+				for i < len(src) && src[i] != '\n' {
+					i++
+				}
+				if i < len(src) {
+					out = append(out, '\n')
+				}
+				continue
+			}
+			if src[i+1] == '*' {
+				i += 2
+				for i+1 < len(src) && (src[i] != '*' || src[i+1] != '/') {
+					i++
+				}
+				i++ // consume '/'
+				continue
+			}
+		}
+		out = append(out, c)
+	}
+
+	// Second pass: drop trailing commas before '}' or ']'.
+	cleaned := make([]byte, 0, len(out))
+	inString = false
+	for i := 0; i < len(out); i++ {
+		c := out[i]
+		if inString {
+			cleaned = append(cleaned, c)
+			if c == '\\' && i+1 < len(out) {
+				i++
+				cleaned = append(cleaned, out[i])
+			} else if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		if c == '"' {
+			inString = true
+			cleaned = append(cleaned, c)
+			continue
+		}
+		if c == ',' {
+			j := i + 1
+			for j < len(out) && (out[j] == ' ' || out[j] == '\t' || out[j] == '\r' || out[j] == '\n') {
+				j++
+			}
+			if j < len(out) && (out[j] == '}' || out[j] == ']') {
+				continue
+			}
+		}
+		cleaned = append(cleaned, c)
+	}
+	return cleaned
+}
+
+func projectEnablesMTP(projectPath string) bool {
+	absProj, err := filepath.Abs(projectPath)
+	if err != nil {
+		absProj = filepath.Clean(projectPath)
+	}
+
+	enabled := false
+	visited := map[string]bool{}
+
+	// MSBuild automatically imports the nearest Directory.Build.props before evaluating
+	// the project's own properties (and that props file may explicitly <Import> parent/sibling props).
+	if nearestProps := findNearestDirectoryBuildProps(filepath.Dir(absProj)); nearestProps != "" {
+		evaluateMSBuildMTPFile(nearestProps, &enabled, visited)
+	}
+	evaluateMSBuildMTPFile(absProj, &enabled, visited)
+
+	return enabled
+}
+
+func findNearestDirectoryBuildProps(startDir string) string {
+	dir := filepath.Clean(startDir)
+	for {
+		candidate := filepath.Join(dir, "Directory.Build.props")
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
+func evaluateMSBuildMTPFile(filePath string, enabled *bool, visited map[string]bool) {
+	cleanPath := filepath.Clean(filePath)
+	if visited[cleanPath] {
+		return
+	}
+	visited[cleanPath] = true
+
+	data, err := os.ReadFile(cleanPath)
+	if err != nil {
+		return
+	}
+
+	baseDir := filepath.Dir(cleanPath)
+	decoder := xml.NewDecoder(bytes.NewReader(data))
+	inPropertyGroup := false
+
+	for {
+		tok, decErr := decoder.Token()
+		if errors.Is(decErr, io.EOF) {
+			break
+		}
+		if decErr != nil {
+			return
+		}
+
+		switch elem := tok.(type) {
+		case xml.StartElement:
+			if strings.EqualFold(elem.Name.Local, "Import") && !hasXMLConditionAttr(elem.Attr) {
+				if imported := resolveMSBuildImportPath(baseDir, elem.Attr); imported != "" {
+					evaluateMSBuildMTPFile(imported, enabled, visited)
+				}
+				_ = decoder.Skip()
+				continue
+			}
+			if strings.EqualFold(elem.Name.Local, "PropertyGroup") {
+				if hasXMLConditionAttr(elem.Attr) {
+					_ = decoder.Skip()
+					continue
+				}
+				inPropertyGroup = true
+				continue
+			}
+			if inPropertyGroup && (strings.EqualFold(elem.Name.Local, "UseMicrosoftTestingPlatformRunner") ||
+				strings.EqualFold(elem.Name.Local, "TestingPlatformDotnetTestSupport")) {
+				if hasXMLConditionAttr(elem.Attr) {
+					_ = decoder.Skip()
+					continue
+				}
+				var val string
+				if err := decoder.DecodeElement(&val, &elem); err == nil {
+					trimmed := strings.TrimSpace(val)
+					if strings.EqualFold(trimmed, "true") {
+						*enabled = true
+					} else if strings.EqualFold(trimmed, "false") {
+						*enabled = false
+					}
+				}
+			}
+		case xml.EndElement:
+			if strings.EqualFold(elem.Name.Local, "PropertyGroup") {
+				inPropertyGroup = false
+			}
+		}
+	}
+}
+
+func resolveMSBuildImportPath(baseDir string, attrs []xml.Attr) string {
+	var raw string
+	for _, attr := range attrs {
+		if strings.EqualFold(attr.Name.Local, "Project") {
+			raw = strings.TrimSpace(attr.Value)
+			break
+		}
+	}
+	if raw == "" {
+		return ""
+	}
+	// Support common MSBuild $(MSBuildThisFileDirectory) prefix and normalize separators.
+	replaced := strings.ReplaceAll(raw, "$(MSBuildThisFileDirectory)", baseDir+string(filepath.Separator))
+	if strings.Contains(replaced, "$(") {
+		return ""
+	}
+	normalized := filepath.FromSlash(strings.ReplaceAll(replaced, "\\", "/"))
+	if !filepath.IsAbs(normalized) {
+		normalized = filepath.Join(baseDir, normalized)
+	}
+	return filepath.Clean(normalized)
+}
+
+func hasXMLConditionAttr(attrs []xml.Attr) bool {
+	for _, attr := range attrs {
+		if strings.EqualFold(attr.Name.Local, "Condition") && strings.TrimSpace(attr.Value) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // getTestFilter returns the test filter expression for the test type.
@@ -210,21 +518,31 @@ func (r *DotnetTestRunner) parseTestOutput(output string, result *TestResult) {
 			r.parseTotalTests(line, result)
 		}
 
-		// Parse individual result lines
-		// Example: "Passed:    5"
+		// Parse individual result lines (VSTest and Microsoft.Testing.Platform formats)
+		// Example: "Passed:    5" or "succeeded: 5"
+		lowerLine := strings.ToLower(line)
 		if strings.HasPrefix(line, "Passed:") {
 			if num := extractNumber(strings.TrimPrefix(line, "Passed:")); num >= 0 {
 				result.Passed = num
 			}
+		} else if strings.HasPrefix(lowerLine, "succeeded:") {
+			if num := extractNumber(line[len("succeeded:"):]); num >= 0 {
+				result.Passed = num
+			}
 		}
-		if strings.HasPrefix(line, "Failed:") {
-			if num := extractNumber(strings.TrimPrefix(line, "Failed:")); num >= 0 {
+		if strings.HasPrefix(lowerLine, "failed:") {
+			if num := extractNumber(line[len("failed:"):]); num >= 0 {
 				result.Failed = num
 			}
 		}
-		if strings.HasPrefix(line, "Skipped:") {
-			if num := extractNumber(strings.TrimPrefix(line, "Skipped:")); num >= 0 {
+		if strings.HasPrefix(lowerLine, "skipped:") {
+			if num := extractNumber(line[len("skipped:"):]); num >= 0 {
 				result.Skipped = num
+			}
+		}
+		if strings.HasPrefix(lowerLine, "total:") {
+			if num := extractNumber(line[len("total:"):]); num >= 0 {
+				result.Total = num
 			}
 		}
 	}

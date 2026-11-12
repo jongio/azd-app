@@ -321,6 +321,14 @@ func (m *HealthMonitor) buildServiceList(azureYaml *service.AzureYaml, registere
 				}
 			}
 
+			if svc.Healthcheck != nil && svc.Healthcheck.Path != "" && info.HealthCheck != nil && len(info.HealthCheck.Test) == 0 && info.Port > 0 {
+				path := svc.Healthcheck.Path
+				if !strings.HasPrefix(path, "/") {
+					path = "/" + path
+				}
+				info.HealthCheck.Test = []string{fmt.Sprintf("http://localhost:%d%s", info.Port, path)}
+			}
+
 			serviceMap[name] = info
 		}
 	}
@@ -440,12 +448,17 @@ func (m *HealthMonitor) trackFailure(result *HealthCheckResult) {
 func (m *HealthMonitor) updateRegistry(results []HealthCheckResult) {
 	for _, result := range results {
 		currentEntry, exists := m.registry.GetService(result.ServiceName)
-		if exists && currentEntry.Status == "stopped" {
+		if !exists {
+			slog.Debug("Skipping registry update for unregistered service", "service", result.ServiceName)
+			continue
+		}
+
+		if currentEntry.Status == "stopped" {
 			slog.Debug("Skipping registry update for stopped service", "service", result.ServiceName)
 			continue
 		}
 
-		if exists && currentEntry.Status == statusRunning && result.Status == HealthStatusStarting {
+		if currentEntry.Status == statusRunning && result.Status == HealthStatusStarting {
 			slog.Debug("Keeping running status during health check grace period", "service", result.ServiceName)
 			continue
 		}

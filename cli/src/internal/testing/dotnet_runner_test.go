@@ -94,6 +94,263 @@ func TestDotnetRunnerBuildTestCommand_WithCoverage(t *testing.T) {
 	}
 }
 
+func TestDotnetRunnerBuildTestCommand_MicrosoftTestingPlatform(t *testing.T) {
+	t.Run("native global.json MTP passes --project and extension flags directly", func(t *testing.T) {
+		rootDir := t.TempDir()
+		globalJSON := `{"sdk":{"version":"10.0.100"},"test":{"runner":"Microsoft.Testing.Platform"}}`
+		if err := os.WriteFile(filepath.Join(rootDir, "global.json"), []byte(globalJSON), 0o600); err != nil {
+			t.Fatalf("write global.json: %v", err)
+		}
+
+		// Nest 6 directories deep to verify ancestor search walks all the way to rootDir.
+		serviceDir := filepath.Join(rootDir, "a", "b", "c", "d", "e", "svc")
+		if err := os.MkdirAll(serviceDir, 0o755); err != nil {
+			t.Fatalf("mkdir nested serviceDir: %v", err)
+		}
+		projPath := filepath.Join(serviceDir, "UnitTests.csproj")
+		if err := os.WriteFile(projPath, []byte("<Project></Project>"), 0o600); err != nil {
+			t.Fatalf("write UnitTests.csproj: %v", err)
+		}
+
+		runner := NewDotnetTestRunner(serviceDir, &ServiceTestConfig{Framework: "xunit"})
+		_, args := runner.buildTestCommand("unit", true)
+
+		want := []string{
+			"test",
+			"--project", projPath,
+			"--filter", "Category=Unit",
+			"--coverage", "--coverage-output-format", "cobertura",
+		}
+		if len(args) != len(want) {
+			t.Fatalf("args = %v, want %v", args, want)
+		}
+		for i := range want {
+			if args[i] != want[i] {
+				t.Fatalf("args[%d] = %q, want %q (full: %v)", i, args[i], want[i], args)
+			}
+		}
+	})
+
+	t.Run("MSBuild TestingPlatformDotnetTestSupport forwards filter and coverage after separator", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		// Place an SDK-only global.json in tmpDir so any ancestor global.json on the host is shadowed.
+		if err := os.WriteFile(filepath.Join(tmpDir, "global.json"), []byte(`{"sdk":{"version":"10.0.100"}}`), 0o600); err != nil {
+			t.Fatalf("write global.json: %v", err)
+		}
+		projPath := filepath.Join(tmpDir, "App.Tests.csproj")
+		csproj := `<Project><PropertyGroup><TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport></PropertyGroup></Project>`
+		if err := os.WriteFile(projPath, []byte(csproj), 0o600); err != nil {
+			t.Fatalf("write App.Tests.csproj: %v", err)
+		}
+
+		runner := NewDotnetTestRunner(tmpDir, &ServiceTestConfig{Framework: "xunit"})
+		_, args := runner.buildTestCommand("unit", true)
+
+		want := []string{
+			"test",
+			projPath,
+			"--",
+			"--filter", "Category=Unit",
+			"--coverage", "--coverage-output-format", "cobertura",
+		}
+		if len(args) != len(want) {
+			t.Fatalf("args = %v, want %v", args, want)
+		}
+		for i := range want {
+			if args[i] != want[i] {
+				t.Fatalf("args[%d] = %q, want %q (full: %v)", i, args[i], want[i], args)
+			}
+		}
+	})
+
+	t.Run("nearer non-MTP global.json shadows parent MTP global.json", func(t *testing.T) {
+		rootDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(rootDir, "global.json"), []byte(`{"test":{"runner":"Microsoft.Testing.Platform"}}`), 0o600); err != nil {
+			t.Fatalf("write root global.json: %v", err)
+		}
+		childDir := filepath.Join(rootDir, "legacy-service")
+		if err := os.MkdirAll(childDir, 0o755); err != nil {
+			t.Fatalf("mkdir childDir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(childDir, "global.json"), []byte(`{"sdk":{"version":"8.0.100"}}`), 0o600); err != nil {
+			t.Fatalf("write child global.json: %v", err)
+		}
+
+		runner := NewDotnetTestRunner(childDir, &ServiceTestConfig{Framework: "xunit"})
+		_, args := runner.buildTestCommand("all", true)
+
+		foundCollect := false
+		for _, arg := range args {
+			if arg == "--collect" {
+				foundCollect = true
+			}
+		}
+		if !foundCollect {
+			t.Fatalf("expected VSTest --collect when nearer global.json omits MTP runner, got: %v", args)
+		}
+	})
+
+	t.Run("inspects only selected first project when multiple test projects exist", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(tmpDir, "global.json"), []byte(`{"sdk":{"version":"8.0.100"}}`), 0o600); err != nil {
+			t.Fatalf("write global.json: %v", err)
+		}
+		firstProj := filepath.Join(tmpDir, "Alpha.Tests.csproj")
+		secondProj := filepath.Join(tmpDir, "Zeta.Tests.csproj")
+		if err := os.WriteFile(firstProj, []byte(`<Project></Project>`), 0o600); err != nil {
+			t.Fatalf("write firstProj: %v", err)
+		}
+		mtpProj := `<Project><PropertyGroup><UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner></PropertyGroup></Project>`
+		if err := os.WriteFile(secondProj, []byte(mtpProj), 0o600); err != nil {
+			t.Fatalf("write secondProj: %v", err)
+		}
+
+		runner := NewDotnetTestRunner(tmpDir, &ServiceTestConfig{
+			Framework: "xunit",
+			Unit:      &TestTypeConfig{Projects: []string{firstProj, secondProj}},
+		})
+		_, args := runner.buildTestCommand("all", true)
+
+		foundCollect := false
+		for _, arg := range args {
+			if arg == "--collect" {
+				foundCollect = true
+			}
+		}
+		if !foundCollect {
+			t.Fatalf("expected VSTest --collect for non-MTP selected first project, got: %v", args)
+		}
+	})
+
+	t.Run("discovers global.json from invocation projectDir rather than nested test directory", func(t *testing.T) {
+		serviceDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(serviceDir, "global.json"), []byte(`{"sdk":{"version":"8.0.100"}}`), 0o600); err != nil {
+			t.Fatalf("write service global.json: %v", err)
+		}
+		nestedTestsDir := filepath.Join(serviceDir, "tests")
+		if err := os.MkdirAll(nestedTestsDir, 0o755); err != nil {
+			t.Fatalf("mkdir nestedTestsDir: %v", err)
+		}
+		// Conflicting global.json inside nested tests directory should not override invocation CWD (serviceDir).
+		if err := os.WriteFile(filepath.Join(nestedTestsDir, "global.json"), []byte(`{"test":{"runner":"Microsoft.Testing.Platform"}}`), 0o600); err != nil {
+			t.Fatalf("write nested global.json: %v", err)
+		}
+		projPath := filepath.Join(nestedTestsDir, "UnitTests.csproj")
+		if err := os.WriteFile(projPath, []byte(`<Project></Project>`), 0o600); err != nil {
+			t.Fatalf("write UnitTests.csproj: %v", err)
+		}
+
+		runner := NewDotnetTestRunner(serviceDir, &ServiceTestConfig{Framework: "xunit"})
+		_, args := runner.buildTestCommand("all", true)
+
+		foundCollect := false
+		for _, arg := range args {
+			if arg == "--collect" {
+				foundCollect = true
+			}
+		}
+		if !foundCollect {
+			t.Fatalf("expected VSTest --collect based on invocation projectDir global.json, got: %v", args)
+		}
+	})
+
+	t.Run("parses active XML MTP properties ignoring comments and trimming whitespace", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(tmpDir, "global.json"), []byte(`{"sdk":{"version":"8.0.100"}}`), 0o600); err != nil {
+			t.Fatalf("write global.json: %v", err)
+		}
+
+		commentedProj := filepath.Join(tmpDir, "Commented.Tests.csproj")
+		commentedXML := `<Project><PropertyGroup><!-- <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport> --></PropertyGroup></Project>`
+		if err := os.WriteFile(commentedProj, []byte(commentedXML), 0o600); err != nil {
+			t.Fatalf("write commentedProj: %v", err)
+		}
+		if projectEnablesMTP(commentedProj) {
+			t.Fatal("expected commented-out MTP property not to enable MTP")
+		}
+
+		whitespaceProj := filepath.Join(tmpDir, "Whitespace.Tests.csproj")
+		whitespaceXML := "<Project>\n  <PropertyGroup>\n    <UseMicrosoftTestingPlatformRunner>\n      true\n    </UseMicrosoftTestingPlatformRunner>\n  </PropertyGroup>\n</Project>"
+		if err := os.WriteFile(whitespaceProj, []byte(whitespaceXML), 0o600); err != nil {
+			t.Fatalf("write whitespaceProj: %v", err)
+		}
+		if !projectEnablesMTP(whitespaceProj) {
+			t.Fatal("expected whitespace-padded true MTP property to enable MTP")
+		}
+	})
+
+	t.Run("parses global.json containing JSONC comments and trailing commas", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		commentedGlobalJSON := `{
+  // Opt into native .NET 10 Microsoft.Testing.Platform
+  "sdk": {
+    "version": "10.0.100",
+  },
+  /* Multi-line comment */
+  "test": {
+    "runner": "Microsoft.Testing.Platform",
+  },
+}`
+		if err := os.WriteFile(filepath.Join(tmpDir, "global.json"), []byte(commentedGlobalJSON), 0o600); err != nil {
+			t.Fatalf("write global.json: %v", err)
+		}
+		projPath := filepath.Join(tmpDir, "UnitTests.csproj")
+		if err := os.WriteFile(projPath, []byte(`<Project></Project>`), 0o600); err != nil {
+			t.Fatalf("write UnitTests.csproj: %v", err)
+		}
+
+		runner := NewDotnetTestRunner(tmpDir, &ServiceTestConfig{Framework: "xunit"})
+		_, args := runner.buildTestCommand("unit", false)
+
+		if len(args) < 3 || args[1] != "--project" || args[2] != projPath {
+			t.Fatalf("expected native MTP --project args from commented global.json, got: %v", args)
+		}
+	})
+
+	t.Run("detects MTP enabled via Directory.Build.props and explicit Import", func(t *testing.T) {
+		repoDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(repoDir, "global.json"), []byte(`{"sdk":{"version":"8.0.100"}}`), 0o600); err != nil {
+			t.Fatalf("write global.json: %v", err)
+		}
+		sharedProps := `<Project><PropertyGroup><TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport></PropertyGroup></Project>`
+		if err := os.WriteFile(filepath.Join(repoDir, "Testing.shared.props"), []byte(sharedProps), 0o600); err != nil {
+			t.Fatalf("write Testing.shared.props: %v", err)
+		}
+		dirBuildProps := `<Project><Import Project="$(MSBuildThisFileDirectory)Testing.shared.props" /></Project>`
+		if err := os.WriteFile(filepath.Join(repoDir, "Directory.Build.props"), []byte(dirBuildProps), 0o600); err != nil {
+			t.Fatalf("write Directory.Build.props: %v", err)
+		}
+
+		testDir := filepath.Join(repoDir, "src", "MyService.Tests")
+		if err := os.MkdirAll(testDir, 0o755); err != nil {
+			t.Fatalf("mkdir testDir: %v", err)
+		}
+		projPath := filepath.Join(testDir, "MyService.Tests.csproj")
+		if err := os.WriteFile(projPath, []byte(`<Project Sdk="Microsoft.NET.Sdk"></Project>`), 0o600); err != nil {
+			t.Fatalf("write MyService.Tests.csproj: %v", err)
+		}
+
+		runner := NewDotnetTestRunner(testDir, &ServiceTestConfig{Framework: "xunit"})
+		_, args := runner.buildTestCommand("unit", true)
+
+		want := []string{
+			"test",
+			projPath,
+			"--",
+			"--filter", "Category=Unit",
+			"--coverage", "--coverage-output-format", "cobertura",
+		}
+		if len(args) != len(want) {
+			t.Fatalf("args = %v, want %v", args, want)
+		}
+		for i := range want {
+			if args[i] != want[i] {
+				t.Fatalf("args[%d] = %q, want %q (full: %v)", i, args[i], want[i], args)
+			}
+		}
+	})
+}
+
 func TestDotnetRunnerParseCommand(t *testing.T) {
 	tmpDir := t.TempDir()
 	config := &ServiceTestConfig{}
@@ -186,6 +443,21 @@ Total tests: 15
 			expectedPassed: 12,
 			expectedFailed: 0,
 			expectedTotal:  15,
+		},
+		{
+			name: "Microsoft.Testing.Platform summary output",
+			output: `Running tests from App.Tests.dll (net10.0|x64)
+App.Tests.dll (net10.0|x64) passed (2s 100ms)
+
+Test run summary: Passed!
+  total: 45
+  failed: 0
+  succeeded: 42
+  skipped: 3
+  duration: 2s 500ms`,
+			expectedPassed: 42,
+			expectedFailed: 0,
+			expectedTotal:  45,
 		},
 	}
 

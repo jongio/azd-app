@@ -40,6 +40,7 @@ const DefaultHealthWaitTimeout = 2 * time.Minute
 //   - envVars: Additional environment variables (e.g., from --env-file)
 //   - inlineEnvVars: Inline CLI environment variables from --env
 //   - logger: ServiceLogger for structured logging of orchestration events
+//   - projectDir: Project root used to scope the shared service registry
 //   - restartContainers: If true, restart containers even if already running; if false, reuse existing running containers
 //
 // Environment Inheritance:
@@ -61,7 +62,7 @@ const DefaultHealthWaitTimeout = 2 * time.Minute
 //
 // Process Isolation:
 // Each service runs in a separate goroutine with panic recovery to prevent cascading failures.
-func OrchestrateServices(ctx context.Context, runtimes []*ServiceRuntime, services map[string]Service, envVars map[string]string, inlineEnvVars map[string]string, logger *ServiceLogger, restartContainers bool) (*OrchestrationResult, error) {
+func OrchestrateServices(ctx context.Context, runtimes []*ServiceRuntime, services map[string]Service, envVars map[string]string, inlineEnvVars map[string]string, logger *ServiceLogger, projectDir string, restartContainers bool) (*OrchestrationResult, error) {
 	result := &OrchestrationResult{
 		Processes: make(map[string]*ServiceProcess),
 		Errors:    make(map[string]error),
@@ -95,7 +96,6 @@ func OrchestrateServices(ctx context.Context, runtimes []*ServiceRuntime, servic
 		slog.Int("dependency_levels", len(levels)))
 
 	// Start services level by level
-	projectDir, _ := os.Getwd()
 	reg := registry.GetRegistry(projectDir)
 
 	for levelIdx, levelServices := range levels {
@@ -155,13 +155,13 @@ func OrchestrateServices(ctx context.Context, runtimes []*ServiceRuntime, servic
 				snapshot[k] = v
 			}
 			mu.Unlock()
-			StopAllServices(snapshot)
+			StopAllServicesInProject(snapshot, projectDir)
 			return result, fmt.Errorf("service orchestration timed out at level %d after %v", levelIdx, DefaultServiceStartTimeout)
 		}
 
 		// Check if any services failed to start in this level
 		if len(levelErrors) > 0 {
-			StopAllServices(result.Processes)
+			StopAllServicesInProject(result.Processes, projectDir)
 			for name, err := range levelErrors {
 				return result, fmt.Errorf("failed to start service %s: %w", name, err)
 			}
@@ -177,7 +177,7 @@ func OrchestrateServices(ctx context.Context, runtimes []*ServiceRuntime, servic
 				}
 
 				if err := waitForServiceHealthy(serviceName, process, &svc, DefaultHealthWaitTimeout); err != nil {
-					StopAllServices(result.Processes)
+					StopAllServicesInProject(result.Processes, projectDir)
 					return result, fmt.Errorf("service %s failed health check: %w", serviceName, err)
 				}
 			}
@@ -397,8 +397,14 @@ func waitForServiceHealthy(name string, process *ServiceProcess, svc *Service, t
 //   - Errors are logged but don't prevent other services from stopping
 //   - Function blocks until all services have stopped
 func StopAllServices(processes map[string]*ServiceProcess) {
-	var wg sync.WaitGroup
 	projectDir, _ := os.Getwd()
+	StopAllServicesInProject(processes, projectDir)
+}
+
+// StopAllServicesInProject stops services and removes their entries from the
+// registry scoped to projectDir.
+func StopAllServicesInProject(processes map[string]*ServiceProcess, projectDir string) {
+	var wg sync.WaitGroup
 	reg := registry.GetRegistry(projectDir)
 
 	for name, process := range processes {
