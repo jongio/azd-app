@@ -312,13 +312,9 @@ func projectEnablesMTP(projectPath string) bool {
 func findNearestDirectoryBuildProps(startDir string) string {
 	dir := filepath.Clean(startDir)
 	for {
-		entries, err := os.ReadDir(dir)
-		if err == nil {
-			for _, entry := range entries {
-				if !entry.IsDir() && strings.EqualFold(entry.Name(), "Directory.Build.props") {
-					return filepath.Join(dir, entry.Name())
-				}
-			}
+		candidate := filepath.Join(dir, "Directory.Build.props")
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
