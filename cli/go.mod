@@ -21,7 +21,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.8
 	github.com/sony/gobreaker v1.0.0
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/sync v0.24.0
 	golang.org/x/text v0.43.0
