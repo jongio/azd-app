@@ -126,8 +126,8 @@ func TestNewClientForPortUsesProvidedSessionToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newClientForPort() error = %v", err)
 	}
-	if client.baseURL != "http://localhost:45678" {
-		t.Errorf("newClientForPort() baseURL = %q, want %q", client.baseURL, "http://localhost:45678")
+	if client.baseURL != "http://127.0.0.1:45678" {
+		t.Errorf("newClientForPort() baseURL = %q, want %q", client.baseURL, "http://127.0.0.1:45678")
 	}
 }
 
@@ -157,8 +157,8 @@ func TestNewClientUsesCrossProcessPortAndTokenFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	if client.baseURL != "http://localhost:45678" {
-		t.Errorf("NewClient() baseURL = %q, want %q", client.baseURL, "http://localhost:45678")
+	if client.baseURL != "http://127.0.0.1:45678" {
+		t.Errorf("NewClient() baseURL = %q, want %q", client.baseURL, "http://127.0.0.1:45678")
 	}
 }
 

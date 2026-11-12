@@ -2,9 +2,13 @@
 package testing
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -160,15 +164,12 @@ type dotnetGlobalJSON struct {
 }
 
 // detectRunnerMode determines whether the selected test project runs via
-// native .NET 10 Microsoft.Testing.Platform (opted in via the nearest global.json),
+// native .NET 10 Microsoft.Testing.Platform (opted in via the nearest global.json
+// resolved from r.projectDir, matching dotnet CLI working-directory discovery),
 // MSBuild MTP compatibility mode (project-level TestingPlatformDotnetTestSupport /
 // UseMicrosoftTestingPlatformRunner), or classic VSTest.
 func (r *DotnetTestRunner) detectRunnerMode(selectedProject string) dotnetRunnerMode {
-	searchStart := r.projectDir
-	if selectedProject != "" {
-		searchStart = filepath.Dir(selectedProject)
-	}
-	if globalJSONSelectsMTP(searchStart) {
+	if globalJSONSelectsMTP(r.projectDir) {
 		return dotnetRunnerMTPNative
 	}
 
@@ -215,9 +216,63 @@ func projectEnablesMTP(projectPath string) bool {
 	if err != nil {
 		return false
 	}
-	content := strings.ToLower(string(data))
-	return strings.Contains(content, "<usemicrosofttestingplatformrunner>true") ||
-		strings.Contains(content, "<testingplatformdotnettestsupport>true")
+
+	decoder := xml.NewDecoder(bytes.NewReader(data))
+	inPropertyGroup := false
+	enabled := false
+
+	for {
+		tok, decErr := decoder.Token()
+		if errors.Is(decErr, io.EOF) {
+			break
+		}
+		if decErr != nil {
+			return false
+		}
+
+		switch elem := tok.(type) {
+		case xml.StartElement:
+			if strings.EqualFold(elem.Name.Local, "PropertyGroup") {
+				if hasXMLConditionAttr(elem.Attr) {
+					_ = decoder.Skip()
+					continue
+				}
+				inPropertyGroup = true
+				continue
+			}
+			if inPropertyGroup && (strings.EqualFold(elem.Name.Local, "UseMicrosoftTestingPlatformRunner") ||
+				strings.EqualFold(elem.Name.Local, "TestingPlatformDotnetTestSupport")) {
+				if hasXMLConditionAttr(elem.Attr) {
+					_ = decoder.Skip()
+					continue
+				}
+				var val string
+				if err := decoder.DecodeElement(&val, &elem); err == nil {
+					trimmed := strings.TrimSpace(val)
+					if strings.EqualFold(trimmed, "true") {
+						enabled = true
+					} else if strings.EqualFold(trimmed, "false") {
+						enabled = false
+					}
+				}
+			}
+		case xml.EndElement:
+			if strings.EqualFold(elem.Name.Local, "PropertyGroup") {
+				inPropertyGroup = false
+			}
+		}
+	}
+
+	return enabled
+}
+
+func hasXMLConditionAttr(attrs []xml.Attr) bool {
+	for _, attr := range attrs {
+		if strings.EqualFold(attr.Name.Local, "Condition") && strings.TrimSpace(attr.Value) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // getTestFilter returns the test filter expression for the test type.

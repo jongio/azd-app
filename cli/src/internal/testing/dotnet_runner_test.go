@@ -221,6 +221,63 @@ func TestDotnetRunnerBuildTestCommand_MicrosoftTestingPlatform(t *testing.T) {
 			t.Fatalf("expected VSTest --collect for non-MTP selected first project, got: %v", args)
 		}
 	})
+
+	t.Run("discovers global.json from invocation projectDir rather than nested test directory", func(t *testing.T) {
+		serviceDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(serviceDir, "global.json"), []byte(`{"sdk":{"version":"8.0.100"}}`), 0o600); err != nil {
+			t.Fatalf("write service global.json: %v", err)
+		}
+		nestedTestsDir := filepath.Join(serviceDir, "tests")
+		if err := os.MkdirAll(nestedTestsDir, 0o755); err != nil {
+			t.Fatalf("mkdir nestedTestsDir: %v", err)
+		}
+		// Conflicting global.json inside nested tests directory should not override invocation CWD (serviceDir).
+		if err := os.WriteFile(filepath.Join(nestedTestsDir, "global.json"), []byte(`{"test":{"runner":"Microsoft.Testing.Platform"}}`), 0o600); err != nil {
+			t.Fatalf("write nested global.json: %v", err)
+		}
+		projPath := filepath.Join(nestedTestsDir, "UnitTests.csproj")
+		if err := os.WriteFile(projPath, []byte(`<Project></Project>`), 0o600); err != nil {
+			t.Fatalf("write UnitTests.csproj: %v", err)
+		}
+
+		runner := NewDotnetTestRunner(serviceDir, &ServiceTestConfig{Framework: "xunit"})
+		_, args := runner.buildTestCommand("all", true)
+
+		foundCollect := false
+		for _, arg := range args {
+			if arg == "--collect" {
+				foundCollect = true
+			}
+		}
+		if !foundCollect {
+			t.Fatalf("expected VSTest --collect based on invocation projectDir global.json, got: %v", args)
+		}
+	})
+
+	t.Run("parses active XML MTP properties ignoring comments and trimming whitespace", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(tmpDir, "global.json"), []byte(`{"sdk":{"version":"8.0.100"}}`), 0o600); err != nil {
+			t.Fatalf("write global.json: %v", err)
+		}
+
+		commentedProj := filepath.Join(tmpDir, "Commented.Tests.csproj")
+		commentedXML := `<Project><PropertyGroup><!-- <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport> --></PropertyGroup></Project>`
+		if err := os.WriteFile(commentedProj, []byte(commentedXML), 0o600); err != nil {
+			t.Fatalf("write commentedProj: %v", err)
+		}
+		if projectEnablesMTP(commentedProj) {
+			t.Fatal("expected commented-out MTP property not to enable MTP")
+		}
+
+		whitespaceProj := filepath.Join(tmpDir, "Whitespace.Tests.csproj")
+		whitespaceXML := "<Project>\n  <PropertyGroup>\n    <UseMicrosoftTestingPlatformRunner>\n      true\n    </UseMicrosoftTestingPlatformRunner>\n  </PropertyGroup>\n</Project>"
+		if err := os.WriteFile(whitespaceProj, []byte(whitespaceXML), 0o600); err != nil {
+			t.Fatalf("write whitespaceProj: %v", err)
+		}
+		if !projectEnablesMTP(whitespaceProj) {
+			t.Fatal("expected whitespace-padded true MTP property to enable MTP")
+		}
+	})
 }
 
 func TestDotnetRunnerParseCommand(t *testing.T) {

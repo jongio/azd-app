@@ -103,7 +103,7 @@ func newClientForPort(port int, token string) (*Client, error) {
 		return nil, errors.New("dashboard session token unavailable")
 	}
 
-	baseURL := fmt.Sprintf("http://localhost:%d", port)
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d", port)
 
 	authInterceptor := &clientAuthInterceptor{token: token}
 	opts := connect.WithInterceptors(authInterceptor)
